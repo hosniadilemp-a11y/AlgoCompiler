@@ -56,27 +56,27 @@ script_*.js
 !README_DEPLOY.md
 
 # --- DATABASE & USER DATA (DO NOT COMMIT) ---
-# # Ignore all SQLite databases to protect user privacy
-# src/web/*.db
-# src/web/*.db-journal
-# src/web/*.db-shm
-# src/web/*.db-wal
-# algocompiler.db
-# *.db
+# Ignore all SQLite databases to protect user privacy
+src/web/*.db
+src/web/*.db-journal
+src/web/*.db-shm
+src/web/*.db-wal
+algocompiler.db
+*.db
 
-# # --- SOURCE DATASET (DO COMMIT) ---
-# # These are the original JSONs for quizzes/problems
-# !src/web/data/
-# !src/web/data/quizzes/
-# !src/web/data/quizzes/*.json
-# !src/web/data/quizzes/.gitkeep
+# --- SOURCE DATASET (DO COMMIT) ---
+# These are the original JSONs for quizzes/problems
+!src/web/data/
+!src/web/data/quizzes/
+!src/web/data/quizzes/*.json
+!src/web/data/quizzes/.gitkeep
 
 # --- Archive / draft files ---
 archive/
 ppts/
 
-# # --- Local problem solution notes ---
-# src/web/data/problem_solutions_txt/
+# --- Local problem solution notes ---
+src/web/data/problem_solutions_txt/
 
 # Local-only tools
 local_admin/
