@@ -170,14 +170,25 @@ body.dark-theme .filter-chip span {
 }
 
 .problems-header h1 {
-    font-size: 2.2rem;
-    margin-bottom: 8px;
-    color: var(--text-color, #333);
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    color: var(--text-primary, #333);
+    font-weight: 800;
 }
 
 .problems-header p {
-    color: var(--text-muted, #666);
-    font-size: 1.1rem;
+    color: var(--text-secondary, #666);
+    font-size: 1.2rem;
+    max-width: 600px;
+}
+
+/* Light mode overrides for header since the defaults are dark */
+body.light-theme .problems-header h1 {
+    color: #1f2328;
+}
+
+body.light-theme .problems-header p {
+    color: #444d56;
 }
 
 .problems-list {
