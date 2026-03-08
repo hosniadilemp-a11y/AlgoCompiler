@@ -34,6 +34,31 @@ logging.getLogger('werkzeug').disabled = True
 
 app = Flask(__name__)
 
+
+@app.before_request
+def update_last_seen():
+    if current_user.is_authenticated:
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if current_user.last_seen is None:
+            current_user.last_seen = now
+            try:
+                db.session.commit()
+            except:
+                db.session.rollback()
+        else:
+            # We need to make sure last_seen is offset-aware before comparing
+            last_seen_utc = current_user.last_seen
+            if last_seen_utc.tzinfo is None:
+                last_seen_utc = last_seen_utc.replace(tzinfo=datetime.timezone.utc)
+            if (now - last_seen_utc).total_seconds() > 60:
+                current_user.last_seen = now
+                try:
+                    db.session.commit()
+                except:
+                    db.session.rollback()
+
+
 # Basic Config
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -97,6 +122,12 @@ FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 @app.route('/')
 def index():
     return render_template('index.html')
+
+from flask import send_from_directory
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/course')
 def course():
@@ -369,6 +400,25 @@ def save_quiz_progress():
             db.session.add(attempt)
             db.session.commit()
 
+            # Percentile calculation
+            # Calculate how many unique users have a score lower than this one
+            all_scores = db.session.query(
+                func.max(QuizAttempt.score)
+            ).filter(
+                QuizAttempt.chapter_id == chapter.id
+            ).group_by(QuizAttempt.user_id).all()
+            
+            all_scores_list = [s[0] for s in all_scores if s[0] is not None]
+            total_participants = len(all_scores_list)
+            
+            percentile = 0
+            if total_participants > 1:
+                # Count scores strictly lower
+                lower_scores = sum(1 for s in all_scores_list if s < score)
+                percentile = (lower_scores / (total_participants - 1)) * 100
+            elif total_participants == 1:
+                percentile = 100
+
             # Capture level after save
             new_xp, _, new_level, new_xp_to_next = compute_xp_and_level(current_user.id)
             level_up = new_level['num'] > old_level['num']
@@ -376,6 +426,7 @@ def save_quiz_progress():
             return jsonify({
                 'success': True,
                 'saved': True,
+                'percentile': round(percentile, 1),
                 'xp_earned': new_xp - old_xp,
                 'xp_total': new_xp,
                 'level': new_level,
@@ -1195,22 +1246,31 @@ def get_user_progress():
     chapter_stats = {}
     for qa in quiz_attempts:
         chap_id = qa.chapter_id
-        # Define 'completed' as >= 80% score
         is_completed = (qa.score / qa.total_questions) >= 0.8 if qa.total_questions > 0 else False
+        score_perc = (qa.score / qa.total_questions * 100) if qa.total_questions > 0 else 0
         
         if chap_id not in chapter_stats:
             chapter_stats[chap_id] = {
                 'all_correct': is_completed, 
                 'taken': True, 
                 'score': qa.score, 
-                'total': qa.total_questions
+                'total': qa.total_questions,
+                'attempts_count': 1,
+                'total_perc': score_perc
             }
-        elif is_completed:
-            # If a later attempt (or earlier) meets the threshold, mark it as completed
-            chapter_stats[chap_id]['all_correct'] = True
-            # Also keep the best score
+        else:
+            chapter_stats[chap_id]['attempts_count'] += 1
+            chapter_stats[chap_id]['total_perc'] += score_perc
+            if is_completed:
+                chapter_stats[chap_id]['all_correct'] = True
             if qa.score > chapter_stats[chap_id]['score']:
                 chapter_stats[chap_id]['score'] = qa.score
+                chapter_stats[chap_id]['total'] = qa.total_questions
+
+    # Finalize average calculation
+    for chap_id in chapter_stats:
+        stats = chapter_stats[chap_id]
+        stats['avg_score'] = round(stats['total_perc'] / stats['attempts_count'], 1)
             
     # Map chapter IDs to their identifiers to send back to frontend
     chapters = Chapter.query.all()
@@ -1571,6 +1631,63 @@ def update_profile():
         'success': True,
         'message': 'Profil mis à jour avec succès'
     })
+
+@app.route('/api/challenge/<int:problem_id>/live')
+def live_contest(problem_id):
+    from web.models import ChallengeSubmission
+    import datetime
+    
+    # Simplified real-time tracking: only consider submissions from the last 24 hours
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+    submissions = ChallengeSubmission.query.filter(
+        ChallengeSubmission.problem_id == problem_id,
+        ChallengeSubmission.timestamp >= cutoff
+    ).all()
+    
+    user_map = {}
+    for s in submissions:
+        uid = s.user_id
+        if uid not in user_map:
+            user_map[uid] = {
+                'user': s.user,
+                'attempts': 0,
+                'best_score': 0,
+                'passed': False,
+                'best_time': 999999
+            }
+        
+        entry = user_map[uid]
+        entry['attempts'] += 1
+        
+        if s.score > entry['best_score']:
+            entry['best_score'] = s.score
+            entry['best_time'] = s.time_taken_seconds
+            entry['passed'] = s.passed
+        elif s.score == entry['best_score'] and s.time_taken_seconds < entry['best_time']:
+            entry['best_time'] = s.time_taken_seconds
+
+    results = []
+    for uid, data in user_map.items():
+        status = 'Échoué'
+        if data['passed']:
+            status = 'Réussi'
+        elif data['best_score'] > 0:
+            status = 'Partiel'
+            
+        results.append({
+            'user_id': uid,
+            'name': data['user'].name if data['user'] else f"User {uid}",
+            'score': round(data['best_score'], 1),
+            'time_taken': data['best_time'] if data['best_time'] != 999999 else 0,
+            'attempts': data['attempts'],
+            'status': status,
+            'passed': data['passed']
+        })
+        
+    results.sort(key=lambda x: (-x['score'], x['time_taken']))
+    
+    return jsonify({'success': True, 'leaderboard': results})
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))

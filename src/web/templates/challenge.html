@@ -201,6 +201,138 @@
         </div>
     </div>
 
+    <!-- Live Contest Modal -->
+    <div id="live-contest-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(4px);">
+        <div class="modal-content"
+            style="background:var(--card-bg, #1e1e1e); color:var(--text-color, #e0e0e0); width:90%; max-width:800px; border-radius:12px; padding:20px; max-height:85vh; overflow-y:auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--border-color, #333);">
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 1px solid var(--border-color, #333); padding-bottom: 15px;">
+                <h3 style="margin:0; font-size: 1.5rem;"><i class="fas fa-users"
+                        style="color:#ff9800; animation: pulse 2s infinite;"></i> Compétition en direct / Leaderboard
+                </h3>
+                <button id="close-live-modal"
+                    style="background:none; border:none; color:inherit; font-size:1.8rem; cursor:pointer;">&times;</button>
+            </div>
+
+            <div style="margin-bottom: 15px; font-size: 0.9rem; color: #888; display:flex; gap: 15px;">
+                <span><i class="fas fa-circle" style="color:#28a745;"></i> Tout réussi</span>
+                <span><i class="fas fa-circle" style="color:#ff9800;"></i> Partiellement réussi</span>
+                <span><i class="fas fa-circle" style="color:#555;"></i> En cours / Échoué</span>
+            </div>
+
+            <table style="width:100%; text-align:left; border-collapse: collapse;">
+                <thead>
+                    <tr
+                        style="border-bottom: 2px solid var(--border-color, #333); background: var(--toolbar-bg, #2a2a2a);">
+                        <th style="padding:12px;">Pos</th>
+                        <th style="padding:12px;">Utilisateur</th>
+                        <th style="padding:12px;">Tests réussis / Score</th>
+                        <th style="padding:12px;">Temps</th>
+                        <th style="padding:12px;">Tentatives</th>
+                        <th style="padding:12px;">Statut</th>
+                    </tr>
+                </thead>
+                <tbody id="live-contest-body">
+                    <tr>
+                        <td colspan="6" style="padding:20px; text-align:center;"><i class="fas fa-spinner fa-spin"></i>
+                            Chargement des données...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let liveModalInterval;
+        document.getElementById('live-contest-btn').addEventListener('click', () => {
+            const modal = document.getElementById('live-contest-modal');
+            modal.style.display = 'flex';
+            fetchLiveContestData();
+            // Refresh every 5 seconds
+            liveModalInterval = setInterval(fetchLiveContestData, 5000);
+        });
+
+        document.getElementById('close-live-modal').addEventListener('click', () => {
+            document.getElementById('live-contest-modal').style.display = 'none';
+            if (liveModalInterval) clearInterval(liveModalInterval);
+        });
+
+        // Close when clicking outside
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('live-contest-modal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                if (liveModalInterval) clearInterval(liveModalInterval);
+            }
+        });
+
+        async function fetchLiveContestData() {
+            try {
+                const res = await fetch(`/api/challenge/${window.CURRENT_PROBLEM_ID}/live`);
+                const data = await res.json();
+
+                const tbody = document.getElementById('live-contest-body');
+                if (!data.success || !data.leaderboard || data.leaderboard.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#888;">Aucune soumission pour le moment. Soyez le premier !</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.leaderboard.map((user, idx) => {
+                    let color = 'inherit';
+                    let bg = 'transparent';
+
+                    if (user.passed) {
+                        color = '#28a745';
+                        bg = 'rgba(40,167,69,0.05)';
+                    } else if (user.score > 0) {
+                        color = '#ff9800';
+                        bg = 'rgba(255,152,0,0.05)';
+                    } else {
+                        color = '#888';
+                    }
+
+                    let statusBadge = '';
+                    if (user.trying_again) {
+                        statusBadge = '<span style="font-size:0.75rem; background:rgba(0,123,255,0.2); color:#58a6ff; padding:2px 6px; border-radius:10px;"><i class="fas fa-sync fa-spin" style="font-size:0.6rem;"></i> Retente</span>';
+                    }
+
+                    return `
+                        <tr style="border-bottom: 1px solid var(--border-color, #333); background: ${bg}; transition: background 0.3s; color: ${color};">
+                            <td style="padding:12px; font-weight:bold;">${idx + 1}</td>
+                            <td style="padding:12px; font-weight:bold;">${user.name}</td>
+                            <td style="padding:12px;">${user.score}%</td>
+                            <td style="padding:12px;">${user.time_taken}s</td>
+                            <td style="padding:12px;">${user.attempts}</td>
+                            <td style="padding:12px;">${statusBadge}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Error fetching live contest", err);
+            }
+        }
+    </script>
+
+    <style>
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+
     <!-- Extra Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>

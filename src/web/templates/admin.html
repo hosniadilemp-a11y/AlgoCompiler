@@ -817,6 +817,10 @@
           Quiz</div>
         <div class="nav-item" onclick="showSection('probstats')" id="nav-probstats"><i class="fas fa-chart-bar"></i>
           Statistiques</div>
+        <div class="nav-item" onclick="showSection('admins')" id="nav-admins"
+          style="border-top:1px solid #30363d; margin-top:8px; padding-top:16px;"><i class="fas fa-user-shield"
+            style="color:#e74c3c;"></i>
+          Administrateurs</div>
       </nav>
       <div class="sidebar-bottom">
         <div class="logout-btn" onclick="location.href='/admin/logout'"><i class="fas fa-sign-out-alt"></i> Déconnexion
@@ -891,7 +895,8 @@
         </div>
 
         <div class="panel">
-          <div class="panel-header"><span class="panel-title"><i class="fas fa-bolt"></i> Vue d'ensemble avancée</span></div>
+          <div class="panel-header"><span class="panel-title"><i class="fas fa-bolt"></i> Vue d'ensemble avancée</span>
+          </div>
           <div class="insights-layout">
             <div>
               <div class="insights-block">
@@ -907,7 +912,9 @@
                       </tr>
                     </thead>
                     <tbody id="topActiveUsersBody">
-                      <tr><td colspan="4" style="color:#8b949e;">Chargement…</td></tr>
+                      <tr>
+                        <td colspan="4" style="color:#8b949e;">Chargement…</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -925,7 +932,9 @@
                       </tr>
                     </thead>
                     <tbody id="rankedUsersBody">
-                      <tr><td colspan="4" style="color:#8b949e;">Chargement…</td></tr>
+                      <tr>
+                        <td colspan="4" style="color:#8b949e;">Chargement…</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -936,180 +945,235 @@
                 <div>
                   <h4 style="margin-bottom:4px;">Connectés en ce moment</h4>
                   <div style="font-size:0.78rem;color:#8b949e;">Estimation: activité < 5 min</div>
+                  </div>
+                  <div class="online-pill"><i class="fas fa-circle"></i> <span id="onlineNowCount">0</span></div>
                 </div>
-                <div class="online-pill"><i class="fas fa-circle"></i> <span id="onlineNowCount">0</span></div>
-              </div>
-              <div class="insights-block">
-                <h4>Indicateurs Clés</h4>
-                <div id="insightsMetrics" class="insights-metric-grid"></div>
-              </div>
-              <div class="insights-block">
-                <h4>Spotlight Problèmes</h4>
-                <div id="problemSpotlight" class="spot-grid"></div>
+                <div class="insights-block">
+                  <h4>Indicateurs Clés</h4>
+                  <div id="insightsMetrics" class="insights-metric-grid"></div>
+                </div>
+                <div class="insights-block">
+                  <h4>Spotlight Problèmes</h4>
+                  <div id="problemSpotlight" class="spot-grid"></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- USERS -->
-      <div class="section" id="sec-users">
-        <div class="page-header">
-          <h2>Utilisateurs</h2>
-          <p>Liste complète et activité individuelle</p>
-        </div>
-        <div class="panel">
-          <div class="filter-bar">
-            <input type="text" id="userSearch" placeholder="🔍 Rechercher par nom ou email…" oninput="filterUsers()">
+        <!-- USERS -->
+        <div class="section" id="sec-users">
+          <div class="page-header">
+            <h2>Utilisateurs</h2>
+            <p>Liste complète et activité individuelle</p>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nom</th>
-                  <th>Email</th>
-                  <th>Inscrit</th>
-                  <th>Dernière activité</th>
-                  <th>Quiz</th>
-                  <th>Moy. Quiz</th>
-                  <th>Défis</th>
-                  <th>Réussis</th>
-                  <th>Badges</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="userTable">
-                <tr>
-                  <td colspan="10" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- PROBLEMS -->
-      <div class="section" id="sec-problems">
-        <div class="page-header">
-          <h2>Gestion des Problèmes</h2>
-          <p>Créer, modifier et supprimer les défis de programmation</p>
-        </div>
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title"><i class="fas fa-list"></i> Problèmes (<span id="probCount">0</span>)</span>
-            <button class="btn btn-success" onclick="location.href='/admin/problems/new'"><i class="fas fa-plus"></i>
-              Nouveau</button>
-          </div>
-          <div class="filter-bar">
-            <input type="text" id="probSearch" placeholder="🔍 Rechercher…" oninput="filterProblems()">
-            <select id="probDiffFilter" onchange="filterProblems()">
-              <option value="">Toutes les difficultés</option>
-              <option value="Easy">Facile</option>
-              <option value="Medium">Moyen</option>
-              <option value="Hard">Difficile</option>
-            </select>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Titre</th>
-                  <th>Thème</th>
-                  <th>Difficulté</th>
-                  <th>Tests</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="problemTable">
-                <tr>
-                  <td colspan="6" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- QUIZZES -->
-      <div class="section" id="sec-quizzes">
-        <div class="page-header">
-          <h2>Gestion des Quiz</h2>
-          <p>Gérer les chapitres et les questions</p>
-        </div>
-        <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;">
-          <div class="panel" style="margin-bottom:0;">
-            <div class="panel-header">
-              <span class="panel-title"><i class="fas fa-book"></i> Chapitres</span>
-              <button class="btn btn-success btn-sm" onclick="openChapModal()"><i class="fas fa-plus"></i></button>
-            </div>
-            <div id="chapterList" style="max-height:500px;overflow-y:auto;"></div>
-          </div>
-          <div class="panel" style="margin-bottom:0;" id="questionPanel">
-            <div class="panel-header">
-              <span class="panel-title" id="qPanelTitle"><i class="fas fa-question-circle"></i> Sélectionnez un
-                chapitre</span>
-              <div style="display:flex; gap:6px; align-items:center;">
-                <button class="btn btn-info btn-sm" id="exportQCsvBtn" style="display:none;" onclick="exportQuestionsCsv()"><i
-                    class="fas fa-file-export"></i> CSV</button>
-                <button class="btn btn-info btn-sm" id="importQCsvBtn" style="display:none;" onclick="triggerImportQuestionsCsv()"><i
-                    class="fas fa-file-import"></i> Import CSV</button>
-                <button class="btn btn-success btn-sm" id="addQBtn" style="display:none;" onclick="openQuestionModal()"><i
-                    class="fas fa-plus"></i> Question</button>
-              </div>
+          <div class="panel">
+            <div class="filter-bar">
+              <input type="text" id="userSearch" placeholder="🔍 Rechercher par nom ou email…" oninput="filterUsers()">
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Concept</th>
-                    <th>Difficulté</th>
-                    <th>Choix</th>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Inscrit</th>
+                    <th>Dernière activité</th>
+                    <th>Quiz</th>
+                    <th>Moy. Quiz</th>
+                    <th>Défis</th>
+                    <th>Réussis</th>
+                    <th>Badges</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody id="questionTable">
+                <tbody id="userTable">
                   <tr>
-                    <td colspan="5" style="text-align:center;color:#8b949e;padding:20px;">—</td>
+                    <td colspan="10" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- PROB STATS -->
-      <div class="section" id="sec-probstats">
-        <div class="page-header">
-          <h2>Statistiques des Problèmes</h2>
-          <p>Taux de réussite, scores moyens et temps</p>
-        </div>
-        <div class="panel">
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Titre</th>
-                  <th>Thème</th>
-                  <th>Diff.</th>
-                  <th>Tentatives</th>
-                  <th>Réussites</th>
-                  <th>Taux</th>
-                  <th>Score Moy.</th>
-                  <th>Temps Moy.</th>
-                </tr>
-              </thead>
-              <tbody id="probStatTable">
-                <tr>
-                  <td colspan="8" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
-                </tr>
-              </tbody>
-            </table>
+        <!-- PROBLEMS -->
+        <div class="section" id="sec-problems">
+          <div class="page-header">
+            <h2>Gestion des Problèmes</h2>
+            <p>Créer, modifier et supprimer les défis de programmation</p>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><i class="fas fa-list"></i> Problèmes (<span id="probCount">0</span>)</span>
+              <button class="btn btn-success" onclick="location.href='/admin/problems/new'"><i class="fas fa-plus"></i>
+                Nouveau</button>
+            </div>
+            <div class="filter-bar">
+              <input type="text" id="probSearch" placeholder="🔍 Rechercher…" oninput="filterProblems()">
+              <select id="probDiffFilter" onchange="filterProblems()">
+                <option value="">Toutes les difficultés</option>
+                <option value="Easy">Facile</option>
+                <option value="Medium">Moyen</option>
+                <option value="Hard">Difficile</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Titre</th>
+                    <th>Thème</th>
+                    <th>Difficulté</th>
+                    <th>Tests</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="problemTable">
+                  <tr>
+                    <td colspan="6" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+
+        <!-- QUIZZES -->
+        <div class="section" id="sec-quizzes">
+          <div class="page-header">
+            <h2>Gestion des Quiz</h2>
+            <p>Gérer les chapitres et les questions</p>
+          </div>
+          <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;">
+            <div class="panel" style="margin-bottom:0;">
+              <div class="panel-header">
+                <span class="panel-title"><i class="fas fa-book"></i> Chapitres</span>
+                <button class="btn btn-success btn-sm" onclick="openChapModal()"><i class="fas fa-plus"></i></button>
+              </div>
+              <div id="chapterList" style="max-height:500px;overflow-y:auto;"></div>
+            </div>
+            <div class="panel" style="margin-bottom:0;" id="questionPanel">
+              <div class="panel-header">
+                <span class="panel-title" id="qPanelTitle"><i class="fas fa-question-circle"></i> Sélectionnez un
+                  chapitre</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <button class="btn btn-info btn-sm" id="exportQCsvBtn" style="display:none;"
+                    onclick="exportQuestionsCsv()"><i class="fas fa-file-export"></i> CSV</button>
+                  <button class="btn btn-info btn-sm" id="importQCsvBtn" style="display:none;"
+                    onclick="triggerImportQuestionsCsv()"><i class="fas fa-file-import"></i> Import CSV</button>
+                  <button class="btn btn-success btn-sm" id="addQBtn" style="display:none;"
+                    onclick="openQuestionModal()"><i class="fas fa-plus"></i> Question</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Concept</th>
+                      <th>Difficulté</th>
+                      <th>Taux Réussite</th>
+                      <th>Réponses</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="questionTable">
+                    <tr>
+                      <td colspan="5" style="text-align:center;color:#8b949e;padding:20px;">—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROB STATS -->
+        <div class="section" id="sec-probstats">
+          <div class="page-header">
+            <h2>Statistiques des Problèmes</h2>
+            <p>Taux de réussite, scores moyens et temps</p>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Titre</th>
+                    <th>Thème</th>
+                    <th>Diff.</th>
+                    <th>Tentatives</th>
+                    <th>Réussites</th>
+                    <th>Taux</th>
+                    <th>Score Moy.</th>
+                    <th>Temps Moy.</th>
+                  </tr>
+                </thead>
+                <tbody id="probStatTable">
+                  <tr>
+                    <td colspan="8" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMINS -->
+        <div class="section" id="sec-admins">
+          <div class="page-header" style="justify-content: space-between;">
+            <div>
+              <h2>Gestion des Administrateurs</h2>
+              <p>Ajouter et révoquer les accès à cet espace d'administration.</p>
+            </div>
+          </div>
+
+          <div
+            style="background:#0d1117; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #30363d;">
+            <h3 style="margin-bottom:15px; font-size:1.1rem; border:none; padding:0;">Ajouter / Promouvoir un
+              administrateur</h3>
+            <p style="font-size:0.85rem; color:#8b949e; margin-bottom:15px;">Entrez simplement le nom d'utilisateur et
+              l'email d'un compte étudiant existant pour le promouvoir. S'il n'existe pas, il sera créé avec le mot de
+              passe spécifié.</p>
+            <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+              <div style="flex:1;"><label style="display:block; font-size:0.8rem; margin-bottom:5px; color:#8b949e;">Nom
+                  d'utilisateur</label><input type="text" id="newAdminUser" placeholder="ex: Prof123"
+                  style="width:100%; border:1px solid #30363d; background:#010409; color:#c9d1d9; border-radius:6px; padding:10px;">
+              </div>
+              <div style="flex:1;"><label
+                  style="display:block; font-size:0.8rem; margin-bottom:5px; color:#8b949e;">Email</label><input
+                  type="email" id="newAdminEmail" placeholder="ex: prof@ecole.fr"
+                  style="width:100%; border:1px solid #30363d; background:#010409; color:#c9d1d9; border-radius:6px; padding:10px;">
+              </div>
+              <div style="flex:1;"><label style="display:block; font-size:0.8rem; margin-bottom:5px; color:#8b949e;">Mot
+                  de passe</label><input type="password" id="newAdminPwd" placeholder="Seulement pour un nouveau compte"
+                  style="width:100%; border:1px solid #30363d; background:#010409; color:#c9d1d9; border-radius:6px; padding:10px;">
+              </div>
+              <div><button class="btn btn-success" onclick="addAdmin()" style="padding:10px 20px;"><i
+                    class="fas fa-plus"></i> Ajouter</button></div>
+            </div>
+          </div>
+
+          <table
+            style="width:100%; text-align:left; border-collapse: collapse; background:#0d1117; border-radius:12px; overflow:hidden;">
+            <thead>
+              <tr style="border-bottom: 2px solid #30363d;">
+                <th style="padding:15px;">ID</th>
+                <th style="padding:15px;">Utilisateur</th>
+                <th style="padding:15px;">Email</th>
+                <th style="padding:15px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminTable">
+              <tr>
+                <td colspan="4" style="padding:20px; text-align:center;"><i class="fas fa-spinner fa-spin"></i>
+                  Chargement...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
     </main>
   </div>
@@ -1275,6 +1339,7 @@
       if (name === 'problems') loadProblems();
       if (name === 'quizzes') loadChapters();
       if (name === 'probstats') loadProbStats();
+      if (name === 'admins') loadAdmins();
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────────
@@ -1448,8 +1513,9 @@
     <td>${diffTag(p.difficulty)}</td>
     <td>${p.test_cases.length}</td>
     <td>
-      <button class="btn btn-info btn-sm" onclick="location.href='/admin/problems/${p.id}/edit'"><i class="fas fa-pencil-alt"></i></button>
-      <button class="btn btn-danger btn-sm" onclick="deleteProblem(${p.id})" style="margin-left:4px;"><i class="fas fa-trash"></i></button>
+      <button class="btn btn-info btn-sm" onclick="location.href='/admin/problems/${p.id}/edit'" title="Modifier"><i class="fas fa-pencil-alt"></i></button>
+      <button class="btn btn-danger btn-sm" onclick="deleteProblem(${p.id})" style="margin-left:4px;" title="Supprimer"><i class="fas fa-trash"></i></button>
+      <button class="btn btn-success btn-sm highlight" onclick="openLiveContest(${p.id}, '${p.title.replace(/'/g, "\\'")}')" style="margin-left:4px; background: #ff9800; border-color: #e68a00; color: white;" title="En direct"><i class="fas fa-users" style="animation: pulse 2s infinite;"></i></button>
     </td>
   </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px;">Aucun problème</td></tr>';
     }
@@ -1515,14 +1581,20 @@
 
     // ── Chapters / Questions ───────────────────────────────────────────────────────
     async function loadChapters() {
-      const d = await api('/admin/api/chapters');
-      allChapters = d.items;
+      const d = await api('/admin/api/stats/quizzes');
+      allChapters = d.chapters;
       renderChapters();
     }
     function renderChapters() {
       $('chapterList').innerHTML = allChapters.map(c => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-bottom:1px solid #21262d;cursor:pointer;" onclick="selectChapter(${c.id},'${c.title.replace(/'/g, "\\'")}')">
-      <span style="font-size:0.88rem;"><i class="fas fa-book" style="color:#4a6ee0;margin-right:8px;"></i>${c.title} <span style="color:#8b949e;font-size:0.78rem;">(${c.question_count})</span></span>
+      <div style="flex:1;">
+        <div style="font-size:0.88rem; font-weight:bold; margin-bottom:2px;"><i class="fas fa-book" style="color:#4a6ee0;margin-right:8px;"></i>${c.title}</div>
+        <div style="color:#8b949e;font-size:0.75rem;">
+          <span title="Participants unique"><i class="fas fa-users"></i> ${c.participants}</span>
+          <span style="margin-left:10px;" title="Moyenne du chapitre"><i class="fas fa-chart-line"></i> ${c.avg_score}%</span>
+        </div>
+      </div>
       <div style="display:flex;gap:4px;">
         <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteChapter(${c.id})"><i class="fas fa-trash"></i></button>
       </div>
@@ -1554,17 +1626,25 @@
       $('addQBtn').style.display = 'flex';
       $('exportQCsvBtn').style.display = 'inline-flex';
       $('importQCsvBtn').style.display = 'inline-flex';
-      const d = await api(`/admin/api/questions?chapter_id=${id}`);
-      $('questionTable').innerHTML = d.items.map(q => `<tr>
+      const d = await api(`/admin/api/stats/quizzes/${id}/questions`);
+      $('questionTable').innerHTML = d.questions.map(q => `<tr>
     <td style="color:#8b949e;">#${q.id}</td>
-    <td>${q.concept}</td>
+    <td title="${q.text}">${q.concept}</td>
     <td>${diffTag(q.difficulty)}</td>
-    <td>${q.choices.length}</td>
+    <td>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="flex:1; height:6px; background:#30363d; border-radius:3px; max-width:60px;">
+          <div style="height:100%; width:${q.success_rate}%; background:#238636; border-radius:3px;"></div>
+        </div>
+        <span>${q.success_rate}%</span>
+      </div>
+    </td>
+    <td style="color:#8b949e;">${q.total_answers}</td>
     <td>
       <button class="btn btn-info btn-sm" onclick="editQuestion(${q.id})"><i class="fas fa-pencil-alt"></i></button>
       <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteQuestion(${q.id})"><i class="fas fa-trash"></i></button>
     </td>
-  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#8b949e;padding:20px;">Aucune question.</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px;">Aucune question ou donnée disponible.</td></tr>';
     }
     function openQuestionModal(q = null) {
       editingQuestionId = q?.id || null;
@@ -1663,7 +1743,165 @@
 
     // Close modals on background click
     document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
+
+    // ── Live Contest ──────────────────────────────────────────────────────────────
+    let liveModalInterval;
+    let liveContestProblemId = null;
+
+    function openLiveContest(id, title) {
+      liveContestProblemId = id;
+      document.querySelector('#live-contest-modal h3').innerHTML = `<i class="fas fa-users" style="color:#ff9800; animation: pulse 2s infinite;"></i> En direct: ${title}`;
+      document.getElementById('live-contest-modal').classList.add('open');
+      fetchAdminLiveContestData();
+      if (liveModalInterval) clearInterval(liveModalInterval);
+      liveModalInterval = setInterval(fetchAdminLiveContestData, 5000);
+    }
+
+    function closeLiveModal() {
+      document.getElementById('live-contest-modal').classList.remove('open');
+      if (liveModalInterval) clearInterval(liveModalInterval);
+    }
+
+    document.addEventListener('click', function (e) {
+      const modal = document.getElementById('live-contest-modal');
+      if (e.target === modal) {
+        closeLiveModal();
+      }
+    });
+
+    async function fetchAdminLiveContestData() {
+      if (!liveContestProblemId) return;
+      try {
+        const timestamp = new Date().getTime();
+        const res = await fetch(`/api/challenge/${liveContestProblemId}/live?_t=${timestamp}`);
+        const data = await res.json();
+
+        const tbody = document.getElementById('live-contest-body');
+        if (!data.success || !data.leaderboard || data.leaderboard.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#8b949e;">Aucune soumission pour le moment.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.leaderboard.map((user, idx) => {
+          let color = 'inherit';
+          let bg = 'transparent';
+          let statusBadge = '';
+
+          if (user.status === 'Réussi') {
+            color = '#2ecc71';
+            bg = 'rgba(46, 204, 113, 0.05)';
+            statusBadge = '<span style="font-size:0.85rem; background:rgba(46, 204, 113, 0.2); color:#2ecc71; padding:4px 8px; border-radius:12px; font-weight:bold;"><i class="fas fa-check-circle"></i> Réussi</span>';
+          } else if (user.status === 'Partiel') {
+            color = '#f1c40f';
+            bg = 'rgba(241, 196, 15, 0.05)';
+            statusBadge = '<span style="font-size:0.85rem; background:rgba(241, 196, 15, 0.2); color:#f1c40f; padding:4px 8px; border-radius:12px; font-weight:bold;"><i class="fas fa-exclamation-circle"></i> Partiel</span>';
+          } else {
+            color = '#e74c3c';
+            bg = 'rgba(231, 76, 60, 0.05)';
+            statusBadge = '<span style="font-size:0.85rem; background:rgba(231, 76, 60, 0.2); color:#e74c3c; padding:4px 8px; border-radius:12px; font-weight:bold;"><i class="fas fa-times-circle"></i> Échoué</span>';
+          }
+
+          return `
+            <tr style="border-bottom: 1px solid #21262d; background: ${bg}; transition: background 0.3s; color: ${color};">
+              <td style="padding: 12px; font-weight:bold;">${idx + 1}</td>
+              <td style="padding: 12px; font-weight:bold;">${user.name}</td>
+              <td style="padding: 12px;">${user.score}%</td>
+              <td style="padding: 12px;">${user.time_taken}s</td>
+              <td style="padding: 12px;">${user.attempts}</td>
+              <td style="padding: 12px;">${statusBadge}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error("Error fetching live contest", err);
+      }
+    }
+    // ── Admins ───────────────────────────────────────────────────────────────────
+    async function loadAdmins() {
+      try {
+        const d = await api('/admin/api/admins');
+        $('adminTable').innerHTML = d.admins.map(a => `
+          <tr style="border-bottom: 1px solid #21262d;">
+            <td style="padding:15px; color:#8b949e;">#${a.id}</td>
+            <td style="padding:15px; font-weight:bold;">${a.name}</td>
+            <td style="padding:15px; color:#8b949e;">${a.email}</td>
+            <td style="padding:15px;">
+              <button class="btn btn-danger btn-sm" onclick="removeAdmin(${a.id})" title="Rétrograder l'accès administrateur"><i class="fas fa-user-minus"></i> Rétrograder</button>
+            </td>
+          </tr>
+        `).join('') || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#8b949e;">Aucun administrateur trouvé en base de données.</td></tr>';
+      } catch (err) { toast(err.message, 'error'); }
+    }
+
+    async function addAdmin() {
+      const uname = $('newAdminUser').value.trim();
+      const email = $('newAdminEmail').value.trim();
+      const pwd = $('newAdminPwd').value.trim();
+      if (!uname || !email) return toast('Veuillez spécifier au moins un identifiant et un email.', 'error');
+
+      try {
+        const res = await api('/admin/api/admins', {
+          method: 'POST',
+          body: JSON.stringify({ username: uname, email: email, password: pwd })
+        });
+        toast(res.message);
+        $('newAdminUser').value = '';
+        $('newAdminEmail').value = '';
+        $('newAdminPwd').value = '';
+        loadAdmins();
+      } catch (err) { toast(err.message, 'error'); }
+    }
+
+    async function removeAdmin(id) {
+      if (!confirm("Voulez-vous vraiment retirer les privilèges d'administrateur de cet utilisateur ?\\nIl conservera son compte étudiant.")) return;
+      try {
+        const res = await api('/admin/api/admins/remove', { method: 'POST', body: JSON.stringify({ admin_id: id }) });
+        toast(res.message);
+        loadAdmins();
+      } catch (err) { toast(err.message, 'error'); }
+    }
+
   </script>
+
+  <!-- Live Contest Modal -->
+  <div id="live-contest-modal" class="modal-bg">
+    <div class="modal" style="max-width:800px; padding:0;">
+      <div style="padding: 24px;">
+        <div
+          style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 1px solid #30363d; padding-bottom: 15px;">
+          <h3 style="margin:0; font-size: 1.5rem; border:none; padding:0;"><i class="fas fa-users"
+              style="color:#ff9800; animation: pulse 2s infinite;"></i> Compétition en direct / Leaderboard</h3>
+          <button onclick="closeLiveModal()"
+            style="background:none; border:none; color:inherit; font-size:1.8rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <div style="margin-bottom: 15px; font-size: 0.9rem; color: #8b949e; display:flex; gap: 15px;">
+          <span><i class="fas fa-check-circle" style="color:#2ecc71;"></i> Réussi</span>
+          <span><i class="fas fa-exclamation-circle" style="color:#f1c40f;"></i> Partiel</span>
+          <span><i class="fas fa-times-circle" style="color:#e74c3c;"></i> Échoué</span>
+        </div>
+
+        <table style="width:100%; text-align:left; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid #30363d; background: #0d1117;">
+              <th>Pos</th>
+              <th>Utilisateur</th>
+              <th>Tests réussis / Score</th>
+              <th>Temps</th>
+              <th>Tentatives</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody id="live-contest-body">
+            <tr>
+              <td colspan="6" style="padding:20px; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Chargement
+                des données...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </body>
 
 </html>

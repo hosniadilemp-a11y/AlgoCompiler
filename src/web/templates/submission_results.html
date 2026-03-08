@@ -202,6 +202,18 @@
             }
 
             const data = JSON.parse(resultDataRaw);
+
+            if (!data.results) {
+                header.className = 'results-header error';
+                const errorMsg = data.error || (data.details && data.details[0]) || 'Erreur inattendue lors de la soumission.';
+                header.innerHTML = `<h1><i class="fas fa-exclamation-triangle"></i> Erreur</h1><p>${errorMsg}</p>`;
+                if (data.problem_id) {
+                    retryBtn.href = `/challenge/${data.problem_id}`;
+                }
+                list.innerHTML = '';
+                return;
+            }
+
             const passedCount = data.results.filter(r => r.passed).length;
             const totalCount = data.results.length;
 

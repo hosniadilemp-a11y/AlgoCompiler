@@ -49,6 +49,23 @@ class QuizController {
         this.conceptAnalysis = {};
         this.userAnswers = [];
 
+        // Reset UI from potential results state
+        const footer = this.modal.querySelector('.quiz-footer');
+        if (footer) footer.style.display = 'flex';
+
+        const progressText = this.modal.querySelector('.quiz-progress-text');
+        if (progressText) {
+            progressText.innerHTML = `Test - Question <span id="quiz-current-num">1</span> / <span id="quiz-total-num">--</span>`;
+        }
+
+        const progressFill = this.modal.querySelector('#quiz-progress-fill');
+        if (progressFill) {
+            progressFill.style.width = '0%';
+            // Ensure the container is visible if it was hidden
+            const barContainer = this.modal.querySelector('.quiz-progress-bar');
+            if (barContainer) barContainer.style.display = 'block';
+        }
+
         const body = this.modal.querySelector('#quiz-body');
         body.innerHTML = `<div class="quiz-loading"><i class="fas fa-circle-notch fa-spin"></i> Chargement du test...</div>`;
         this.modal.classList.add('active');
@@ -304,8 +321,14 @@ class QuizController {
     }
 
     async showResults() {
+        const questionResults = {};
+        this.quizData.forEach((q, idx) => {
+            questionResults[q.id] = this.userAnswers[idx] ? this.userAnswers[idx].isCorrect : false;
+        });
+
         // Save progress to backend
         let isUserAuthenticated = false;
+        let percentile = null;
         try {
             const res = await fetch('/api/quiz/save_progress', {
                 method: 'POST',
@@ -314,11 +337,16 @@ class QuizController {
                     chapter_identifier: this.chapterIdentifier,
                     score: this.score,
                     total: this.quizData.length,
-                    details: this.conceptAnalysis
+                    details: {
+                        conceptAnalysis: this.conceptAnalysis,
+                        questionResults: questionResults
+                    }
                 })
             });
             const backData = await res.json();
             isUserAuthenticated = backData.saved; // True if saved for authenticated user
+            percentile = backData.percentile;
+
             // Reload course user progress 
             if (this.course && isUserAuthenticated) {
                 await this.course.fetchUserProgress();
@@ -392,6 +420,10 @@ class QuizController {
             `;
         }).join('');
 
+        const percentileHtml = (percentile !== null && percentile !== undefined && percentile > 50)
+            ? `<div class="quiz-percentile-msg" style="background:rgba(241,196,15,0.1); border:1px solid #f1c40f; padding:12px; border-radius:8px; margin:15px 0; color:#f1c40f; text-align:center;"><i class="fas fa-trophy"></i> Vous avez fait mieux que <strong>${Math.round(percentile)}%</strong> des autres étudiants !</div>`
+            : '';
+
         body.innerHTML = `
             <div class="quiz-results-container">
                 <div class="quiz-score-circle ${colorClass}">
@@ -399,6 +431,7 @@ class QuizController {
                     <span class="score-max">/ ${this.quizData.length}</span>
                 </div>
                 <h2 class="quiz-res-msg">${message}</h2>
+                ${percentileHtml}
                 
                 <div class="quiz-analysis-box">
                     <h3>Analyse par concept</h3>

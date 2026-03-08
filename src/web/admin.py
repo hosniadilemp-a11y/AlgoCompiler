@@ -46,14 +46,27 @@ def login_page():
 
 
 @admin_bp.route('/login', methods=['POST'])
-def do_login():
+def login_api():
     data = request.get_json() or {}
-    if (str(data.get('username', '')).strip() == ADMIN_USERNAME and
-            str(data.get('password', '')) == ADMIN_PASSWORD):
+    username_input = str(data.get('username', '')).strip()
+    password_input = str(data.get('password', ''))
+    
+    # Check Database first
+    user = User.query.filter_by(name=username_input).first()
+    if user and user.password_hash and user.is_admin:
+        from werkzeug.security import check_password_hash
+        if check_password_hash(user.password_hash, password_input):
+            session['admin_logged_in'] = True
+            session.permanent = True
+            return jsonify({'success': True})
+
+    # Fallback to Environment Variables
+    if username_input == ADMIN_USERNAME and password_input == ADMIN_PASSWORD:
         session['admin_logged_in'] = True
         session.permanent = True
         return jsonify({'success': True})
-    return jsonify({'success': False, 'error': 'Identifiants incorrects'}), 401
+        
+    return jsonify({'success': False, 'error': 'Identifiants incorrects ou accès non autorisé.'}), 401
 
 
 @admin_bp.route('/logout')
@@ -62,6 +75,63 @@ def do_logout():
     return redirect(url_for('admin.login_page'))
 
 
+# ── Admin Management Routes ───────────────────────────────────────────────────
+@admin_bp.route('/api/admins', methods=['GET'])
+@admin_required
+def get_admins():
+    admins = User.query.filter_by(is_admin=True).all()
+    results = [{'id': a.id, 'name': a.name, 'email': a.email} for a in admins]
+    return jsonify({'success': True, 'admins': results})
+
+@admin_bp.route('/api/admins', methods=['POST'])
+@admin_required
+def add_admin():
+    data = request.get_json() or {}
+    name = data.get('username', '').strip()
+    email = data.get('email', '').strip()
+    password = data.get('password', '')
+    
+    if not name or not email or not password:
+        return jsonify({'success': False, 'error': 'Tous les champs sont requis.'}), 400
+        
+    # Check if user already exists
+    user = User.query.filter((User.name == name) | (User.email == email)).first()
+    
+    if user:
+        if user.is_admin:
+            return jsonify({'success': False, 'error': 'Cet utilisateur est déjà administrateur.'}), 400
+        # Promote existing user
+        user.is_admin = True
+        if password: # Optionally update missing password hash
+            user.password_hash = generate_password_hash(password)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Utilisateur existant promu administrateur.'})
+        
+    # Create new explicit admin user
+    new_user = User(
+        name=name,
+        email=email,
+        password_hash=generate_password_hash(password),
+        is_admin=True,
+        email_verified=True # Automatically verified since created by admin
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Nouvel administrateur créé.'})
+
+@admin_bp.route('/api/admins/remove', methods=['POST'])
+@admin_required
+def remove_admin():
+    data = request.get_json() or {}
+    admin_id = data.get('admin_id')
+    user = db.session.get(User, admin_id)
+    if not user:
+        return jsonify({'success': False, 'error': 'Utilisateur introuvable.'}), 404
+    
+    user.is_admin = False
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Droits administrateurs révoqués.'})
+    
 # ── Problem Editor Pages ──────────────────────────────────────────────────────
 @admin_bp.route('/problems/new')
 @admin_required
@@ -249,7 +319,8 @@ def stats_insights():
 
         last_quiz_at = getattr(q, 'last_quiz_at', None)
         last_sub_at = getattr(s, 'last_sub_at', None)
-        dates = [d for d in [last_quiz_at, last_sub_at] if d]
+        last_seen_at = getattr(u, 'last_seen', None)
+        dates = [d for d in [last_quiz_at, last_sub_at, last_seen_at] if d]
         last_activity = max(dates) if dates else None
 
         if last_activity and last_activity >= online_cutoff:
@@ -462,6 +533,73 @@ def stats_problems():
             'pass_rate': round(passed / total * 100, 1) if total else 0,
         })
     return jsonify({'problems': result})
+
+
+# ── Analytics: Quiz stats ───────────────────────────────────────────────────
+@admin_bp.route('/api/stats/quizzes')
+@admin_required
+def stats_quizzes():
+    chapters = Chapter.query.order_by(Chapter.id.asc()).all()
+    result = []
+    for c in chapters:
+        # Get all attempts for this chapter
+        attempts = QuizAttempt.query.filter_by(chapter_id=c.id).all()
+        
+        # Use a set to identify unique participants
+        participants = len(set(a.user_id for a in attempts))
+        
+        # Calculate average score (normalized to 100%)
+        avg_score = 0
+        if attempts:
+            scores = [(a.score / a.total_questions * 100) for a in attempts if a.total_questions > 0]
+            avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+            
+        result.append({
+            'id': c.id,
+            'title': c.title,
+            'participants': participants,
+            'avg_score': avg_score
+        })
+    return jsonify({'chapters': result})
+
+
+@admin_bp.route('/api/stats/quizzes/<int:cid>/questions')
+@admin_required
+def stats_quiz_questions(cid):
+    questions = Question.query.filter_by(chapter_id=cid).order_by(Question.id.asc()).all()
+    attempts = QuizAttempt.query.filter_by(chapter_id=cid).all()
+    
+    import json
+    q_stats = {}
+    for a in attempts:
+        if a.details:
+            try:
+                details = json.loads(a.details)
+                # New structure has questionResults
+                q_res = details.get('questionResults', {})
+                for qid_str, is_correct in q_res.items():
+                    qid = int(qid_str)
+                    if qid not in q_stats:
+                        q_stats[qid] = {'total': 0, 'correct': 0}
+                    q_stats[qid]['total'] += 1
+                    if is_correct:
+                        q_stats[qid]['correct'] += 1
+            except Exception:
+                pass
+                
+    result = []
+    for q in questions:
+        stats = q_stats.get(q.id, {'total': 0, 'correct': 0})
+        success_rate = round(stats['correct'] / stats['total'] * 100, 1) if stats['total'] > 0 else 0
+        result.append({
+            'id': q.id,
+            'text': q.text,
+            'concept': q.concept,
+            'difficulty': q.difficulty,
+            'total_answers': stats['total'],
+            'success_rate': success_rate
+        })
+    return jsonify({'questions': result})
 
 
 # ── User management ───────────────────────────────────────────────────────────

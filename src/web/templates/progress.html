@@ -969,7 +969,13 @@
 
                             chapterList.innerHTML += `
                                 <li class="chapter-item">
-                                    <span class="chapter-title">Chapitre : ${id.toUpperCase()}</span>
+                                    <div class="chapter-info">
+                                        <div class="chapter-title">Chapitre : ${id.toUpperCase().replace(/_/g, ' ')}</div>
+                                        <div class="chapter-stats-mini" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                                            <i class="fas fa-chart-bar"></i> Moyenne: <strong>${chapStats.avg_score}%</strong> 
+                                            <span style="margin-left:8px;"><i class="fas fa-redo"></i> Tentatives: ${chapStats.attempts_count}</span>
+                                        </div>
+                                    </div>
                                     ${statusHtml}
                                 </li>
                             `;

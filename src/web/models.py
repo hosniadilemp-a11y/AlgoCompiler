@@ -87,7 +87,9 @@ class User(UserMixin, db.Model):
     oauth_id = db.Column(db.String(100), nullable=True)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    last_seen = db.Column(db.DateTime, nullable=True)
+    is_admin = db.Column(db.Boolean, default=False)
+
     # Relationships
     quiz_attempts = db.relationship('QuizAttempt', backref='user', lazy=True, cascade="all, delete-orphan")
     challenge_submissions = db.relationship('ChallengeSubmission', backref='user', lazy=True, cascade="all, delete-orphan")
