@@ -55,6 +55,14 @@ def find_variable(name):
             return var_type, alloc_name
     return 'UNKNOWN', name
 
+def _extract_array_element_type(var_type):
+    if not var_type.startswith('TABLEAU_'):
+        return var_type
+    parts = var_type.split('_')
+    if len(parts) > 1 and parts[-1].isdigit():
+        return '_'.join(parts[1:-1])
+    return var_type.replace('TABLEAU_', '', 1)
+
 current_subprogram_type = None # 'function' or 'procedure'
 
 def get_default_value(type_name):
@@ -866,7 +874,7 @@ def p_var_list_record_array(p):
     size = int(p[3])
 
     if var_type in record_types:
-        add_variable(var_name, f"TABLEAU_{var_type}")
+        add_variable(var_name, f"TABLEAU_{var_type}_{size}")
         alloc_name = f"{scope_stack[-1]}.{var_name}" if is_local_scope() else var_name
         mem_alloc.allocate(alloc_name, var_type, count=size)
         init_expr = _build_record_init(var_type)
@@ -879,7 +887,7 @@ def p_var_list_record_array(p):
         code = f"{get_indent()}{var_name} = [None] * {size}"
         p[0] = (code, var_type)
     else:
-        final_type = f"TABLEAU_{var_type}"
+        final_type = f"TABLEAU_{var_type}_{size}"
         add_variable(var_name, final_type)
         alloc_name = f"{scope_stack[-1]}.{var_name}" if is_local_scope() else var_name
         mem_alloc.allocate(alloc_name, var_type, count=size)
@@ -1213,8 +1221,7 @@ def check_allocation_semantic(p, var_name, expr_code, is_array_access=False):
         if var_type.startswith('POINTEUR_'):
             base_type = var_type[9:]
         elif var_type.startswith('TABLEAU_'):
-            parts = var_type.split('_')
-            if len(parts) >= 2: base_type = parts[1]
+            base_type = _extract_array_element_type(var_type)
         
         stride = mem_alloc.get_type_size(base_type)
         if stride == 4 and 'UNKNOWN' in base_type: stride = 1 # Be conservative
@@ -1365,7 +1372,7 @@ def p_statement_io_read(p):
                     type_str = "'UNKNOWN'"
             elif '[' in var_name_access:
                 if full_type.startswith('TABLEAU_'):
-                    type_str = f"'{full_type.replace('TABLEAU_', '')}'"
+                    type_str = f"'{_extract_array_element_type(full_type)}'"
                 elif full_type.startswith('MATRICE_'):
                      type_str = f"'{full_type.replace('MATRICE_', '')}'"
                 else:
@@ -1581,7 +1588,7 @@ def p_expression_address_array(p):
     var_type, _ = find_variable(var_name)
     elem_type = 'UNKNOWN'
     if var_type.startswith('TABLEAU_'):
-        elem_type = var_type.replace('TABLEAU_', '')
+        elem_type = _extract_array_element_type(var_type)
     elif var_type == 'CHAINE':
         elem_type = 'CARACTERE_TYPE'
     ns = "locals()" if is_local_scope() else "globals()"
@@ -1674,7 +1681,7 @@ def p_expression_array_access(p):
     var_type, _ = find_variable(var_name)
     elem_type = 'UNKNOWN'
     if var_type.startswith('TABLEAU_'):
-        elem_type = var_type.replace('TABLEAU_', '')
+        elem_type = _extract_array_element_type(var_type)
         p[0] = (f"{var_name}[{idx_code}]", elem_type)
     elif var_type.upper().startswith('MATRICE_CHAINE'):
         elem_type = 'CHAINE'
