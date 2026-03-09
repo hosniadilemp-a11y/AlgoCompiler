@@ -14,6 +14,15 @@ Render offers an easy way to deploy web applications. You can deploy using eithe
     - **Environment Variables:**
         - `PYTHONPATH`: `src`
         - `PYTHONUNBUFFERED`: `1`
+        - `DATABASE_URL`: Use a Render PostgreSQL connection string
+        - `AUTO_SEED_QUIZZES`: `true` (optional)
+        - `AUTO_SEED_RESET`: `false` (recommended in production)
+
+### Render data persistence (important)
+
+- Do not rely on repository SQLite files for production data.
+- Use Render PostgreSQL (`DATABASE_URL`) for durable data across deploys/restarts.
+- Keep `AUTO_SEED_RESET=false` to avoid destructive reseeding behavior.
 
 ### Option 2: Docker
 

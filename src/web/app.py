@@ -63,8 +63,11 @@ def update_last_seen():
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 database_url = os.environ.get('DATABASE_URL')
-if database_url and database_url.startswith('postgres://'):
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+if database_url:
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif database_url.startswith('postgresql://'):
+        database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or f"sqlite:///{os.path.join(BASE_DIR, 'algocompiler.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -106,7 +109,7 @@ with app.app_context():
     db.create_all()
     # Auto-seed if empty
     from web.models import Question
-    if Question.query.count() == 0:
+    if Question.query.count() == 0 and not os.environ.get('SKIP_SEED'):
         print("Production DB is empty. Seeding quiz data...")
         try:
             from web.seed_from_json import seed_from_json

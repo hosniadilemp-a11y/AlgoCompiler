@@ -16,7 +16,7 @@ venv/
 env/
 .venv/
 .env/
-
+*.txt
 # --- PLY parser cache ---
 src/compiler/parser.out
 src/compiler/parsetab.py
@@ -56,7 +56,8 @@ script_*.js
 !OAUTH_SETUP_INSTRUCTIONS.md
 !README_DEPLOY.md
 # --- Database files ---
-# (Database is now tracked as requested)
+src/web/algocompiler.db
+src/web/migrate_to_postgres.py
 
 # --- Archive / draft files ---
 archive/
