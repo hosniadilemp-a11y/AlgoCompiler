@@ -105,17 +105,26 @@ from web.admin import admin_bp
 app.register_blueprint(admin_bp)
 
 # Ensure database tables exist and seed data if empty
-with app.app_context():
-    db.create_all()
-    # Auto-seed if empty
-    from web.models import Question
-    if Question.query.count() == 0 and not os.environ.get('SKIP_SEED'):
-        print("Production DB is empty. Seeding quiz data...")
-        try:
-            from web.seed_from_json import seed_from_json
-            seed_from_json()
-        except Exception as e:
-            print(f"Failed to auto-seed: {e}")
+print(f"DEBUG: Using database URI: {app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else app.config['SQLALCHEMY_DATABASE_URI']}")
+try:
+    with app.app_context():
+        print("DEBUG: Ensuring database tables exist (db.create_all)...")
+        db.create_all()
+        print("DEBUG: Database tables created/checked.")
+        
+        # Auto-seed if empty
+        if Question.query.count() == 0 and not os.environ.get('SKIP_SEED'):
+            print("DEBUG: Production DB is empty. Seeding quiz data...")
+            try:
+                from web.seed_from_json import seed_from_json
+                seed_from_json()
+                print("DEBUG: Seeding completed successfully.")
+            except Exception as e:
+                print(f"DEBUG: Failed to auto-seed: {e}")
+except Exception as e:
+    print(f"CRITICAL ERROR DURING APP STARTUP: {e}")
+    import traceback
+    traceback.print_exc()
 
 
 # Correct path to examples and fixtures
