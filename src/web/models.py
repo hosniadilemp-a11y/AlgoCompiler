@@ -12,7 +12,7 @@ class Chapter(db.Model):
 
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False)
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False, index=True)
     type = db.Column(db.String(20), nullable=False) # 'MCQ' or 'TrueFalse'
     difficulty = db.Column(db.String(20), nullable=False) # 'Easy', 'Medium', 'Hard'
     concept = db.Column(db.String(100), nullable=False) # e.g., 'Boucles', 'Variables'
@@ -28,7 +28,7 @@ class Choice(db.Model):
 
 class UserProgress(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False)
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False, index=True)
     score = db.Column(db.Integer, nullable=False)
     total_questions = db.Column(db.Integer, nullable=False)
     details = db.Column(db.Text, nullable=True) # JSON string of concept mastery
