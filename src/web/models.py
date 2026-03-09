@@ -22,7 +22,7 @@ class Question(db.Model):
 
 class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    question_id = db.Column(db.Integer, db.ForeignKey('question.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('question.id'), nullable=False, index=True)
     text = db.Column(db.Text, nullable=False)
     is_correct = db.Column(db.Boolean, default=False, nullable=False)
 
@@ -52,7 +52,7 @@ class TestCase(db.Model):
     __tablename__ = 'test_cases'
     
     id = db.Column(db.Integer, primary_key=True)
-    problem_id = db.Column(db.Integer, db.ForeignKey('problems.id'), nullable=False)
+    problem_id = db.Column(db.Integer, db.ForeignKey('problems.id'), nullable=False, index=True)
     input_data = db.Column(db.Text, nullable=False)
     expected_output = db.Column(db.Text, nullable=False)
     is_public = db.Column(db.Boolean, default=False) # Only public cases used for "Run Tests"
@@ -98,8 +98,8 @@ class QuizAttempt(db.Model):
     __tablename__ = 'quiz_attempts'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False, index=True)
     score = db.Column(db.Integer, nullable=False)
     total_questions = db.Column(db.Integer, nullable=False)
     
@@ -114,8 +114,8 @@ class ChallengeSubmission(db.Model):
     __tablename__ = 'challenge_submissions'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    problem_id = db.Column(db.Integer, db.ForeignKey('problems.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    problem_id = db.Column(db.Integer, db.ForeignKey('problems.id'), nullable=False, index=True)
     score = db.Column(db.Float, nullable=False) # e.g. percentage of tests passed
     code = db.Column(db.Text, nullable=True)
     passed = db.Column(db.Boolean, default=False) # True if all test cases passed
@@ -126,7 +126,7 @@ class UserBadge(db.Model):
     __tablename__ = 'user_badges'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     badge_id = db.Column(db.String(50), nullable=False) # e.g. "badge1", "badge_hacker_gold"
     awarded_at = db.Column(db.DateTime, default=datetime.utcnow)
     seen = db.Column(db.Boolean, default=False)

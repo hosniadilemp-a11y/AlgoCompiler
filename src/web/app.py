@@ -57,7 +57,7 @@ def update_last_seen():
             last_seen_utc = current_user.last_seen
             if last_seen_utc.tzinfo is None:
                 last_seen_utc = last_seen_utc.replace(tzinfo=datetime.timezone.utc)
-            if (now - last_seen_utc).total_seconds() > 60:
+            if (now - last_seen_utc).total_seconds() > 3600:
                 current_user.last_seen = now
                 try:
                     db.session.commit()
@@ -90,6 +90,12 @@ if database_url:
     print(f">>> CONFIGURED DATABASE_URL: {safe_log_url} (Psycopg3: {use_psycopg3})", flush=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or f"sqlite:///{os.path.join(BASE_DIR, 'algocompiler.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'max_overflow': 20,
+    'pool_recycle': 300,
+    'pool_pre_ping': True,
+}
 
 safe_uri = app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
 print(f">>> [DEBUG] SQLALCHEMY_DATABASE_URI: {safe_uri}", flush=True)
