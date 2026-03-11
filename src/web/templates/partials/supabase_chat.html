@@ -30,6 +30,25 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
     }
 
+    #chat-notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #ef4444;
+        color: white;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        font-weight: bold;
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--panel-bg);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
     #chat-panel {
         display: none;
         flex-direction: column;
@@ -159,6 +178,7 @@
 <div id="global-chat-widget">
     <button id="chat-toggle-btn" title="Chat Communautaire">
         <i class="fas fa-comments"></i>
+        <div id="chat-notification-badge">0</div>
     </button>
     <div id="chat-panel">
         <div class="chat-header">
@@ -197,11 +217,20 @@
         const sendBtn = document.getElementById('chat-send-btn');
 
         let isChatOpen = false;
+        let unreadCount = 0;
+
+        const badge = document.getElementById('chat-notification-badge');
 
         toggleBtn.addEventListener('click', () => {
             isChatOpen = !isChatOpen;
             panel.classList.toggle('active', isChatOpen);
-            if (isChatOpen && inputField) inputField.focus();
+            if (isChatOpen) {
+                if (inputField) inputField.focus();
+                // Clear badge when opening
+                unreadCount = 0;
+                badge.style.display = 'none';
+                badge.innerText = '0';
+            }
         });
 
         closeBtn.addEventListener('click', () => {
@@ -263,6 +292,17 @@
         room.on('broadcast', { event: 'chat-message' }, payload => {
             if (payload.payload.user !== currentUser) {
                 appendMessage(payload.payload.user, payload.payload.text, false);
+
+                // Show notification if chat is closed
+                if (!isChatOpen) {
+                    unreadCount++;
+                    badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
+                    badge.style.display = 'flex';
+
+                    // Subtle animation
+                    toggleBtn.style.transform = 'scale(1.1)';
+                    setTimeout(() => { if (!isChatOpen) toggleBtn.style.transform = ''; }, 200);
+                }
             }
         }).subscribe((status, err) => {
             if (status === 'SUBSCRIBED') {
