@@ -1,0 +1,293 @@
+<!-- supabase_chat.html -->
+<style>
+    /* Global Chat UI */
+    #global-chat-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 10000;
+        font-family: 'Inter', sans-serif;
+    }
+
+    #chat-toggle-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4a6ee0, #7c3aed);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    #chat-toggle-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    #chat-panel {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        bottom: 75px;
+        right: 0;
+        width: 350px;
+        height: 500px;
+        max-height: 80vh;
+        background: var(--panel-bg);
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+
+    #chat-panel.active {
+        display: flex;
+    }
+
+    .chat-header {
+        background: linear-gradient(135deg, #4a6ee0, #2c3e50);
+        color: white;
+        padding: 15px;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .chat-close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+
+    .chat-messages {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        background: var(--bg-color);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .chat-message {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 16px;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        position: relative;
+        word-break: break-word;
+    }
+
+    .chat-message.system {
+        align-self: center;
+        background: rgba(0, 0, 0, 0.1);
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        padding: 4px 10px;
+        border-radius: 10px;
+    }
+
+    .chat-message.mine {
+        align-self: flex-end;
+        background: #4a6ee0;
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .chat-message.theirs {
+        align-self: flex-start;
+        background: var(--panel-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-bottom-left-radius: 4px;
+    }
+
+    .chat-username {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        margin-bottom: 4px;
+        display: block;
+    }
+
+    .chat-input-area {
+        padding: 15px;
+        background: var(--panel-bg);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        gap: 10px;
+    }
+
+    #chat-input-field {
+        flex: 1;
+        padding: 10px 15px;
+        border-radius: 20px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-color);
+        color: var(--text-color);
+        outline: none;
+    }
+
+    #chat-send-btn {
+        background: #4a6ee0;
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #chat-send-btn:disabled {
+        background: var(--border-color);
+        cursor: not-allowed;
+    }
+</style>
+
+<div id="global-chat-widget">
+    <button id="chat-toggle-btn" title="Chat Communautaire">
+        <i class="fas fa-comments"></i>
+    </button>
+    <div id="chat-panel">
+        <div class="chat-header">
+            <span><i class="fas fa-users"></i> Chat Communautaire</span>
+            <button class="chat-close-btn" id="chat-close-btn"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="chat-messages" id="chat-messages-container">
+            <div class="chat-message system">Bienvenue dans le chat global d'AlgoCompiler !</div>
+        </div>
+
+        {% if current_user.is_authenticated %}
+        <div class="chat-input-area">
+            <input type="text" id="chat-input-field" placeholder="Écrivez un message..." autocomplete="off">
+            <button id="chat-send-btn"><i class="fas fa-paper-plane"></i></button>
+        </div>
+        {% else %}
+        <div class="chat-input-area" style="justify-content: center; padding: 15px;">
+            <a href="/login" style="color: #4a6ee0; text-decoration: none; font-size: 0.9rem;">
+                Connectez-vous pour discuter
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Load Supabase JS client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const toggleBtn = document.getElementById('chat-toggle-btn');
+        const closeBtn = document.getElementById('chat-close-btn');
+        const panel = document.getElementById('chat-panel');
+        const messagesContainer = document.getElementById('chat-messages-container');
+        const inputField = document.getElementById('chat-input-field');
+        const sendBtn = document.getElementById('chat-send-btn');
+
+        let isChatOpen = false;
+
+        toggleBtn.addEventListener('click', () => {
+            isChatOpen = !isChatOpen;
+            panel.classList.toggle('active', isChatOpen);
+            if (isChatOpen && inputField) inputField.focus();
+        });
+
+        closeBtn.addEventListener('click', () => {
+            isChatOpen = false;
+            panel.classList.remove('active');
+        });
+
+        const SUPABASE_URL = "VOTRE_SUPABASE_URL_ICI";
+        const SUPABASE_ANON_KEY = "VOTRE_SUPABASE_ANON_KEY_ICI";
+
+        // Uniquement initialiser le chat si Supabase est configuré
+        if (SUPABASE_URL === "VOTRE_SUPABASE_URL_ICI") {
+            appendSystemMessage("Configuration Supabase manquante.");
+            return;
+        }
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // User Info (Injecté par Flask/Jinja)
+        const currentUser = "{{ current_user.name if current_user.is_authenticated else 'Anonyme' }}";
+        const isAuthenticated = ("{{ 'true' if current_user.is_authenticated else 'false' }}" === "true");
+
+        function appendMessage(user, text, isMine) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-message ${isMine ? 'mine' : 'theirs'}`;
+
+            if (!isMine) {
+                const userSpan = document.createElement('span');
+                userSpan.className = 'chat-username';
+                userSpan.innerText = user;
+                msgDiv.appendChild(userSpan);
+            }
+
+            const textSpan = document.createElement('span');
+            textSpan.innerText = text;
+            msgDiv.appendChild(textSpan);
+
+            messagesContainer.appendChild(msgDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function appendSystemMessage(text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message system';
+            msgDiv.innerText = text;
+            messagesContainer.appendChild(msgDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Connect to Supabase Realtime Channel
+        const room = supabaseClient.channel('global-chat');
+
+        room.on('broadcast', { event: 'chat-message' }, payload => {
+            // Ignorer ses propres messages s'ils reviennent (normalement envoyés localement avant)
+            if (payload.payload.user !== currentUser) {
+                appendMessage(payload.payload.user, payload.payload.text, false);
+            }
+        }).subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                appendSystemMessage("Connecté au réseau temps réel.");
+            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                appendSystemMessage("Déconnecté du réseau.");
+            }
+        });
+
+        if (isAuthenticated && inputField && sendBtn) {
+            const sendMessage = async () => {
+                const text = inputField.value.trim();
+                if (!text) return;
+
+                // Afficher le message localement tout de suite
+                appendMessage(currentUser, text, true);
+                inputField.value = '';
+
+                // Envoyer le message via Realtime Broadcast
+                await room.send({
+                    type: 'broadcast',
+                    event: 'chat-message',
+                    payload: { user: currentUser, text: text }
+                });
+            };
+
+            sendBtn.addEventListener('click', sendMessage);
+            inputField.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        }
+    });
+</script>

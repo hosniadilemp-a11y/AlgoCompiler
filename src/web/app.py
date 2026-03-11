@@ -163,6 +163,10 @@ FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 def index():
     return render_template('index.html')
 
+@app.route('/announcement')
+def announcement():
+    return render_template('announcement.html')
+
 from flask import send_from_directory
 @app.route('/favicon.ico')
 def favicon():
