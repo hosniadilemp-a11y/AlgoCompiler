@@ -259,14 +259,15 @@
         const currentUser = "{{ current_user.name if current_user.is_authenticated else 'Anonyme' }}";
         const isAuthenticated = ("{{ 'true' if current_user.is_authenticated else 'false' }}" === "true");
 
-        function appendMessage(user, text, isMine) {
+        function appendMessage(user, text, isMine, isHistory = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `chat-message ${isMine ? 'mine' : 'theirs'}`;
+            if (isHistory) msgDiv.style.opacity = '0.8';
 
             if (!isMine) {
                 const userSpan = document.createElement('span');
                 userSpan.className = 'chat-username';
-                userSpan.innerText = user;
+                userSpan.innerText = user + (isHistory ? ' (Histo)' : '');
                 msgDiv.appendChild(userSpan);
             }
 
@@ -286,12 +287,42 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Connect to Supabase Realtime Channel
-        const room = supabaseClient.channel('global-chat');
+        // Load History (last 48h)
+        async function loadHistory() {
+            try {
+                const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+                const { data, error } = await supabaseClient
+                    .from('chat_messages')
+                    .select('*')
+                    .gte('created_at', fortyEightHoursAgo)
+                    .order('created_at', { ascending: true });
 
-        room.on('broadcast', { event: 'chat-message' }, payload => {
-            if (payload.payload.user !== currentUser) {
-                appendMessage(payload.payload.user, payload.payload.text, false);
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    messagesContainer.innerHTML = ''; // Clear welcome message
+                    const systemMsg = document.createElement('div');
+                    systemMsg.className = 'chat-message system';
+                    systemMsg.innerText = "Historique des 48 dernières heures";
+                    messagesContainer.appendChild(systemMsg);
+
+                    data.forEach(msg => {
+                        appendMessage(msg.user_name, msg.text, msg.user_name === currentUser, true);
+                    });
+                }
+            } catch (err) {
+                console.error("Erreur chargement historique:", err);
+                appendSystemMessage("Impossible de charger l'historique.");
+            }
+        }
+
+        // Connect to Supabase Realtime Channel
+        const room = supabaseClient.channel('global-chat-db');
+
+        room.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+            const { user_name, text } = payload.new;
+            if (user_name !== currentUser) {
+                appendMessage(user_name, text, false);
 
                 // Show notification if chat is closed
                 if (!isChatOpen) {
@@ -302,13 +333,24 @@
                     // Subtle animation
                     toggleBtn.style.transform = 'scale(1.1)';
                     setTimeout(() => { if (!isChatOpen) toggleBtn.style.transform = ''; }, 200);
+
+                    // Show Toast Notification
+                    if (window.AppToast) {
+                        window.AppToast.show(
+                            user_name, 
+                            text, 
+                            false, 
+                            () => { toggleBtn.click(); }
+                        );
+                    }
                 }
             }
-        }).subscribe((status, err) => {
+        }).subscribe(async (status, err) => {
             if (status === 'SUBSCRIBED') {
-                appendSystemMessage("Connecté au réseau temps réel. ✅");
+                await loadHistory();
+                appendSystemMessage("Connecté au chat temps réel. ✅");
             } else if (status === 'CHANNEL_ERROR') {
-                appendSystemMessage("Erreur de connexion : Vérifiez vos clés API dans Render.");
+                appendSystemMessage("Erreur de connexion Realtime.");
                 if (err) console.error("Supabase Channel Error:", err);
             } else if (status === 'CLOSED') {
                 appendSystemMessage("Connexion fermée.");
@@ -324,12 +366,15 @@
                 appendMessage(currentUser, text, true);
                 inputField.value = '';
 
-                // Envoyer le message via Realtime Broadcast
-                await room.send({
-                    type: 'broadcast',
-                    event: 'chat-message',
-                    payload: { user: currentUser, text: text }
-                });
+                // Envoyer le message via Database Insert
+                const { error } = await supabaseClient
+                    .from('chat_messages')
+                    .insert([{ user_name: currentUser, text: text }]);
+                
+                if (error) {
+                    console.error("Erreur envoi message:", error);
+                    appendSystemMessage("Erreur lors de l'envoi du message.");
+                }
             };
 
             sendBtn.addEventListener('click', sendMessage);

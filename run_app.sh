@@ -17,7 +17,7 @@ if ! command -v python3 &> /dev/null; then
     echo -e "${RED}Error: Python 3 is not installed!${NC}"
     exit 1
 fi
-
+source venv/bin/activate
 # Kill any existing instances
 echo -e "${BLUE}Stopping any existing server instances...${NC}"
 pkill -f "python3 src/web/app.py" 2>/dev/null

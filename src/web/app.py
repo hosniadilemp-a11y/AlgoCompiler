@@ -149,9 +149,16 @@ def load_user(user_id):
 
 @app.context_processor
 def inject_supabase_credentials():
+    # Inject announcement modified time
+    announcement_path = os.path.join(app.root_path, 'templates', 'announcement.html')
+    mtime = 0
+    if os.path.exists(announcement_path):
+        mtime = int(os.path.getmtime(announcement_path))
+        
     return {
         'INJECTED_SUPABASE_URL': os.environ.get('SUPABASE_URL', ''),
-        'INJECTED_SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', '')
+        'INJECTED_SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
+        'ANNOUNCEMENT_MTIME': mtime
     }
 
 # Register Auth Blueprint
