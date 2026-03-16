@@ -169,14 +169,16 @@ class CourseController {
         `;
 
         if (chapter.sections) {
+            let sectionIndex = 0;
             chapter.sections.forEach(section => {
                 const sectionEl = document.createElement('section');
                 sectionEl.className = 'course-section';
 
                 if (section.title) {
+                    sectionIndex += 1;
                     const h3 = document.createElement('h3');
                     h3.className = 'course-h3';
-                    h3.textContent = section.title;
+                    h3.innerHTML = `<span class="course-section-num">${sectionIndex}.</span> ${this.escapeHtml(section.title)}`;
                     sectionEl.appendChild(h3);
                 }
 
@@ -375,16 +377,28 @@ class CourseController {
         if (!text) return '';
         const escapeLabel = (value) => this.escapeHtml(value);
         const sanitizeLink = (value) => this.sanitizeLinkUrl(value);
-        let html = text
-            .replace(/\[\[DEF\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-def"><div class="course-callout-title">Définition</div><p>$1</p></div>')
-            .replace(/\[\[ALERT\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-alert"><div class="course-callout-title">Alerte</div><p>$1</p></div>')
-            .replace(/\[\[NOTE\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-note"><div class="course-callout-title">Note</div><p>$1</p></div>')
-            .replace(/\[\[FUN\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-fun"><div class="course-callout-title">Fun Fact</div><p>$1</p></div>')
+        const calloutBlock = (label, css) => {
+            const re = new RegExp(`\\[\\[${label}\\]\\]([\\s\\S]*?)(?:\\n\\s*\\n|$)`, 'g');
+            return (input) => input.replace(re, (_, body) => {
+                const content = String(body || '').trim();
+                return `<div class="course-callout ${css}"><div class="course-callout-title">${label === 'DEF' ? 'Définition' : label === 'ALERT' ? 'Alerte' : label === 'NOTE' ? 'Note' : 'Fun Fact'}</div>${content ? `<div>${content}</div>` : ''}</div>`;
+            });
+        };
+
+        let html = text;
+        html = calloutBlock('DEF', 'course-callout-def')(html);
+        html = calloutBlock('ALERT', 'course-callout-alert')(html);
+        html = calloutBlock('NOTE', 'course-callout-note')(html);
+        html = calloutBlock('FUN', 'course-callout-fun')(html);
+        html = html
             .replace(/\[\[STYLISH_EX\]\]/g, '<div class="stylish-lesson-intro"><i class="fas fa-star"></i> Objectifs pédagogiques</div>')
             .replace(/### (.*?)\n/g, '<h4 class="course-h4">$1</h4>')
             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
                 const safeUrl = sanitizeLink(url);
                 const safeLabel = escapeLabel(label);
+                if (this.isDemoLink(safeUrl)) {
+                    return `<a class="course-demo-btn" href="${safeUrl}" target="_blank" rel="noopener"><span class="demo-glow"></span><i class="fas fa-play"></i> ${safeLabel}</a>`;
+                }
                 return `<a href="${safeUrl}" target="_blank" rel="noopener">${safeLabel}</a>`;
             })
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -419,6 +433,10 @@ class CourseController {
         if (/^(https?:\/\/|\/)/i.test(url)) return url;
         if (/^[\w\-./#?=&%]+$/.test(url)) return url;
         return '#';
+    }
+
+    isDemoLink(url) {
+        return /(^\/?demo-course\/)|(^\/?democourse\/)/i.test(url);
     }
 
     createCodeBlock(code) {

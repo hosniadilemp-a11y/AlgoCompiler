@@ -232,6 +232,21 @@ body.light-theme .course-sidebar {
     padding-bottom: 10px;
 }
 
+.course-section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    margin-right: 10px;
+    border-radius: 999px;
+    background: rgba(74, 110, 224, 0.15);
+    border: 1px solid rgba(74, 110, 224, 0.35);
+    color: var(--course-accent);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
 .course-text p {
     margin-bottom: 1.25rem;
     line-height: 1.7;
@@ -251,6 +266,92 @@ body.light-theme .course-sidebar {
     color: #6ed68a;
     border-color: rgba(110, 214, 138, 0.5);
 }
+
+/* --- PREMIUM DEMO BUTTON (SPECIAL TREATMENT) --- */
+.course-demo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    vertical-align: middle;
+    gap: 12px;
+    height: 52px; /* Fixed height for reliable centering */
+    padding: 0 30px;
+    margin: 15px 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ff4d4d, #9d50bb);
+    color: #fff !important;
+    font-weight: 800;
+    font-size: 1.05rem;
+    line-height: normal;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+        0 8px 15px rgba(0, 0, 0, 0.2), 
+        0 12px 30px rgba(255, 77, 77, 0.3);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1;
+    cursor: pointer;
+}
+
+.course-demo-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.4),
+        transparent
+    );
+    transition: 0.5s;
+    z-index: 2;
+}
+
+.course-demo-btn:hover::before {
+    left: 100%;
+}
+
+.course-demo-btn:hover {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 
+        0 15px 25px rgba(0, 0, 0, 0.3), 
+        0 20px 45px rgba(255, 77, 77, 0.45);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.course-demo-btn:active {
+    transform: translateY(-2px) scale(0.98);
+}
+
+/* Pulsing background glow */
+.course-demo-btn {
+    animation: demoPulse 2.5s infinite;
+}
+
+@keyframes demoPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.5); }
+    70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+}
+
+.course-demo-btn i {
+    font-size: 1.25rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Light theme variation */
+body.light-theme .course-demo-btn {
+    background: linear-gradient(135deg, #ff4c4c, #6c33cc);
+    box-shadow: 0 8px 16px rgba(255, 76, 76, 0.25);
+    border: none;
+}
+
 
 .course-text ul {
     margin: 15px 0 25px 20px;

@@ -22,6 +22,7 @@ from web.models import (
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+
 # ── Credentials (override via env vars) ──────────────────────────────────────
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'Teacher1')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'teacher')
@@ -60,20 +61,29 @@ def login_api():
         if check_password_hash(user.password_hash, password_input):
             session['admin_logged_in'] = True
             session.permanent = True
+            session['admin_user_id'] = user.id
+            session['admin_user_name'] = user.name
+            session['admin_user_email'] = user.email
             return jsonify({'success': True})
 
     # Fallback to Environment Variables
     if username_input == ADMIN_USERNAME and password_input == ADMIN_PASSWORD:
         session['admin_logged_in'] = True
         session.permanent = True
+        session['admin_user_id'] = None
+        session['admin_user_name'] = username_input
+        session['admin_user_email'] = None
         return jsonify({'success': True})
-        
+
     return jsonify({'success': False, 'error': 'Identifiants incorrects ou accès non autorisé.'}), 401
 
 
 @admin_bp.route('/logout')
 def do_logout():
     session.pop('admin_logged_in', None)
+    session.pop('admin_user_id', None)
+    session.pop('admin_user_name', None)
+    session.pop('admin_user_email', None)
     return redirect(url_for('admin.login_page'))
 
 
@@ -1498,3 +1508,4 @@ def admin_import_course_chapter_json():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
+

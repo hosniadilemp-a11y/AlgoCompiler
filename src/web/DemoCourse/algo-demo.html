@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlgoScope — Sorting & Search Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #05070a;
+  --surface: #0d1117;
+  --s2: #161b22;
+  --s3: #1c2333;
+  --border: #21262d;
+  --border2: #30363d;
+  --cyan: #58a6ff;
+  --cyan-d: rgba(88, 166, 255, 0.12);
+  --cyan-g: rgba(88, 166, 255, 0.35);
+  --lime: #00ff88;
+  --lime-d: rgba(0,255,136,0.1);
+  --lime-g: rgba(0,255,136,0.3);
+  --rose: #ff4444;
+  --rose-d: rgba(255,68,68,0.1);
+  --amber: #ffb300;
+  --amber-d: rgba(255,179,0,0.12);
+  --purple: #c084fc;
+  --purple-d: rgba(192, 132, 252, 0.1);
+  --text: #e6edf3;
+  --muted: #7d8590;
+  --dim: #484f58;
+  --mono: 'Fira Code', monospace;
+  --display: 'Inter', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--mono);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+/* scanlines */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.02) 3px,rgba(0,0,0,.02) 4px);
+}
+/* dot grid bg */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(var(--border) 1px,transparent 1px);
+  background-size:28px 28px;
+  opacity:.4;
+}
+
+/* ── HEADER ── */
+header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(4,7,10,.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:.75rem 2rem;
+  display:flex;align-items:center;gap:2rem;
+}
+.logo{
+  font-family:var(--display);
+  font-weight:800;font-size:.95rem;
+  letter-spacing:.04em;
+  color:var(--cyan);
+  text-shadow:0 0 24px var(--cyan-g);
+  white-space:nowrap;
+}
+.logo span{color:var(--lime);}
+.tab-bar{display:flex;gap:.2rem;flex:1;overflow-x:auto;}
+.tab{
+  font-family:var(--mono);font-size:.65rem;font-weight:700;
+  letter-spacing:.08em;padding:.4rem .9rem;
+  border-radius:4px;border:1px solid transparent;
+  background:transparent;color:var(--muted);
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.tab:hover{color:var(--text);background:var(--s2);}
+.tab.active{color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d);box-shadow:0 0 10px var(--cyan-g);}
+.tab.active.lime{color:var(--lime);border-color:var(--lime);background:var(--lime-d);box-shadow:0 0 10px var(--lime-g);}
+.header-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
+.badge{
+  font-family:var(--mono);font-size:.6rem;
+  padding:.2rem .55rem;border-radius:3px;
+  border:1px solid var(--border2);
+  color:var(--muted);
+}
+
+/* ── SECTIONS ── */
+.section{display:none;position:relative;z-index:1;}
+.section.active{display:block;}
+
+/* ── HERO BAND ── */
+.hero-band{
+  padding:1.5rem 2rem .75rem;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;
+  flex-wrap:wrap;
+}
+.hero-title{font-family:var(--display);font-weight:800;font-size:1.4rem;line-height:1.1;}
+.hero-title span{color:var(--cyan);}
+.hero-meta{font-size:.65rem;color:var(--muted);margin-top:.3rem;line-height:1.7;}
+.complexity-chips{display:flex;gap:.4rem;flex-wrap:wrap;}
+.chip{
+  font-size:.6rem;font-family:var(--mono);
+  padding:.2rem .55rem;border-radius:3px;
+  border:1px solid var(--border2);color:var(--muted);
+}
+.chip.best{border-color:var(--lime);color:var(--lime);background:var(--lime-d);}
+.chip.avg {border-color:var(--amber);color:var(--amber);background:var(--amber-d);}
+.chip.worst{border-color:var(--rose);color:var(--rose);background:var(--rose-d);}
+.chip.space{border-color:var(--purple);color:var(--purple);background:var(--purple-d);}
+
+/* ── MAIN LAYOUT ── */
+.main-grid{
+  display:grid;
+  grid-template-columns:1fr 340px;
+  gap:0;
+  min-height:calc(100vh - 140px);
+}
+.viz-panel{border-right:1px solid var(--border);padding:1.5rem 2rem;display:flex;flex-direction:column;gap:1.25rem;}
+.code-panel{padding:1.25rem;display:flex;flex-direction:column;gap:1rem;background:var(--surface);}
+
+/* ── CONTROLS ── */
+.controls{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
+.ctrl-btn{
+  font-family:var(--mono);font-size:.68rem;font-weight:700;
+  letter-spacing:.05em;padding:.45rem 1rem;
+  border-radius:4px;border:1px solid;cursor:pointer;transition:all .2s;
+}
+.btn-cyan{color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d);}
+.btn-cyan:hover{box-shadow:0 0 14px var(--cyan-g);}
+.btn-lime{color:var(--lime);border-color:var(--lime);background:var(--lime-d);}
+.btn-lime:hover{box-shadow:0 0 14px var(--lime-g);}
+.btn-ghost{color:var(--muted);border-color:var(--border2);background:var(--s2);}
+.btn-ghost:hover{color:var(--text);}
+.ctrl-btn:disabled{opacity:.3;cursor:not-allowed;}
+.speed-wrap{display:flex;align-items:center;gap:.5rem;font-size:.62rem;color:var(--muted);margin-left:auto;}
+.speed-wrap input{width:72px;accent-color:var(--cyan);}
+
+/* ── SORT BAR CHART ── */
+.bar-arena{
+  flex:1;display:flex;align-items:flex-end;gap:2px;
+  background:var(--s2);border:1px solid var(--border);border-radius:6px;
+  padding:.75rem .5rem .5rem;min-height:220px;position:relative;
+  overflow:hidden;
+}
+.bar-arena::before{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:var(--border2);
+}
+.sbar{
+  flex:1;min-width:6px;border-radius:2px 2px 0 0;
+  transition:height .12s ease, background .12s;
+  position:relative;
+}
+.sbar.def   {background:#1a3040;}
+.sbar.cmp   {background:var(--amber);box-shadow:0 0 8px var(--amber-d);}
+.sbar.swap  {background:var(--rose);box-shadow:0 0 8px var(--rose-d);}
+.sbar.sorted{background:var(--lime);box-shadow:0 0 6px var(--lime-g);}
+.sbar.pivot {background:var(--purple);box-shadow:0 0 8px var(--purple-d);}
+.sbar.min   {background:var(--cyan);box-shadow:0 0 8px var(--cyan-g);}
+
+.sort-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;}
+.stat-card{
+  background:var(--s2);border:1px solid var(--border);border-radius:4px;
+  padding:.4rem .6rem;text-align:center;
+}
+.stat-card .sc-label{font-size:.58rem;color:var(--muted);letter-spacing:.06em;}
+.stat-card .sc-val{font-size:1rem;font-weight:700;margin-top:2px;}
+
+/* ── SORT LEGEND ── */
+.legend{display:flex;gap:.75rem;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:.3rem;font-size:.6rem;color:var(--muted);}
+.leg-sq{width:8px;height:8px;border-radius:1px;flex-shrink:0;}
+
+/* ── CODE BLOCK ── */
+.code-title{font-size:.62rem;color:var(--muted);letter-spacing:.08em;display:flex;align-items:center;gap:.4rem;}
+.code-title .dot{width:5px;height:5px;border-radius:50%;}
+pre{
+  background:var(--s3);border:1px solid var(--border);border-radius:6px;
+  padding:.85rem 1rem;font-family:var(--mono);font-size:.68rem;
+  line-height:1.75;overflow-x:auto;white-space:pre;
+}
+.hl{display:block;background:var(--amber-d);border-left:2px solid var(--amber);margin:0 -1rem;padding:0 1rem;}
+.kw{color:#bf5fff;}.fn{color:var(--cyan);}.cm{color:var(--dim);font-style:italic;}
+.nm{color:var(--amber);}.st{color:var(--lime);}
+
+/* ── RESPONSIVE NAV ── */
+@media(max-width:900px){
+  .main-grid{grid-template-columns:1fr;}
+  .code-panel{border-top:1px solid var(--border);}
+  .search-main{grid-template-columns:1fr;}
+  .search-right{border-top:1px solid var(--border);}
+}
+
+
+
+/* ══════════════ RACE ARENA ══════════════ */
+.srch-wrap { display:flex; flex-direction:column; min-height:calc(100vh - 52px); }
+.srch-hero { padding:1.1rem 2rem .8rem; border-bottom:1px solid var(--border); display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.srch-hero-title { font-family:var(--display); font-weight:800; font-size:1.3rem; line-height:1.1; }
+.srch-hero-title span { color:var(--lime); }
+.srch-hero-meta { font-size:.62rem; color:var(--muted); margin-top:.3rem; line-height:1.6; }
+.srch-controls { display:flex; align-items:center; gap:.65rem; flex-wrap:wrap; padding:.75rem 2rem; border-bottom:1px solid var(--border); background:var(--surface); }
+.srch-ctrl-group { display:flex; align-items:center; gap:.35rem; font-size:.62rem; color:var(--muted); }
+.srch-ctrl-group input[type=number] { width:65px; padding:.3rem .5rem; background:var(--s2); border:1px solid var(--border2); border-radius:4px; color:var(--cyan); font-family:var(--mono); font-size:.72rem; outline:none; text-align:center; }
+.srch-ctrl-group input[type=number]:focus { border-color:var(--lime); }
+.srch-size-btn { font-family:var(--mono); font-size:.62rem; font-weight:700; padding:.28rem .6rem; border-radius:4px; border:1px solid var(--border2); background:var(--s2); color:var(--muted); cursor:pointer; transition:all .15s; }
+.srch-size-btn:hover { color:var(--text); border-color:var(--border); }
+.srch-size-btn.active { color:var(--cyan); border-color:var(--cyan); background:var(--cyan-d); }
+
+/* race arena layout */
+.race-arena { display:grid; grid-template-columns:1fr 60px 1fr; flex:1; }
+.race-lane { display:flex; flex-direction:column; gap:.7rem; padding:1.25rem 1.5rem; }
+.rl-header { display:flex; align-items:center; justify-content:space-between; }
+.rl-name { font-family:var(--display); font-size:.82rem; font-weight:800; letter-spacing:.03em; }
+.lane-linear .rl-name { color:var(--cyan); }
+.lane-binary .rl-name { color:var(--lime); }
+.rl-badge { font-family:var(--mono); font-size:.6rem; font-weight:700; padding:.2rem .55rem; border-radius:3px; border:1px solid; }
+
+/* progress track */
+.rl-track-wrap { display:flex; flex-direction:column; gap:.2rem; }
+.rl-track { position:relative; height:18px; background:var(--s3); border:1px solid var(--border); border-radius:3px; overflow:visible; }
+.rl-fill { position:absolute; left:0; top:0; bottom:0; background:var(--cyan); border-radius:3px; transition:width .08s linear; opacity:.35; }
+.rl-fill-bin { background:var(--lime); }
+.rl-cursor { position:absolute; top:-4px; bottom:-4px; width:3px; background:var(--cyan); border-radius:2px; box-shadow:0 0 10px var(--cyan-g); transition:left .08s linear; transform:translateX(-50%); }
+.rl-cursor-bin { background:var(--lime); box-shadow:0 0 10px var(--lime-g); }
+.rl-track-labels { display:flex; justify-content:space-between; font-size:.55rem; color:var(--dim); }
+
+/* metrics grid */
+.rl-metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.4rem; }
+.rl-metric { background:var(--s3); border:1px solid var(--border); border-radius:4px; padding:.4rem .55rem; }
+.rlm-label { font-size:.52rem; color:var(--muted); letter-spacing:.07em; margin-bottom:2px; }
+.rlm-val { font-size:.85rem; font-weight:700; color:var(--text); font-family:var(--mono); }
+.rl-timer { font-size:.78rem; color:var(--amber); }
+.rl-timer-card { border-color:var(--amber-d); }
+
+/* array cells */
+.rl-array-wrap { display:flex; flex-wrap:wrap; gap:2px; }
+.srch-cell { min-width:22px; height:26px; border-radius:3px; border:1px solid var(--border2); background:var(--s2); display:flex; align-items:center; justify-content:center; font-size:.56rem; color:var(--muted); transition:all .12s; }
+.srch-cell.sc-check { background:var(--amber-d); border-color:var(--amber); color:var(--amber); box-shadow:0 0 5px rgba(255,204,0,.3); }
+.srch-cell.sc-found { background:var(--lime-d); border-color:var(--lime); color:var(--lime); box-shadow:0 0 12px var(--lime-g); transform:scale(1.2); z-index:2; position:relative; }
+.srch-cell.sc-skip { opacity:.15; }
+.srch-cell.sc-lo { border-color:var(--cyan); background:var(--cyan-d); color:var(--cyan); }
+.srch-cell.sc-hi { border-color:var(--rose); background:var(--rose-d); color:var(--rose); }
+.srch-cell.sc-mid { background:var(--amber-d); border-color:var(--amber); color:var(--amber); box-shadow:0 0 8px rgba(255,204,0,.4); }
+
+/* nosim */
+.rl-nosim { display:none; background:var(--s2); border:1px solid var(--border); border-radius:6px; padding:.65rem 1rem; font-size:.68rem; color:var(--muted); line-height:1.7; }
+.nosim-n { font-weight:700; color:var(--amber); margin-right:.3rem; }
+
+/* log */
+.rl-log { font-size:.65rem; color:var(--muted); background:var(--s3); border:1px solid var(--border); border-radius:4px; padding:.45rem .7rem; min-height:48px; line-height:1.65; }
+
+/* VS divider */
+.vs-divider { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:.5rem; gap:.5rem; border-left:1px solid var(--border); border-right:1px solid var(--border); background:var(--surface); }
+.vs-line { flex:1; width:1px; background:var(--border2); }
+.vs-badge { font-family:var(--display); font-size:.7rem; font-weight:800; color:var(--muted); padding:.3rem .2rem; }
+.vs-speed-compare { font-family:var(--mono); font-size:.58rem; color:var(--amber); text-align:center; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.05em; }
+
+/* comparison table */
+.cmp-table {
+  border-top:2px solid var(--border); padding:1.25rem 2rem 1.5rem; background:var(--surface);
+}
+.cmp-title {
+  font-family:var(--display); font-size:.8rem; font-weight:800; color:var(--text);
+  margin-bottom:.85rem; letter-spacing:.05em; display:flex; align-items:center; gap:.6rem;
+}
+.cmp-title::before { content:''; display:block; width:16px; height:2px; background:var(--amber); border-radius:1px; }
+.cmp-grid {
+  display:grid; grid-template-columns: 160px 1fr 1fr 1fr;
+  border-radius:8px; overflow:hidden; border:1px solid var(--border);
+  gap:0;
+}
+.cmp-row { display:contents; }
+.cmp-cell {
+  padding:.55rem .85rem; font-family:var(--mono); font-size:.7rem;
+  color:var(--muted); border-bottom:1px solid var(--border);
+  display:flex; align-items:center;
+}
+.cmp-cell:last-child { border-right:none; }
+.cmp-row:last-child .cmp-cell { border-bottom:none; }
+.cmp-header {
+  background:var(--s3); font-weight:700; font-size:.62rem;
+  letter-spacing:.08em; padding:.5rem .85rem;
+  border-bottom:2px solid var(--border);
+}
+.cmp-label {
+  background:var(--s2); font-size:.65rem; color:var(--text-muted,var(--text));
+  font-weight:700; border-right:1px solid var(--border);
+}
+.cmp-lin  { background:var(--surface); color:var(--cyan); font-weight:700; border-right:1px solid var(--border); }
+.cmp-bin  { background:var(--surface); color:var(--lime); font-weight:700; border-right:1px solid var(--border); }
+.cmp-speedup {
+  background:var(--amber-d); color:var(--amber); font-weight:700;
+  font-size:.72rem; letter-spacing:.02em;
+}
+.cmp-winner-cell { background:var(--lime-d); color:var(--lime); font-weight:700; font-size:.72rem; }
+
+/* winner flash */
+@keyframes winnerFlash { 0%,100%{} 30%{box-shadow:0 0 30px var(--lime-g);} }
+.race-lane.winner { animation:winnerFlash .6s 2; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ALGO<span>SCOPE</span></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showSection('search','search',this)">RECHERCHE TABLEAU</button>
+    <button class="tab" onclick="showSection('sort','bubble',this)">TRI BULLES</button>
+    <button class="tab" onclick="showSection('sort','insertion',this)">TRI INSERTION</button>
+    <button class="tab" onclick="showSection('sort','selection',this)">TRI SÉLECTION</button>
+    <button class="tab" onclick="showSection('sort','bogo',this)">BOGO TRI</button>
+    <button class="tab" onclick="showSection('sort','merge',this)">TRI FUSION</button>
+    <button class="tab" onclick="showSection('sort','quick',this)">TRI RAPIDE</button>
+  </div>
+  <div class="header-right">
+    <div class="badge">v2.0</div>
+  </div>
+</header>
+
+<!-- ═══════════════════ ARRAY SEARCH SECTION ═══════════════════ -->
+<div class="section active" id="sec-search">
+  <div class="srch-wrap">
+
+    <div class="srch-hero">
+      <div>
+        <div class="srch-hero-title">COURSE DE <span>RECHERCHE</span></div>
+        <div class="srch-hero-meta">Simulation en temps réel — regardez la recherche linéaire ramper pendant que la binaire se téléporte. Temps et instructions mis à jour en direct.</div>
+      </div>
+      <div class="complexity-chips">
+        <div class="chip" style="border-color:var(--cyan);color:var(--cyan);background:var(--cyan-d)">Linéaire O(n)</div>
+        <div class="chip" style="border-color:var(--lime);color:var(--lime);background:var(--lime-d)">Binaire O(log n)</div>
+      </div>
+    </div>
+
+    <div class="srch-controls">
+      <div class="srch-ctrl-group">
+        ARRAY SIZE
+        <button class="srch-size-btn active" onclick="srSetSize(100,this)">100</button>
+        <button class="srch-size-btn" onclick="srSetSize(1000,this)">1K</button>
+        <button class="srch-size-btn" onclick="srSetSize(10000,this)">10K</button>
+        <button class="srch-size-btn" onclick="srSetSize(100000,this)">100K</button>
+        <button class="srch-size-btn" onclick="srSetSize(1000000,this)">1M</button>
+      </div>
+      <div class="srch-ctrl-group">
+        TARGET
+        <input type="number" id="sr-target" value="42" min="1" max="999999" oninput="srUpdateTarget()">
+        <button class="ctrl-btn btn-ghost" onclick="srRandomTarget()" style="padding:.3rem .6rem;font-size:.6rem">ALÉATOIRE</button>
+      </div>
+      <div class="srch-ctrl-group">
+        GUARANTEE TARGET IN ARRAY?
+        <button class="ctrl-btn btn-lime" id="sr-guarantee-btn" onclick="srToggleGuarantee()">YES</button>
+      </div>
+      <button class="ctrl-btn btn-cyan" id="sr-run-btn" onclick="srRun()">▶ LANCER LA COURSE</button>
+      <button class="ctrl-btn btn-ghost" onclick="srNewArray()">NOUVEAU TABLEAU</button>
+    </div>
+
+    <!-- RACE ARENA -->
+    <div class="race-arena">
+
+      <!-- LINEAR LANE -->
+      <div class="race-lane lane-linear" id="rl-linear">
+        <div class="rl-header">
+          <div class="rl-name">RECHERCHE LINÉAIRE</div>
+          <div class="rl-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">O(n)</div>
+        </div>
+
+        <div class="rl-track-wrap">
+          <div class="rl-track">
+            <div class="rl-fill" id="rp-linear"></div>
+            <div class="rl-cursor" id="rc-linear"></div>
+          </div>
+          <div class="rl-track-labels">
+            <span>0</span><span id="rl-n-linear">n</span>
+          </div>
+        </div>
+
+        <div class="rl-metrics-grid">
+          <div class="rl-metric">
+            <div class="rlm-label">VÉRIFICATIONS</div>
+            <div class="rlm-val" id="rm-checks-linear">0</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">RESTANTES</div>
+            <div class="rlm-val" id="rm-left-linear">—</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">INSTRUCTIONS</div>
+            <div class="rlm-val" id="rm-inst-linear">0</div>
+          </div>
+          <div class="rl-metric rl-timer-card">
+            <div class="rlm-label">TEMPS ÉCOULÉ</div>
+            <div class="rlm-val rl-timer" id="rm-time-linear">0.000 ms</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">STATUT</div>
+            <div class="rlm-val" id="rm-status-linear" style="color:var(--muted)">waiting</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">VITESSE</div>
+            <div class="rlm-val" style="color:var(--cyan)" id="rm-speed-linear">—</div>
+          </div>
+        </div>
+
+        <div class="rl-array-wrap" id="sr-arr-linear"></div>
+        <div class="rl-nosim" id="sr-nosim-linear">
+          <span class="nosim-n" id="sr-nosim-n-linear"></span>
+          <span>éléments — animation désactivée au-delà de 100, calcul en temps réel</span>
+        </div>
+        <div class="rl-log" id="sr-log-linear">Ready.</div>
+      </div>
+
+      <!-- VS DIVIDER -->
+      <div class="vs-divider">
+        <div class="vs-line"></div>
+        <div class="vs-badge">VS</div>
+        <div class="vs-line"></div>
+        <div class="vs-speed-compare" id="vs-compare">—</div>
+      </div>
+
+      <!-- BINARY LANE -->
+      <div class="race-lane lane-binary" id="rl-binary">
+        <div class="rl-header">
+          <div class="rl-name">RECHERCHE BINAIRE</div>
+          <div class="rl-badge" style="color:var(--lime);border-color:var(--lime);background:var(--lime-d)">O(log n)</div>
+        </div>
+
+        <div class="rl-track-wrap">
+          <div class="rl-track">
+            <div class="rl-fill rl-fill-bin" id="rp-binary"></div>
+            <div class="rl-cursor rl-cursor-bin" id="rc-binary"></div>
+          </div>
+          <div class="rl-track-labels">
+            <span>0</span><span id="rl-n-binary">log n</span>
+          </div>
+        </div>
+
+        <div class="rl-metrics-grid">
+          <div class="rl-metric">
+            <div class="rlm-label">ÉTAPES</div>
+            <div class="rlm-val" id="rm-checks-binary">0</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">ÉTAPES MAX</div>
+            <div class="rlm-val" id="rm-left-binary">—</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">INSTRUCTIONS</div>
+            <div class="rlm-val" id="rm-inst-binary">0</div>
+          </div>
+          <div class="rl-metric rl-timer-card">
+            <div class="rlm-label">TEMPS ÉCOULÉ</div>
+            <div class="rlm-val rl-timer" id="rm-time-binary">0.000 ms</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">STATUT</div>
+            <div class="rlm-val" id="rm-status-binary" style="color:var(--muted)">waiting</div>
+          </div>
+          <div class="rl-metric">
+            <div class="rlm-label">FENÊTRE</div>
+            <div class="rlm-val" style="color:var(--lime)" id="rm-speed-binary">—</div>
+          </div>
+        </div>
+
+        <div class="rl-array-wrap" id="sr-arr-binary"></div>
+        <div class="rl-nosim" id="sr-nosim-binary">
+          <span class="nosim-n" id="sr-nosim-n-binary"></span>
+          <span>éléments triés — la recherche binaire nécessite seulement log₂(n) vérifications</span>
+        </div>
+        <div class="rl-log" id="sr-log-binary">Ready.</div>
+      </div>
+
+    </div>
+
+    <!-- COMPARISON TABLE -->
+    <div class="cmp-table" id="cmp-table" style="display:none">
+      <div class="cmp-title">RÉSULTATS DE LA COURSE</div>
+      <div class="cmp-grid">
+        <div class="cmp-cell cmp-header cmp-label">MÉTRIQUE</div>
+        <div class="cmp-cell cmp-header" style="color:var(--cyan)">LINÉAIRE</div>
+        <div class="cmp-cell cmp-header" style="color:var(--lime)">BINAIRE</div>
+        <div class="cmp-cell cmp-header" style="color:var(--amber)">ACCÉLÉRATION</div>
+        <div class="cmp-cell cmp-label">Vérifications</div>
+        <div class="cmp-cell cmp-lin" id="ct-checks-lin">—</div>
+        <div class="cmp-cell cmp-bin" id="ct-checks-bin">—</div>
+        <div class="cmp-cell cmp-speedup" id="ct-checks-ratio">—</div>
+        <div class="cmp-cell cmp-label">Instructions</div>
+        <div class="cmp-cell cmp-lin" id="ct-inst-lin">—</div>
+        <div class="cmp-cell cmp-bin" id="ct-inst-bin">—</div>
+        <div class="cmp-cell cmp-speedup" id="ct-inst-ratio">—</div>
+        <div class="cmp-cell cmp-label">Temps simulé</div>
+        <div class="cmp-cell cmp-lin" id="ct-time-lin">—</div>
+        <div class="cmp-cell cmp-bin" id="ct-time-bin">—</div>
+        <div class="cmp-cell cmp-speedup" id="ct-time-ratio">—</div>
+        <div class="cmp-cell cmp-label">Résultat</div>
+        <div class="cmp-cell cmp-lin" id="ct-res-lin">—</div>
+        <div class="cmp-cell cmp-bin" id="ct-res-bin">—</div>
+        <div class="cmp-cell cmp-winner-cell" id="ct-winner">—</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════ SORT SECTION ═══════════════════ -->
+<div class="section" id="sec-sort">
+
+  <div class="hero-band">
+    <div>
+      <div class="hero-title" id="sort-title"><span>BUBBLE</span> SORT</div>
+      <div class="hero-meta" id="sort-meta">Compare adjacent elements and swap if out of order. Repeat until sorted.</div>
+    </div>
+    <div class="complexity-chips" id="sort-chips">
+      <div class="chip best">Ω(n)</div>
+      <div class="chip avg">Θ(n²)</div>
+      <div class="chip worst">O(n²)</div>
+      <div class="chip space">Space O(1)</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="viz-panel">
+
+      <div class="controls">
+        <button class="ctrl-btn btn-cyan" id="sort-run-btn" onclick="sortRun()">▶ LANCER</button>
+        <button class="ctrl-btn btn-ghost" onclick="sortShuffle()">MÉLANGER</button>
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.62rem;color:var(--muted);">
+          SIZE <input type="range" min="10" max="60" value="32" id="sort-size" oninput="sortShuffle()" style="width:60px;accent-color:var(--cyan)">
+          <span id="sort-size-label">32</span>
+        </div>
+        <div class="speed-wrap">
+          SPEED <input type="range" min="20" max="580" value="300" id="sort-speed" style="width:60px;">
+          <span id="sort-speed-label">mid</span>
+        </div>
+      </div>
+
+      <div class="bar-arena" id="bar-arena"></div>
+
+      <div class="legend">
+        <div class="leg"><div class="leg-sq" style="background:#1a3040"></div>non trié</div>
+        <div class="leg"><div class="leg-sq" style="background:var(--amber)"></div>comparaison</div>
+        <div class="leg"><div class="leg-sq" style="background:var(--rose)"></div>échange</div>
+        <div class="leg"><div class="leg-sq" style="background:var(--lime)"></div>trié</div>
+        <div class="leg"><div class="leg-sq" style="background:var(--cyan)"></div>minimum</div>
+        <div class="leg"><div class="leg-sq" style="background:var(--purple)"></div>clé/pivot</div>
+      </div>
+
+      <div class="sort-stats">
+        <div class="stat-card"><div class="sc-label">COMPARAISONS</div><div class="sc-val" id="sc-cmp" style="color:var(--amber)">0</div></div>
+        <div class="stat-card"><div class="sc-label">ÉCHANGES</div><div class="sc-val" id="sc-swp" style="color:var(--rose)">0</div></div>
+        <div class="stat-card"><div class="sc-label">ÉCRITURES</div><div class="sc-val" id="sc-wrt" style="color:var(--cyan)">0</div></div>
+        <div class="stat-card"><div class="sc-label">PASSES</div><div class="sc-val" id="sc-pas" style="color:var(--lime)">0</div></div>
+      </div>
+
+    </div>
+
+    <div class="code-panel">
+      <div class="code-title"><div class="dot" style="background:var(--cyan)"></div>PSEUDO-CODE</div>
+      <pre id="sort-code"></pre>
+      <div class="code-title" style="margin-top:.5rem"><div class="dot" style="background:var(--amber)"></div>JOURNAL DES ÉTAPES</div>
+      <div class="step-log" id="sort-log">Appuyez sur LANCER pour démarrer.</div>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+// ══════════════════════════════════════════════
+//  SHARED STATE
+// ══════════════════════════════════════════════
+let currentSort = 'bubble';
+let sortTimer = null, sortRunning = false;
+let sortArr = [], sortSteps = [], sortStepIdx = 0;
+let sortCmps = 0, sortSwps = 0, sortWrts = 0, sortPasses = 0;
+
+// ══════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════
+function showSection(type, algo, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  
+  const targetBtn = btn || document.querySelector(`.tab[onclick*="'${algo}'"]`);
+  if(targetBtn) targetBtn.classList.add('active');
+
+  if(type==='search') {
+    document.getElementById('sec-search').classList.add('active');
+    initSearch();
+  } else if(type==='sort') {
+    document.getElementById('sec-sort').classList.add('active');
+    currentSort = algo;
+    applySortMeta(algo);
+    sortShuffle();
+  }
+}
+
+function handleHash() {
+  const hash = window.location.hash.substring(1);
+  if(!hash) return;
+  if(hash === 'search') {
+    showSection('search', 'search');
+  } else if(hash.startsWith('sort-')) {
+    const algo = hash.replace('sort-', '');
+    if(SORT_META[algo]) showSection('sort', algo);
+  }
+}
+window.addEventListener('hashchange', handleHash);
+window.addEventListener('DOMContentLoaded', () => {
+    handleHash();
+});
+
+// ══════════════════════════════════════════════
+//  SORT META
+// ══════════════════════════════════════════════
+const SORT_META = {
+  bubble:    { title:'TRI BULLES',     desc:'Compare les éléments adjacents et les échange s\'ils sont dans le mauvais ordre. Répète jusqu\'à ce qu\'aucun échange ne soit nécessaire.', chips:[['Ω(n)','best'],['Θ(n²)','avg'],['O(n²)','worst'],['O(1)','espace']] },
+  insertion: { title:'TRI INSERTION',  desc:'Construit la partie triée un élément à la fois en insérant chaque nouvel élément à sa position correcte.', chips:[['Ω(n)','best'],['Θ(n²)','avg'],['O(n²)','worst'],['O(1)','espace']] },
+  selection: { title:'TRI SÉLECTION',  desc:'Trouve le minimum dans la partie non triée et le place au début. Répète pour chaque position.', chips:[['Ω(n²)','best'],['Θ(n²)','avg'],['O(n²)','worst'],['O(1)','espace']] },
+  bogo:      { title:'BOGO TRI',        desc:"Mélange aléatoirement le tableau et vérifie s'il est trié. Répète jusqu'à réussir. L'algorithme le plus ridicule du monde — attendu O((n+1)!) essais.", chips:[['Ω(n)','best'],['Θ((n+1)!)','avg'],['O(∞)','worst'],['O(1)','espace']] },
+  quick:     { title:'TRI RAPIDE',      desc:'Choisit un pivot, partitionne les éléments en moins-que et plus-que, puis trie récursivement chaque partition. O(n log n) en moyenne — le plus rapide en pratique.', chips:[['Ω(n log n)','best'],['Θ(n log n)','avg'],['O(n²)','worst'],['O(log n)','espace']] },
+  merge:     { title:'TRI FUSION',      desc:'Divise le tableau en deux récursivement, puis fusionne les moitiés triées. Stable, O(n log n) garanti dans tous les cas.', chips:[['Ω(n log n)','best'],['Θ(n log n)','avg'],['O(n log n)','worst'],['O(n)','espace']] },
+};
+
+const SORT_CODE = {
+  bubble:`<span class="kw">function</span> <span class="fn">bubbleSort</span>(arr) {
+  <span class="kw">const</span> n = arr.length;
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i < n - <span class="nm">1</span>; i++) {
+    <span class="kw">let</span> swapped = <span class="nm">false</span>;
+    <span class="kw">for</span> (<span class="kw">let</span> j = <span class="nm">0</span>; j < n - i - <span class="nm">1</span>; j++) {
+      <span class="cm">// compare adjacent pair</span>
+      <span class="kw">if</span> (arr[j] > arr[j+<span class="nm">1</span>]) {
+        [arr[j], arr[j+<span class="nm">1</span>]] = [arr[j+<span class="nm">1</span>], arr[j]];
+        swapped = <span class="nm">true</span>;
+      }
+    }
+    <span class="kw">if</span> (!swapped) <span class="kw">break</span>; <span class="cm">// early exit</span>
+  }
+  <span class="kw">return</span> arr;
+}`,
+  insertion:`<span class="kw">function</span> <span class="fn">insertionSort</span>(arr) {
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">1</span>; i < arr.length; i++) {
+    <span class="kw">const</span> key = arr[i]; <span class="cm">// current element</span>
+    <span class="kw">let</span> j = i - <span class="nm">1</span>;
+    <span class="cm">// shift elements right to make room</span>
+    <span class="kw">while</span> (j >= <span class="nm">0</span> && arr[j] > key) {
+      arr[j + <span class="nm">1</span>] = arr[j];
+      j--;
+    }
+    arr[j + <span class="nm">1</span>] = key; <span class="cm">// insert</span>
+  }
+  <span class="kw">return</span> arr;
+}`,
+  selection:`<span class="kw">function</span> <span class="fn">selectionSort</span>(arr) {
+  <span class="kw">const</span> n = arr.length;
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i < n - <span class="nm">1</span>; i++) {
+    <span class="kw">let</span> minIdx = i;
+    <span class="cm">// find minimum in unsorted portion</span>
+    <span class="kw">for</span> (<span class="kw">let</span> j = i + <span class="nm">1</span>; j < n; j++) {
+      <span class="kw">if</span> (arr[j] < arr[minIdx]) {
+        minIdx = j; <span class="cm">// new minimum found</span>
+      }
+    }
+    <span class="cm">// swap min into position</span>
+    [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+  }
+  <span class="kw">return</span> arr;
+}`,
+  bogo:`<span class="kw">function</span> <span class="fn">isSorted</span>(arr) {
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i < arr.length - <span class="nm">1</span>; i++)
+    <span class="kw">if</span> (arr[i] > arr[i+<span class="nm">1</span>]) <span class="kw">return false</span>;
+  <span class="kw">return true</span>;
+}
+<span class="kw">function</span> <span class="fn">bogoSort</span>(arr) {
+  <span class="kw">let</span> attempts = <span class="nm">0</span>;
+  <span class="kw">while</span> (!<span class="fn">isSorted</span>(arr)) {
+    <span class="cm">// shuffle randomly — O(n)</span>
+    <span class="kw">for</span> (<span class="kw">let</span> i = arr.length-<span class="nm">1</span>; i > <span class="nm">0</span>; i--) {
+      <span class="kw">const</span> j = Math.<span class="fn">floor</span>(Math.<span class="fn">random</span>()*(i+<span class="nm">1</span>));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    attempts++;
+    <span class="cm">// check again — O(n) per attempt</span>
+  }
+  return arr; // expected (n+1)! attempts
+}
+`,
+  quick:`<span class="kw">function</span> <span class="fn">quickSort</span>(arr, lo, hi) {
+  <span class="kw">if</span> (lo >= hi) <span class="kw">return</span>;
+  <span class="cm">// partition: place pivot in correct spot</span>
+  <span class="kw">const</span> p = <span class="fn">partition</span>(arr, lo, hi);
+  <span class="fn">quickSort</span>(arr, lo, p - <span class="nm">1</span>);   <span class="cm">// left</span>
+  <span class="fn">quickSort</span>(arr, p + <span class="nm">1</span>, hi);  <span class="cm">// right</span>
+}
+<span class="kw">function</span> <span class="fn">partition</span>(arr, lo, hi) {
+  <span class="kw">const</span> pivot = arr[hi]; <span class="cm">// last = pivot</span>
+  <span class="kw">let</span> i = lo - <span class="nm">1</span>;
+  <span class="kw">for</span> (<span class="kw">let</span> j = lo; j < hi; j++) {
+    <span class="kw">if</span> (arr[j] <= pivot) {
+      [arr[++i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+  [arr[i+<span class="nm">1</span>], arr[hi]] = [arr[hi], arr[i+<span class="nm">1</span>]];
+  <span class="kw">return</span> i + <span class="nm">1</span>; <span class="cm">// pivot index</span>
+}`,
+  merge:`<span class="kw">function</span> <span class="fn">mergeSort</span>(arr) {
+  <span class="kw">if</span> (arr.length <= <span class="nm">1</span>) <span class="kw">return</span> arr;
+  <span class="kw">const</span> mid = Math.<span class="fn">floor</span>(arr.length / <span class="nm">2</span>);
+  <span class="cm">// divide: recurse on both halves</span>
+  <span class="kw">const</span> L = <span class="fn">mergeSort</span>(arr.<span class="fn">slice</span>(<span class="nm">0</span>, mid));
+  <span class="kw">const</span> R = <span class="fn">mergeSort</span>(arr.<span class="fn">slice</span>(mid));
+  <span class="cm">// conquer: merge sorted halves</span>
+  <span class="kw">return</span> <span class="fn">merge</span>(L, R);
+}
+<span class="kw">function</span> <span class="fn">merge</span>(L, R) {
+  <span class="kw">const</span> out = []; <span class="kw">let</span> i=<span class="nm">0</span>, j=<span class="nm">0</span>;
+  <span class="kw">while</span> (i<L.length && j<R.length)
+    out.<span class="fn">push</span>(L[i]<=R[j] ? L[i++] : R[j++]);
+  <span class="kw">return</span> out.<span class="fn">concat</span>(L.<span class="fn">slice</span>(i), R.<span class="fn">slice</span>(j));
+}`,
+};
+
+function applySortMeta(algo) {
+  const m = SORT_META[algo];
+  const titleParts = m.title.split(' ');
+  document.getElementById('sort-title').innerHTML = `<span>${titleParts[0]}</span> ${titleParts.slice(1).join(' ')}`;
+  document.getElementById('sort-meta').textContent = m.desc;
+  document.getElementById('sort-chips').innerHTML = m.chips.map(([v,c])=>`<div class="chip ${c}">${v}</div>`).join('');
+  document.getElementById('sort-code').innerHTML = SORT_CODE[algo];
+}
+
+// ══════════════════════════════════════════════
+//  SORT ENGINE
+// ══════════════════════════════════════════════
+function sortShuffle() {
+  if(sortTimer){clearTimeout(sortTimer);sortTimer=null;}
+  sortRunning=false;
+  document.getElementById('sort-run-btn').textContent='▶ LANCER';
+  const n = +document.getElementById('sort-size').value;
+  document.getElementById('sort-size-label').textContent=n;
+  sortArr = Array.from({length:n},()=>Math.floor(Math.random()*92)+8);
+  sortCmps=0;sortSwps=0;sortWrts=0;sortPasses=0;
+  updateSortStats();
+  renderBars(sortArr,[],[],[]);
+  document.getElementById('sort-log').textContent='Appuyez sur LANCER pour démarrer l\'algorithme.';
+}
+
+function sortRun() {
+  if(sortRunning){ clearTimeout(sortTimer);sortTimer=null;sortRunning=false;document.getElementById('sort-run-btn').textContent='▶ LANCER';return;}
+  sortCmps=0;sortSwps=0;sortWrts=0;sortPasses=0;
+  sortSteps = generateSortSteps(currentSort, [...sortArr]);
+  sortStepIdx=0;sortRunning=true;
+  document.getElementById('sort-run-btn').textContent='⏸ PAUSE';
+  playStep();
+}
+
+function playStep(){
+  if(!sortRunning||sortStepIdx>=sortSteps.length){
+    sortRunning=false;
+    document.getElementById('sort-run-btn').textContent='▶ LANCER';
+    if(sortStepIdx>=sortSteps.length&&sortSteps.length>0){
+      const last=sortSteps[sortSteps.length-1];
+      const all=Array.from({length:last.arr.length},(_,i)=>i);
+      renderBars(last.arr,[],[],all);
+      sortLog(`✓ TERMINÉ — ${sortCmps} comparaisons, ${sortSwps} échanges, ${sortWrts} écritures`,'');
+    }
+    return;
+  }
+  const s=sortSteps[sortStepIdx++];
+  sortCmps=s.cmps;sortSwps=s.swps;sortWrts=s.wrts;sortPasses=s.passes||0;
+  updateSortStats();
+  renderBars(s.arr,s.cmp||[],s.swp||[],s.sorted||[],s.min,s.key);
+  const spd=+document.getElementById('sort-speed').value;
+  const lbl=spd<150?'slow':spd<400?'mid':'fast';
+  document.getElementById('sort-speed-label').textContent=lbl;
+  const delay=Math.round(620-spd);
+  sortLog(s.msg||'','');
+  sortTimer=setTimeout(playStep,delay);
+}
+
+function sortLog(msg){document.getElementById('sort-log').textContent=msg;}
+function updateSortStats(){
+  document.getElementById('sc-cmp').textContent=sortCmps;
+  document.getElementById('sc-swp').textContent=sortSwps;
+  document.getElementById('sc-wrt').textContent=sortWrts;
+  document.getElementById('sc-pas').textContent=sortPasses;
+}
+function renderBars(arr,cmp,swp,sorted,minI,keyI){
+  const mx=Math.max(...arr);
+  document.getElementById('bar-arena').innerHTML=arr.map((v,i)=>{
+    let cls='sbar def';
+    if(sorted.includes(i)) cls='sbar sorted';
+    if(i===minI) cls='sbar min';
+    if(i===keyI) cls='sbar pivot';
+    if(cmp.includes(i)) cls='sbar cmp';
+    if(swp.includes(i)) cls='sbar swap';
+    return `<div class="${cls}" style="height:${Math.max(4,Math.round(v/mx*100))}%" title="${v}"></div>`;
+  }).join('');
+}
+
+function generateSortSteps(algo,arr){
+  const steps=[],n=arr.length;
+  let cmps=0,swps=0,wrts=0,passes=0,sorted=[];
+  if(algo==='bubble'){
+    for(let i=0;i<n-1;i++){
+      passes++;let swapped=false;
+      for(let j=0;j<n-i-1;j++){
+        cmps++;
+        steps.push({arr:[...arr],cmp:[j,j+1],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`Passe ${passes}: compare arr[${j}]=${arr[j]} et arr[${j+1}]=${arr[j+1]}`});
+        if(arr[j]>arr[j+1]){[arr[j],arr[j+1]]=[arr[j+1],arr[j]];swps++;wrts+=2;swapped=true;steps.push({arr:[...arr],cmp:[],swp:[j,j+1],sorted:[...sorted],cmps,swps,wrts,passes,msg:`  → ÉCHANGE arr[${j}] ↔ arr[${j+1}]`});}
+      }
+      sorted=[...sorted,n-1-i];
+      steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`Passe ${passes} terminée. arr[${n-1-i}]=${arr[n-1-i]} est en position finale.`});
+      if(!swapped)break;
+    }
+    if(!Array.from({length:n},(_,i)=>i).every(i=>sorted.includes(i)))sorted=[...Array(n).keys()];
+  }
+  else if(algo==='selection'){
+    for(let i=0;i<n-1;i++){
+      passes++;let minIdx=i;
+      steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],min:minIdx,cmps,swps,wrts,passes,msg:`Passe ${passes}: cherche le min dans [${i}..${n-1}]`});
+      for(let j=i+1;j<n;j++){
+        cmps++;
+        steps.push({arr:[...arr],cmp:[j,minIdx],swp:[],sorted:[...sorted],min:minIdx,cmps,swps,wrts,passes,msg:`  compare arr[${j}]=${arr[j]} avec min actuel arr[${minIdx}]=${arr[minIdx]}`});
+        if(arr[j]<arr[minIdx]){minIdx=j;steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],min:minIdx,cmps,swps,wrts,passes,msg:`  → nouveau min trouvé : arr[${minIdx}]=${arr[minIdx]}`});}
+      }
+      [arr[i],arr[minIdx]]=[arr[minIdx],arr[i]];swps++;wrts+=2;
+      sorted=[...sorted,i];
+      steps.push({arr:[...arr],cmp:[],swp:[i,minIdx],sorted:[...sorted],cmps,swps,wrts,passes,msg:`Échange min arr[${minIdx}]=${arr[i]} → position ${i}`});
+    }
+    sorted=[...Array(n).keys()];
+  }
+  else if(algo==='insertion'){
+    sorted=[0];
+    steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],key:0,cmps,swps,wrts,passes,msg:'Début : arr[0] est trivialement trié.'});
+    for(let i=1;i<n;i++){
+      passes++;const key=arr[i];let j=i-1;
+      steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],key:i,cmps,swps,wrts,passes,msg:`Passe ${passes}: clé = arr[${i}] = ${key}`});
+      while(j>=0){
+        cmps++;
+        steps.push({arr:[...arr],cmp:[j,j+1],swp:[],sorted:[...sorted],key:j+1,cmps,swps,wrts,passes,msg:`  compare clé=${key} avec arr[${j}]=${arr[j]}`});
+        if(arr[j]>key){arr[j+1]=arr[j];wrts++;j--;steps.push({arr:[...arr],cmp:[],swp:[j+1,j+2],sorted:[...sorted],key:j+1,cmps,swps,wrts,passes,msg:`  → décale arr[${j+1}] vers la droite`});}
+        else break;
+      }
+      arr[j+1]=key;wrts++;
+      sorted=[...sorted,i].sort((a,b)=>a-b);
+      steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`Inséré ${key} à la position ${j+1}`});
+    }
+    sorted=[...Array(n).keys()];
+  }
+  else if(algo==='bogo'){
+    // cap at 12 elements for bogo — it gets VERY slow
+    const BOGO_CAP = Math.min(n, 9);
+    const bogoArr = arr.slice(0, BOGO_CAP);
+    const bogoN = bogoArr.length;
+    let attempts=0;
+    function isSorted(a){ for(let i=0;i<a.length-1;i++) if(a[i]>a[i+1]) return false; return true; }
+    function shuffle(a){
+      for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; swps++; wrts+=2; }
+    }
+    steps.push({arr:[...bogoArr],cmp:[],swp:[],sorted:[],cmps,swps,wrts,passes,msg:`Bogo Tri — tableau de ${bogoN} éléments. Vérification du tri...`});
+    let safetyLimit = 2000;
+    while(!isSorted(bogoArr) && safetyLimit-- > 0){
+      attempts++; passes++;
+      // check step
+      for(let i=0;i<bogoN-1;i++){
+        cmps++;
+        const outOfOrder = bogoArr[i]>bogoArr[i+1];
+        steps.push({arr:[...bogoArr],cmp:[i,i+1],swp:[],sorted:[],cmps,swps,wrts,passes,msg:`Essai ${attempts}: vérifie arr[${i}]=${bogoArr[i]} ≤ arr[${i+1}]=${bogoArr[i+1]}? ${outOfOrder?'NON — pas trié !':'ok...'}`});
+        if(outOfOrder) break;
+      }
+      shuffle(bogoArr);
+      steps.push({arr:[...bogoArr],cmp:[],swp:Array.from({length:bogoN},(_,i)=>i),sorted:[],cmps,swps,wrts,passes,msg:`Essai ${attempts}: PAS trié → mélangé aléatoirement ! On réessaie...`});
+    }
+      if(isSorted(bogoArr)){
+        sorted=[...Array(bogoN).keys()];
+        steps.push({arr:[...bogoArr],cmp:[],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`✓ TRIÉ après ${attempts} mélange(s) ! Attendu ~${Math.round(Array.from({length:bogoN+1},(_,i)=>i).reduce((a,b)=>a*Math.max(b,1),1))} en moyenne.`});
+      }
+    }
+  else if(algo==='quick'){
+    function qPartition(a, lo, hi){
+      const pivot=a[hi]; let i=lo-1;
+      steps.push({arr:[...a],cmp:[],swp:[],sorted:[...sorted],key:hi,cmps,swps,wrts,passes,msg:`Partition [${lo}..${hi}] : pivot=${pivot}`});
+      for(let j=lo;j<hi;j++){
+        cmps++;
+        steps.push({arr:[...a],cmp:[j,hi],swp:[],sorted:[...sorted],key:hi,cmps,swps,wrts,passes,msg:`  compare arr[${j}]=${a[j]} vs pivot=${pivot}`});
+        if(a[j]<=pivot){ i++;[a[i],a[j]]=[a[j],a[i]];swps++;wrts+=2;steps.push({arr:[...a],cmp:[],swp:[i,j],sorted:[...sorted],key:hi,cmps,swps,wrts,passes,msg:`  → échange arr[${i}]=${a[i]} ↔ arr[${j}]=${a[j]}`}); }
+      }
+      [a[i+1],a[hi]]=[a[hi],a[i+1]];swps++;wrts+=2;
+      sorted=[...sorted,i+1].sort((a,b)=>a-b);
+      steps.push({arr:[...a],cmp:[],swp:[i+1,hi],sorted:[...sorted],key:i+1,cmps,swps,wrts,passes,msg:`Pivot ${pivot} placé à l'index ${i+1}`});
+      return i+1;
+    }
+    function qSort(a,lo,hi){
+      if(lo>=hi){ if(lo===hi&&!sorted.includes(lo)){sorted=[...sorted,lo].sort((x,y)=>x-y);} return; }
+      passes++;
+      const p=qPartition(a,lo,hi);
+      qSort(a,lo,p-1);
+      qSort(a,p+1,hi);
+    }
+    qSort(arr,0,n-1);
+    sorted=[...Array(n).keys()];
+    steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`✓ Tri rapide terminé — ${passes} partitions, ${cmps} comparaisons, ${swps} échanges`});
+  }
+    else if(algo==='merge'){
+    // iterative merge sort to record steps
+    function mergeSteps(a, left, right){
+      if(right-left<=1) return;
+      const mid=Math.floor((left+right)/2);
+      mergeSteps(a,left,mid);
+      mergeSteps(a,mid,right);
+      // merge phase
+      passes++;
+      const L=a.slice(left,mid), R=a.slice(mid,right);
+      steps.push({arr:[...a],cmp:Array.from({length:right-left},(_,k)=>left+k),swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`Fusion sous-tableaux [${left}..${mid-1}] et [${mid}..${right-1}]`});
+      let i=0,j=0,k=left;
+      while(i<L.length&&j<R.length){
+        cmps++;
+        steps.push({arr:[...a],cmp:[left+i,mid+j],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`  compare G[${i}]=${L[i]} vs D[${j}]=${R[j]}`});
+        if(L[i]<=R[j]){a[k++]=L[i++];}else{a[k++]=R[j++];}
+        wrts++;
+        steps.push({arr:[...a],cmp:[],swp:[k-1],sorted:[...sorted],cmps,swps,wrts,passes,msg:`  → placé ${a[k-1]} à l'index ${k-1}`});
+      }
+      while(i<L.length){a[k++]=L[i++];wrts++;}
+      while(j<R.length){a[k++]=R[j++];wrts++;}
+      // mark sorted portion
+      for(let x=left;x<right;x++) if(!sorted.includes(x)) sorted.push(x);
+      sorted.sort((a,b)=>a-b);
+      steps.push({arr:[...a],cmp:[],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`  Fusion [${left}..${right-1}] terminée`});
+    }
+    mergeSteps(arr,0,n);
+    sorted=[...Array(n).keys()];
+    steps.push({arr:[...arr],cmp:[],swp:[],sorted:[...sorted],cmps,swps,wrts,passes,msg:`✓ Tri fusion terminé — ${passes} fusions, O(n log n) garanti`});
+  }
+  return steps;
+}
+
+
+// ══════════════════════════════════════════════
+//  ARRAY SEARCH RACE
+// ══════════════════════════════════════════════
+const SIM_THRESHOLD = 100;
+let srCurrentSize = 100;
+let srArr = [], srSorted = [];
+let srTarget = 42, srGuarantee = true;
+let srRunning = false;
+let srTimers = { linear: null, binary: null, clock: null, linClock: null };
+
+// ── Formatting helpers ──
+function fmtNum(n){ return n.toLocaleString(); }
+function fmtTime(ms){
+  if(ms < 0.001)  return '<0.001 ms';
+  if(ms < 1)      return ms.toFixed(3)+' ms';
+  if(ms < 1000)   return ms.toFixed(2)+' ms';
+  return (ms/1000).toFixed(3)+' s';
+}
+
+// ── Config ──
+function srSetSize(n, btn){
+  srCurrentSize=n;
+  document.querySelectorAll('.srch-size-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  srNewArray();
+}
+function srUpdateTarget(){
+  srTarget = +document.getElementById('sr-target').value || 42;
+  srNewArray();
+}
+function srRandomTarget(){
+  const max = Math.max(srCurrentSize*3, 1000);
+  const v = Math.floor(Math.random()*max)+1;
+  document.getElementById('sr-target').value = v;
+  srTarget = v;
+  srNewArray();
+}
+function srToggleGuarantee(){
+  srGuarantee = !srGuarantee;
+  const btn = document.getElementById('sr-guarantee-btn');
+  btn.textContent = srGuarantee?'YES':'NO';
+  btn.className   = srGuarantee?'ctrl-btn btn-lime':'ctrl-btn btn-ghost';
+  srNewArray();
+}
+
+function srBuildArrays(){
+  const n=srCurrentSize, maxVal=Math.max(n*3,1000);
+  const used=new Set();
+  srArr=new Array(n);
+  for(let i=0;i<n;i++){
+    let v; do{ v=Math.floor(Math.random()*maxVal)+1; }while(used.has(v));
+    used.add(v); srArr[i]=v;
+  }
+  if(srGuarantee) srArr[Math.floor(Math.random()*n)]=srTarget;
+  srSorted=[...srArr].sort((a,b)=>a-b);
+}
+
+function srStopAll(){
+  Object.values(srTimers).forEach(t=>{ if(t) clearTimeout(t); });
+  srTimers={linear:null,binary:null,clock:null,linClock:null};
+  srRunning=false;
+}
+
+function srNewArray(){
+  srStopAll();
+  srBuildArrays();
+  const big = srCurrentSize>SIM_THRESHOLD;
+  const logN = Math.ceil(Math.log2(srCurrentSize+1));
+  ['linear','binary'].forEach(k=>{
+    document.getElementById(`rp-${k}`).style.width='0%';
+    document.getElementById(`rc-${k}`).style.left='0%';
+    document.getElementById(`rm-checks-${k}`).textContent='0';
+    document.getElementById(`rm-left-${k}`).textContent = k==='linear'?fmtNum(srCurrentSize):logN;
+    document.getElementById(`rm-inst-${k}`).textContent='0';
+    document.getElementById(`rm-time-${k}`).textContent='0.000 ms';
+    document.getElementById(`rm-time-${k}`).style.color='var(--amber)';
+    document.getElementById(`rm-status-${k}`).textContent='en attente';
+    document.getElementById(`rm-status-${k}`).style.color='var(--muted)';
+    document.getElementById(`rm-speed-${k}`).textContent='—';
+    document.getElementById(`sr-log-${k}`).textContent='Prêt — appuyez sur LANCER LA COURSE';
+    document.getElementById(`rl-${k}`).classList.remove('winner');
+    document.getElementById(`rl-n-${k}`).textContent = k==='linear'?fmtNum(srCurrentSize):`log₂(${fmtNum(srCurrentSize)})=${logN}`;
+  });
+  document.getElementById('vs-compare').textContent='—';
+  document.getElementById('sr-run-btn').textContent='▶ LANCER LA COURSE';
+  document.getElementById('cmp-table').style.display='none';
+
+  // Show/hide array vs nosim
+  document.getElementById('sr-arr-linear').style.display = big?'none':'flex';
+  document.getElementById('sr-nosim-linear').style.display = big?'flex':'none';
+  document.getElementById('sr-arr-binary').style.display = big?'none':'flex';
+  document.getElementById('sr-nosim-binary').style.display = big?'flex':'none';
+  if(big){
+    document.getElementById('sr-nosim-n-linear').textContent = fmtNum(srCurrentSize);
+    document.getElementById('sr-nosim-n-binary').textContent = fmtNum(srCurrentSize)+' (sorted)';
+  } else {
+    renderCells('sr-arr-linear', srArr, {});
+    renderCells('sr-arr-binary', srSorted, {});
+  }
+}
+
+function renderCells(id, arr, states){
+  document.getElementById(id).innerHTML = arr.map((v,i)=>{
+    const cls=states[i]||'';
+    return `<div class="srch-cell ${cls}">${v}</div>`;
+  }).join('');
+}
+
+// ── MAIN RUN ──
+function srRun(){
+  if(srRunning){ srStopAll(); document.getElementById('sr-run-btn').textContent='▶ LANCER LA COURSE'; return; }
+  srStopAll();
+  doneResults={};
+  srBuildArrays();
+  srRunning=true;
+  document.getElementById('sr-run-btn').textContent='⏸ ARRÊTER';
+  document.getElementById('cmp-table').style.display='none';
+
+  // Pre-compute what WILL happen (so we know total steps for realistic simulation)
+  const linResult  = computeLinear(srArr, srTarget);
+  const binResult  = computeBinary(srSorted, srTarget);
+
+  // Run both simulations simultaneously
+  simulateLinear(linResult);
+  simulateBinary(binResult);
+}
+
+// ── Pre-compute (instant, no display) ──
+function computeLinear(arr, target){
+  let steps=[], found=false, foundIdx=-1;
+  for(let i=0;i<arr.length;i++){
+    steps.push({i, val:arr[i], match: arr[i]===target});
+    if(arr[i]===target){ found=true; foundIdx=i; break; }
+  }
+  return { steps, found, foundIdx, totalChecks: steps.length, n: arr.length, inst: steps.length*3+(found?1:0) };
+}
+function computeBinary(arr, target){
+  let steps=[], lo=0, hi=arr.length-1, found=false, foundIdx=-1;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    steps.push({lo,hi,mid,val:arr[mid],match:arr[mid]===target,dir:arr[mid]<target?'right':'left'});
+    if(arr[mid]===target){ found=true; foundIdx=mid; break; }
+    if(arr[mid]<target) lo=mid+1; else hi=mid-1;
+  }
+  return { steps, found, foundIdx, totalChecks: steps.length, n: arr.length,
+           maxSteps: Math.ceil(Math.log2(arr.length+1)), inst: steps.length*4+(found?1:0) };
+}
+
+// ── SIMULATION ENGINE ──
+// Each "step" is spaced by stepDelay ms so the race plays out in real time.
+// Binary finishes in log2(n) steps, linear in up to n steps — the time difference is dramatic.
+function getStepDelay(){
+  // Base delay
+  return 18;
+}
+
+function simulateLinear(res){
+  const { steps, found, foundIdx, totalChecks, n, inst } = res;
+  const big = n > SIM_THRESHOLD;
+  const delay = getStepDelay();
+
+  let stepI=0;
+  let animStart = performance.now();
+  
+  // Animation duration purely visual: 2 seconds for 1M items
+  const SIM_DUR = Math.min(n * 2, 2000); 
+
+  function tickClock(){
+    if(!srRunning) return;
+    const el=document.getElementById('rm-time-linear');
+    const now = performance.now();
+    let elapsed = now - animStart;
+    
+    // Cap visual timer to target duration if not found to "animate" linear progression
+    if(big && !found && stepI < steps.length && elapsed < SIM_DUR) {
+         // artificial ticking
+         el.textContent = fmtTime(elapsed);
+    } else if(!big) {
+         el.textContent = fmtTime(elapsed);
+    }
+    
+    el.style.color = elapsed<50?'var(--amber)':elapsed<500?'var(--rose)':'var(--rose)';
+    if(stepI<steps.length) srTimers.linClock=requestAnimationFrame(tickClock);
+  }
+  if(!big) srTimers.linClock=requestAnimationFrame(tickClock);
+
+  function step(){
+    if(!srRunning) return;
+    const now = performance.now();
+    const elapsedAnim = now - animStart;
+    
+    if(stepI >= steps.length) {
+      finishLinear(res, Math.max(0, performance.now() - animStart));
+      return;
+    }
+
+    if (big) {
+      // Background animation based on time for large arrays
+      let pct = Math.min(100, (elapsedAnim / SIM_DUR) * 100);
+      let checks = Math.floor((pct/100) * totalChecks);
+      
+      if(elapsedAnim >= SIM_DUR || checks >= totalChecks) {
+          stepI = steps.length;
+          finishLinear(res, SIM_DUR);
+          return;
+      }
+
+      document.getElementById('rp-linear').style.width=pct+'%';
+      document.getElementById('rc-linear').style.left=pct+'%';
+      document.getElementById('rm-checks-linear').textContent=fmtNum(checks);
+      document.getElementById('rm-left-linear').textContent=fmtNum(n - checks);
+      document.getElementById('rm-inst-linear').textContent=fmtNum(checks*3);
+      document.getElementById('rm-status-linear').textContent='en cours...';
+      document.getElementById('rm-status-linear').style.color='var(--amber)';
+      
+      // Update real JS execution time in timer card directly for big arrays
+      document.getElementById('rm-time-linear').textContent=fmtTime(elapsedAnim);
+      
+      srTimers.linear=requestAnimationFrame(step);
+    } else {
+      // Normal step-by-step for small arrays
+      const s=steps[stepI];
+      const pct=Math.round((stepI+1)/n*100);
+      document.getElementById('rp-linear').style.width=pct+'%';
+      document.getElementById('rc-linear').style.left=pct+'%';
+      document.getElementById('rm-checks-linear').textContent=fmtNum(stepI+1);
+      document.getElementById('rm-left-linear').textContent=fmtNum(n-stepI-1);
+      document.getElementById('rm-inst-linear').textContent=fmtNum((stepI+1)*3);
+      document.getElementById('rm-status-linear').textContent='en cours...';
+      document.getElementById('rm-status-linear').style.color='var(--amber)';
+      srLog('linear',`Vérifie [${s.i}]: ${s.val} ${s.match?'=== '+srTarget+' ✓ TROUVÉ !':'≠ '+srTarget+', suivant...'}`);
+      
+      const states={};
+      for(let k=0;k<s.i;k++) states[k]='sc-skip';
+      states[s.i]='sc-check';
+      renderCells('sr-arr-linear', srArr, states);
+
+      stepI++;
+      srTimers.linear=setTimeout(step, delay);
+    }
+  }
+
+  animStart = performance.now();
+  step();
+}
+
+function finishLinear(res, displayTime) {
+  const { steps, found, foundIdx, totalChecks, n, inst } = res;
+  const big = n > SIM_THRESHOLD;
+  const realElapsed = displayTime;
+
+  if(!big){
+    const finalStates={};
+    steps.forEach((_,k)=>finalStates[k]='sc-skip');
+    if(found) finalStates[foundIdx]='sc-found';
+    renderCells('sr-arr-linear', srArr, finalStates);
+  }
+  document.getElementById('rp-linear').style.width='100%';
+  document.getElementById('rc-linear').style.left='100%';
+  document.getElementById('rm-checks-linear').textContent=fmtNum(totalChecks);
+  document.getElementById('rm-left-linear').textContent='0';
+  document.getElementById('rm-inst-linear').textContent=fmtNum(inst);
+  document.getElementById('rm-time-linear').textContent=fmtTime(realElapsed);
+  document.getElementById('rm-time-linear').style.color=found?'var(--lime)':'var(--rose)';
+  document.getElementById('rm-status-linear').textContent=found?`✓ FOUND at [${foundIdx}]`:`✗ NOT FOUND`;
+  document.getElementById('rm-status-linear').style.color=found?'var(--lime)':'var(--rose)';
+  document.getElementById('rm-speed-linear').textContent=`${fmtNum(Math.round(totalChecks/(realElapsed||0.001)*1000))}/s`;
+  srLog('linear', found
+    ? `✓ Trouvé ${srTarget} à l'index ${foundIdx} après ${fmtNum(totalChecks)} vérification${totalChecks>1?'s':''}. Durée de la sim. : ${fmtTime(realElapsed)}.`
+    : `✗ Non trouvé — parcouru ${fmtNum(n)} éléments. Durée de la sim. : ${fmtTime(realElapsed)}.`);
+  
+  if (srTimers.linClock) cancelAnimationFrame(srTimers.linClock);
+  checkBothDone('linear', found, totalChecks, inst, realElapsed, foundIdx);
+}
+
+function simulateBinary(res){
+  const { steps, found, foundIdx, totalChecks, n, inst, maxSteps } = res;
+  const big = n > SIM_THRESHOLD;
+  const delay = big ? 60 : getStepDelay(); // slightly slower ticks for big arrays so we can see it
+  let stepI=0;
+  let animStart=performance.now();
+
+  function tickClock(){
+    if(!srRunning) return;
+    const el=document.getElementById('rm-time-binary');
+    const elapsed=performance.now()-animStart;
+    el.textContent=fmtTime(elapsed);
+    if(stepI<steps.length) srTimers.clock = requestAnimationFrame(tickClock);
+  }
+  srTimers.clock = requestAnimationFrame(tickClock);
+
+  function step(){
+    if(!srRunning) return;
+    if(stepI >= steps.length){
+      const elapsed = performance.now()-animStart;
+      if(!big){
+        const finalStates={};
+        srSorted.forEach((_,k)=>finalStates[k]='sc-skip');
+        if(found) finalStates[foundIdx]='sc-found';
+        renderCells('sr-arr-binary', srSorted, finalStates);
+      }
+      document.getElementById('rp-binary').style.width='100%';
+      document.getElementById('rc-binary').style.left='100%';
+      document.getElementById('rm-checks-binary').textContent=fmtNum(totalChecks);
+      document.getElementById('rm-left-binary').textContent='0';
+      document.getElementById('rm-inst-binary').textContent=fmtNum(inst);
+      document.getElementById('rm-time-binary').textContent=fmtTime(elapsed);
+      document.getElementById('rm-time-binary').style.color=found?'var(--lime)':'var(--rose)';
+      document.getElementById('rm-status-binary').textContent=found?`✓ FOUND at sorted[${foundIdx}]`:`✗ NOT FOUND`;
+      document.getElementById('rm-status-binary').style.color=found?'var(--lime)':'var(--rose)';
+      document.getElementById('rm-speed-binary').textContent=`[0..${fmtNum(n-1)}] → done`;
+      srLog('binary', found
+        ? `✓ Trouvé ${srTarget} à l'index trié ${foundIdx} en seulement ${totalChecks} étape${totalChecks>1?'s':''} ! Durée : ${fmtTime(elapsed)}.`
+        : `✗ Non trouvé — épuisé après ${totalChecks} étape${totalChecks>1?'s':''}. Durée : ${fmtTime(elapsed)}.`);
+      
+      if (srTimers.clock) cancelAnimationFrame(srTimers.clock);
+      checkBothDone('binary', found, totalChecks, inst, elapsed, foundIdx);
+      return;
+    }
+
+    const s=steps[stepI];
+    const pct=Math.round((stepI+1)/maxSteps*100);
+    document.getElementById('rp-binary').style.width=Math.min(pct,95)+'%';
+    document.getElementById('rc-binary').style.left=Math.min(pct,95)+'%';
+    document.getElementById('rm-checks-binary').textContent=fmtNum(stepI+1);
+    document.getElementById('rm-left-binary').textContent=fmtNum(maxSteps-stepI-1);
+    document.getElementById('rm-inst-binary').textContent=fmtNum((stepI+1)*4);
+    document.getElementById('rm-speed-binary').textContent=`[${s.lo}..${s.hi}] mid=${s.mid}`;
+    document.getElementById('rm-status-binary').textContent='en cours...';
+    document.getElementById('rm-status-binary').style.color='var(--lime)';
+    srLog('binary',`Step ${stepI+1}: mid=${s.mid} → ${s.val} ${s.match?'=== '+srTarget+' ✓':s.val<srTarget?'< '+srTarget+' → right':'> '+srTarget+' → left'}`);
+    
+    if(!big){
+        const states={};
+        for(let k=0;k<s.lo;k++) states[k]='sc-skip';
+        for(let k=s.hi+1;k<n;k++) states[k]='sc-skip';
+        states[s.lo]='sc-lo'; states[s.hi]='sc-hi'; states[s.mid]='sc-mid';
+        renderCells('sr-arr-binary', srSorted, states);
+    }
+
+    stepI++;
+    srTimers.binary=setTimeout(step, delay);
+  }
+
+  animStart = performance.now();
+  step();
+}
+
+// ── Done handler ──
+let doneResults = {};
+function checkBothDone(lane, found, checks, inst, elapsed, idx){
+  doneResults[lane]={found,checks,inst,elapsed,idx};
+  if(doneResults.linear && doneResults.binary){
+    srRunning=false;
+    document.getElementById('sr-run-btn').textContent='▶ RELANCER';
+    showComparisonTable();
+  }
+}
+
+function showComparisonTable(){
+  const L=doneResults.linear, B=doneResults.binary;
+  const n=srCurrentSize;
+
+  const checksRatio = L.checks>0&&B.checks>0 ? (L.checks/B.checks).toFixed(1)+'×' : '—';
+  const instRatio   = L.inst>0&&B.inst>0 ? (L.inst/B.inst).toFixed(1)+'×' : '—';
+  const timeRatio   = L.elapsed>0&&B.elapsed>0 ? (L.elapsed/B.elapsed).toFixed(1)+'×' : '—';
+
+  document.getElementById('ct-checks-lin').textContent = fmtNum(L.checks);
+  document.getElementById('ct-checks-bin').textContent = fmtNum(B.checks);
+  document.getElementById('ct-checks-ratio').textContent = checksRatio+' plus rapide';
+  document.getElementById('ct-inst-lin').textContent = fmtNum(L.inst);
+  document.getElementById('ct-inst-bin').textContent = fmtNum(B.inst);
+  document.getElementById('ct-inst-ratio').textContent = instRatio+' de moins';
+  document.getElementById('ct-time-lin').textContent = fmtTime(L.elapsed);
+  document.getElementById('ct-time-bin').textContent = fmtTime(B.elapsed);
+  document.getElementById('ct-time-ratio').textContent = timeRatio+' plus rapide';
+  document.getElementById('ct-res-lin').textContent = L.found?`Trouvé @ [${L.idx}]`:'Not found';
+  document.getElementById('ct-res-bin').textContent = B.found?`Trouvé @ trié[${B.idx}]`:'Not found';
+
+  const winner = B.elapsed <= L.elapsed ? 'binary' : 'linear';
+  document.getElementById('ct-winner').textContent = winner==='binary'?'Binaire gagne':'Linéaire gagne';
+  document.getElementById('ct-winner').style.color = winner==='binary'?'var(--lime)':'var(--cyan)';
+  document.getElementById(`rl-${winner}`).classList.add('winner');
+
+  // VS compare label
+  const ratio = L.elapsed>0&&B.elapsed>0 ? (L.elapsed/B.elapsed).toFixed(0)+'× faster' : '';
+  document.getElementById('vs-compare').textContent = ratio ? 'Binaire '+ratio : '';
+
+  document.getElementById('cmp-table').style.display='block';
+}
+
+function srLog(lane,msg){ document.getElementById(`sr-log-${lane}`).textContent=msg; }
+
+// alias for backward compat
+function srReset(){ srNewArray(); }
+function initSearch(){ srNewArray(); }
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+initSearch();
+applySortMeta('bubble');
+sortShuffle();
+</script>
+</body>
+</html>

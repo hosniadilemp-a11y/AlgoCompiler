@@ -20,6 +20,7 @@ from web.extensions import login_manager, oauth, mail
 from web.sandbox.runner import execute_code
 print(">>> [DEBUG] MODELS AND EXTENSIONS IMPORTED", flush=True)
 from sqlalchemy import func, distinct
+from sqlalchemy.pool import NullPool
 import json
 import secrets
 
@@ -76,9 +77,9 @@ def cleanup_db_session(exc):
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 database_url = os.environ.get('DATABASE_URL')
+use_psycopg3 = False
 if database_url:
     # Attempt to detect which driver to use
-    use_psycopg3 = False
     try:
         import psycopg
         use_psycopg3 = True
@@ -97,12 +98,20 @@ if database_url:
     print(f">>> CONFIGURED DATABASE_URL: {safe_log_url} (Psycopg3: {use_psycopg3})", flush=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or f"sqlite:///{os.path.join(BASE_DIR, 'algocompiler.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 10,
-    'max_overflow': 20,
+engine_options = {
     'pool_recycle': 300,
     'pool_pre_ping': True,
 }
+if use_psycopg3:
+    # Avoid prepared statement conflicts with PgBouncer / pooled connections
+    engine_options['connect_args'] = {'prepare_threshold': 0}
+if database_url and 'pooler' in database_url:
+    # Supabase pooler (PgBouncer) works best without client-side pooling
+    engine_options['poolclass'] = NullPool
+else:
+    engine_options['pool_size'] = 10
+    engine_options['max_overflow'] = 20
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
 
 safe_uri = app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
 print(f">>> [DEBUG] SQLALCHEMY_DATABASE_URI: {safe_uri}", flush=True)
@@ -199,6 +208,7 @@ def course():
     return render_template('course.html')
 
 @app.route('/demo-course/<path:filename>')
+@app.route('/demoCourse/<path:filename>')
 def demo_course_file(filename):
     return send_from_directory(os.path.join(app.root_path, 'DemoCourse'), filename)
 

@@ -40,12 +40,18 @@
     .section-body { display:none; }
     .section-body.open { display:block; }
     .textarea-content { font-size:1.05rem; line-height:1.55; }
-    .textarea-content { min-height:50vh; }
+    .textarea-content { min-height:65vh; }
 
     .icon-picker { display:flex; flex-wrap:wrap; gap:8px; }
     .icon-btn { width:36px; height:36px; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#c9d1d9; cursor:pointer; }
     .icon-btn.active { border-color:#4a6ee0; box-shadow:0 0 0 2px rgba(74,110,224,0.2); color:#4a6ee0; }
     .icon-btn i { pointer-events:none; }
+
+    .save-status { font-size:0.75rem; color:#8b949e; margin-left:8px; }
+    .save-status.pending { color:#f1c40f; }
+    .save-status.saved { color:#2ecc71; }
+    .save-status.error { color:#e74c3c; }
+    .save-status.dirty { color:#ffb454; }
 
     .section-anim-add { animation: sectionAdd 0.45s ease; }
     .section-anim-move { animation: sectionMove 0.35s ease; }
@@ -221,7 +227,7 @@
         return `
           <div class="cell chapter-block" data-chapter="${c.id}" data-index="${idx}" onmousedown="setCurrentChapterIndex(${idx})">
             <div class="cell-header">
-              <div class="cell-title"><i class="${c.icon}"></i> Chapitre</div>
+              <div class="cell-title"><i class="${c.icon}"></i> Chapitre <span class="save-status" data-save-status="chapter-${c.id}"></span></div>
               <div class="section-actions">
                 <button class="btn btn-success btn-sm" onclick="addSection(${c.id})"><i class="fas fa-plus"></i> Section</button>
                 <button class="btn btn-info btn-sm" onclick="saveChapterInline(${c.id})"><i class="fas fa-save"></i> Sauver</button>
@@ -249,6 +255,7 @@
           ${sections.map(s => renderSectionCell(c.id, s)).join('')}
         `;
       }).join('');
+      attachDirtyTracking();
       applySectionAnimations();
     }
 
@@ -256,7 +263,7 @@
       return `
         <div class="cell section-cell" data-section="${s.id}" data-chapter="${chapterId}">
           <div class="cell-header">
-            <div class="cell-title"><i class="fas fa-align-left"></i> Section</div>
+            <div class="cell-title"><i class="fas fa-align-left"></i> Section <span class="save-status" data-save-status="section-${s.id}"></span></div>
             <div class="section-actions">
               <button class="btn btn-outline btn-sm" data-section-toggle="${s.id}" onclick="toggleSection(${s.id})" title="Afficher/Masquer"><i class="fas fa-chevron-down"></i></button>
               <button class="btn btn-success btn-sm" onclick="addSectionAfter(${s.id})"><i class="fas fa-plus"></i></button>
@@ -354,6 +361,37 @@
       setSectionOpen(id, !body.classList.contains('open'));
     }
 
+    function setSaveStatus(key, state, msg = '') {
+      const el = document.querySelector(`[data-save-status="${key}"]`);
+      if (!el) return;
+      el.classList.remove('pending', 'saved', 'error');
+      if (state !== 'dirty') el.classList.remove('dirty');
+      if (state) el.classList.add(state);
+      el.textContent = msg;
+      if (state === 'saved') {
+        setTimeout(() => {
+          if (el.textContent === msg) {
+            el.textContent = '';
+            el.classList.remove('saved');
+          }
+        }, 1500);
+      }
+    }
+
+    function attachDirtyTracking() {
+      document.querySelectorAll('.cell[data-section], .cell[data-chapter]').forEach(cell => {
+        cell.querySelectorAll('input, textarea, select').forEach(el => {
+          el.addEventListener('input', () => {
+            if (cell.dataset.section) {
+              setSaveStatus(`section-${cell.dataset.section}`, 'dirty', 'Non sauvegardé');
+            } else if (cell.dataset.chapter) {
+              setSaveStatus(`chapter-${cell.dataset.chapter}`, 'dirty', 'Non sauvegardé');
+            }
+          });
+        });
+      });
+    }
+
     function applySectionAnimations() {
       highlightSectionIds.forEach(id => {
         const el = document.querySelector(`.cell[data-section="${id}"]`);
@@ -433,6 +471,7 @@
     async function saveChapterInline(id) {
       const cell = document.querySelector(`.cell[data-chapter="${id}"]`);
       if (!cell) return;
+      setSaveStatus(`chapter-${id}`, 'pending', 'Enregistrement...');
       const orderIndex = (chapters.findIndex(c => c.id === id) + 1) || 0;
       const body = {
         title: cell.querySelector('[data-field="title"]').value,
@@ -441,8 +480,14 @@
         order_index: orderIndex,
         is_published: cell.querySelector('[data-field="is_published"]').value === 'true'
       };
-      await api(`/admin/api/course/chapters/${id}`, { method:'PUT', body: JSON.stringify(body) });
-      await loadAll();
+      try {
+        await api(`/admin/api/course/chapters/${id}`, { method:'PUT', body: JSON.stringify(body) });
+        const idx = chapters.findIndex(c => c.id === id);
+        if (idx >= 0) chapters[idx] = { ...chapters[idx], ...body };
+        setSaveStatus(`chapter-${id}`, 'saved', 'Enregistré');
+      } catch (e) {
+        setSaveStatus(`chapter-${id}`, 'error', 'Erreur');
+      }
     }
 
     async function deleteChapter(id) {
@@ -494,13 +539,22 @@
     async function saveSectionInline(id) {
       const cell = document.querySelector(`.cell[data-section="${id}"]`);
       if (!cell) return;
+      setSaveStatus(`section-${id}`, 'pending', 'Enregistrement...');
       const body = {
         title: cell.querySelector('[data-field="title"]').value,
         content: cell.querySelector('[data-field="content"]').value,
         code: cell.querySelector('[data-field="code"]').value
       };
-      await api(`/admin/api/course/sections/${id}`, { method:'PUT', body: JSON.stringify(body) });
-      await loadAll();
+      try {
+        await api(`/admin/api/course/sections/${id}`, { method:'PUT', body: JSON.stringify(body) });
+        for (const list of Object.values(sectionsByChapter)) {
+          const idx = list.findIndex(s => s.id === id);
+          if (idx >= 0) list[idx] = { ...list[idx], ...body };
+        }
+        setSaveStatus(`section-${id}`, 'saved', 'Enregistré');
+      } catch (e) {
+        setSaveStatus(`section-${id}`, 'error', 'Erreur');
+      }
     }
 
     async function deleteSection(id) {
@@ -557,14 +611,16 @@
     }
 
     async function saveAll() {
+      const tasks = [];
       for (const c of chapters) {
-        await saveChapterInline(c.id);
+        tasks.push(saveChapterInline(c.id));
       }
       for (const list of Object.values(sectionsByChapter)) {
         for (const s of list) {
-          await saveSectionInline(s.id);
+          tasks.push(saveSectionInline(s.id));
         }
       }
+      await Promise.all(tasks);
     }
 
     function previewCourse() { window.open('/course', '_blank'); }

@@ -124,6 +124,8 @@ class User(UserMixin, db.Model):
     quiz_attempts = db.relationship('QuizAttempt', backref='user', lazy=True, cascade="all, delete-orphan")
     challenge_submissions = db.relationship('ChallengeSubmission', backref='user', lazy=True, cascade="all, delete-orphan")
 
+
+
 class QuizAttempt(db.Model):
     __tablename__ = 'quiz_attempts'
     
