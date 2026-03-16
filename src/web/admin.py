@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from web.models import (
-    Chapter, Choice, ChallengeSubmission, Problem,
+    Chapter, Choice, ChallengeSubmission, CourseChapter, CourseSection, Problem,
     Question, QuizAttempt, TestCase, User, UserBadge, UserProgress, db
 )
 
@@ -148,6 +148,12 @@ def problem_edit(pid):
     if not p:
         return redirect(url_for('admin.login_page'))
     return render_template('admin_problem_editor.html', problem=_prob_json(p), problem_id=pid)
+
+
+@admin_bp.route('/courses/editor')
+@admin_required
+def admin_course_editor_page():
+    return render_template('admin_course_editor.html')
 
 
 # ── Analytics: Overview ───────────────────────────────────────────────────────
@@ -1185,6 +1191,310 @@ def admin_import_questions_json():
 
         db.session.commit()
         return jsonify({'inserted': inserted})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+# ── Course Chapters / Sections ───────────────────────────────────────────────
+def _course_chapter_json(c):
+    return {
+        'id': c.id,
+        'identifier': c.identifier,
+        'title': c.title,
+        'icon': c.icon,
+        'order_index': c.order_index,
+        'is_published': bool(c.is_published),
+    }
+
+
+def _course_section_json(s):
+    return {
+        'id': s.id,
+        'chapter_id': s.chapter_id,
+        'title': s.title,
+        'content': s.content,
+        'code': s.code,
+        'order_index': s.order_index,
+    }
+
+
+@admin_bp.route('/api/course/chapters', methods=['GET'])
+@admin_required
+def admin_list_course_chapters():
+    chapters = CourseChapter.query.order_by(CourseChapter.order_index.asc(), CourseChapter.id.asc()).all()
+    return jsonify({'items': [_course_chapter_json(c) for c in chapters]})
+
+
+@admin_bp.route('/api/course/chapters', methods=['POST'])
+@admin_required
+def admin_create_course_chapter():
+    data = request.get_json(force=True) or {}
+    identifier = str(data.get('identifier', '')).strip()
+    title = str(data.get('title', '')).strip()
+    if not identifier or not title:
+        return jsonify({'error': 'identifier and title required'}), 400
+    icon = str(data.get('icon', '')).strip() or 'fas fa-book'
+    order_index = int(data.get('order_index', 0) or 0)
+    is_published = bool(data.get('is_published', True))
+    c = CourseChapter(identifier=identifier, title=title, icon=icon, order_index=order_index, is_published=is_published)
+    db.session.add(c)
+    try:
+        db.session.commit()
+        return jsonify(_course_chapter_json(c)), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@admin_bp.route('/api/course/chapters/<int:cid>', methods=['PUT'])
+@admin_required
+def admin_update_course_chapter(cid):
+    c = db.session.get(CourseChapter, cid)
+    if not c:
+        return jsonify({'error': 'Not found'}), 404
+    data = request.get_json(force=True) or {}
+    if 'identifier' in data:
+        ident = str(data.get('identifier', '')).strip()
+        if not ident:
+            return jsonify({'error': 'identifier required'}), 400
+        c.identifier = ident
+    if 'title' in data:
+        title = str(data.get('title', '')).strip()
+        if not title:
+            return jsonify({'error': 'title required'}), 400
+        c.title = title
+    if 'icon' in data:
+        c.icon = str(data.get('icon', '')).strip() or 'fas fa-book'
+    if 'order_index' in data:
+        c.order_index = int(data.get('order_index', 0) or 0)
+    if 'is_published' in data:
+        c.is_published = bool(data.get('is_published'))
+    try:
+        db.session.commit()
+        return jsonify(_course_chapter_json(c))
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@admin_bp.route('/api/course/chapters/<int:cid>', methods=['DELETE'])
+@admin_required
+def admin_delete_course_chapter(cid):
+    c = db.session.get(CourseChapter, cid)
+    if not c:
+        return jsonify({'error': 'Not found'}), 404
+    db.session.delete(c)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@admin_bp.route('/api/course/chapters/<int:cid>/sections', methods=['GET'])
+@admin_required
+def admin_list_course_sections(cid):
+    c = db.session.get(CourseChapter, cid)
+    if not c:
+        return jsonify({'error': 'Chapter not found'}), 404
+    sections = CourseSection.query.filter_by(chapter_id=cid).order_by(CourseSection.order_index.asc(), CourseSection.id.asc()).all()
+    return jsonify({'items': [_course_section_json(s) for s in sections]})
+
+
+@admin_bp.route('/api/course/chapters/<int:cid>/sections', methods=['POST'])
+@admin_required
+def admin_create_course_section(cid):
+    c = db.session.get(CourseChapter, cid)
+    if not c:
+        return jsonify({'error': 'Chapter not found'}), 404
+    data = request.get_json(force=True) or {}
+    title = str(data.get('title', '')).strip() or None
+    content = str(data.get('content', '') or '')
+    code = str(data.get('code', '') or '')
+    order_index = int(data.get('order_index', 0) or 0)
+    s = CourseSection(chapter_id=cid, title=title, content=content, code=code, order_index=order_index)
+    db.session.add(s)
+    db.session.commit()
+    return jsonify(_course_section_json(s)), 201
+
+
+@admin_bp.route('/api/course/sections/<int:sid>', methods=['PUT'])
+@admin_required
+def admin_update_course_section(sid):
+    s = db.session.get(CourseSection, sid)
+    if not s:
+        return jsonify({'error': 'Not found'}), 404
+    data = request.get_json(force=True) or {}
+    if 'title' in data:
+        s.title = str(data.get('title', '')).strip() or None
+    if 'content' in data:
+        s.content = str(data.get('content', '') or '')
+    if 'code' in data:
+        s.code = str(data.get('code', '') or '')
+    if 'order_index' in data:
+        s.order_index = int(data.get('order_index', 0) or 0)
+    db.session.commit()
+    return jsonify(_course_section_json(s))
+
+
+@admin_bp.route('/api/course/sections/<int:sid>', methods=['DELETE'])
+@admin_required
+def admin_delete_course_section(sid):
+    s = db.session.get(CourseSection, sid)
+    if not s:
+        return jsonify({'error': 'Not found'}), 404
+    db.session.delete(s)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@admin_bp.route('/api/course/export_json', methods=['GET'])
+@admin_required
+def admin_export_course_json():
+    chapters = CourseChapter.query.order_by(CourseChapter.order_index.asc(), CourseChapter.id.asc()).all()
+    payload = {
+        'chapters': [
+            {
+                'id': c.identifier,
+                'title': c.title,
+                'icon': c.icon,
+                'order_index': c.order_index,
+                'is_published': bool(c.is_published),
+                'sections': [
+                    {
+                        'title': s.title,
+                        'content': s.content,
+                        'code': s.code,
+                        'order_index': s.order_index
+                    }
+                    for s in CourseSection.query.filter_by(chapter_id=c.id).order_by(CourseSection.order_index.asc(), CourseSection.id.asc()).all()
+                ]
+            }
+            for c in chapters
+        ]
+    }
+    return Response(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        mimetype='application/json; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename="course_full.json"'}
+    )
+
+
+@admin_bp.route('/api/course/import_json', methods=['POST'])
+@admin_required
+def admin_import_course_json():
+    uploaded = request.files.get('file')
+    if not uploaded:
+        return jsonify({'error': 'JSON file is required'}), 400
+    try:
+        payload = json.load(uploaded)
+    except Exception:
+        return jsonify({'error': 'Invalid JSON file'}), 400
+
+    chapters = payload.get('chapters') if isinstance(payload, dict) else None
+    if not isinstance(chapters, list):
+        return jsonify({'error': 'JSON must be {chapters: [...]}'}), 400
+
+    try:
+        CourseSection.query.delete()
+        CourseChapter.query.delete()
+        db.session.flush()
+
+        for idx, ch in enumerate(chapters, start=1):
+            identifier = str(ch.get('id', '')).strip()
+            title = str(ch.get('title', '')).strip()
+            if not identifier or not title:
+                raise ValueError('chapter id/title required')
+            icon = str(ch.get('icon', '')).strip() or 'fas fa-book'
+            order_index = int(ch.get('order_index', idx) or idx)
+            is_published = bool(ch.get('is_published', True))
+            c = CourseChapter(identifier=identifier, title=title, icon=icon, order_index=order_index, is_published=is_published)
+            db.session.add(c)
+            db.session.flush()
+
+            sections = ch.get('sections', [])
+            if sections and not isinstance(sections, list):
+                raise ValueError('sections must be a list')
+            for sidx, s in enumerate(sections or [], start=1):
+                db.session.add(CourseSection(
+                    chapter_id=c.id,
+                    title=str(s.get('title', '')).strip() or None,
+                    content=str(s.get('content', '') or ''),
+                    code=str(s.get('code', '') or ''),
+                    order_index=int(s.get('order_index', sidx) or sidx)
+                ))
+
+        db.session.commit()
+        return jsonify({'ok': True, 'chapters': len(chapters)})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@admin_bp.route('/api/course/chapters/import_json', methods=['POST'])
+@admin_required
+def admin_import_course_chapter_json():
+    uploaded = request.files.get('file')
+    if not uploaded:
+        return jsonify({'error': 'JSON file is required'}), 400
+    try:
+        payload = json.load(uploaded)
+    except Exception:
+        return jsonify({'error': 'Invalid JSON file'}), 400
+
+    chapter_payload = payload.get('chapter') if isinstance(payload, dict) and 'chapter' in payload else payload
+    if not isinstance(chapter_payload, dict):
+        return jsonify({'error': 'JSON must be a single chapter object'}), 400
+
+    identifier = str(chapter_payload.get('id') or chapter_payload.get('identifier') or '').strip()
+    title = str(chapter_payload.get('title') or '').strip()
+    if not identifier or not title:
+        return jsonify({'error': 'chapter id/title required'}), 400
+    icon = str(chapter_payload.get('icon', '')).strip() or 'fas fa-book'
+    is_published = bool(chapter_payload.get('is_published', True))
+    order_index_raw = chapter_payload.get('order_index', None)
+
+    sections = chapter_payload.get('sections', [])
+    if sections and not isinstance(sections, list):
+        return jsonify({'error': 'sections must be a list'}), 400
+
+    try:
+        existing = CourseChapter.query.filter_by(identifier=identifier).first()
+        created = False
+        if existing:
+            existing.title = title
+            existing.icon = icon
+            existing.is_published = is_published
+            if order_index_raw is not None:
+                existing.order_index = int(order_index_raw or 0)
+            CourseSection.query.filter_by(chapter_id=existing.id).delete()
+            chapter = existing
+        else:
+            if order_index_raw is None:
+                max_order = db.session.query(func.max(CourseChapter.order_index)).scalar() or 0
+                order_index = max_order + 1
+            else:
+                order_index = int(order_index_raw or 0)
+            chapter = CourseChapter(
+                identifier=identifier,
+                title=title,
+                icon=icon,
+                order_index=order_index,
+                is_published=is_published
+            )
+            db.session.add(chapter)
+            db.session.flush()
+            created = True
+
+        for sidx, s in enumerate(sections or [], start=1):
+            db.session.add(CourseSection(
+                chapter_id=chapter.id,
+                title=str(s.get('title', '')).strip() or None,
+                content=str(s.get('content', '') or ''),
+                code=str(s.get('code', '') or ''),
+                order_index=int(s.get('order_index', sidx) or sidx)
+            ))
+
+        db.session.commit()
+        return jsonify({'ok': True, 'created': created, 'chapter_id': chapter.id, 'sections': len(sections or [])})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400

@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS X-Ray — Engine Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070a;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --surface3: #1c2333;
+    --border: #21262d;
+    --cyan: #58a6ff;
+    --cyan-dim: rgba(88, 166, 255, 0.12);
+    --cyan-glow: rgba(88, 166, 255, 0.35);
+    --amber: #ffb300;
+    --amber-dim: rgba(255,179,0,0.12);
+    --amber-glow: rgba(255,179,0,0.35);
+    --green: #00ff88;
+    --green-dim: rgba(0,255,136,0.1);
+    --red: #ff4444;
+    --red-dim: rgba(255,68,68,0.1);
+    --purple: #c084fc;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --text-dim: #484f58;
+    --mono: 'Fira Code', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: .85rem;
+    letter-spacing: .08em;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .logo-icon {
+    width: 22px; height: 22px;
+    background: var(--cyan);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .65rem; color: #000; font-weight: 800;
+  }
+  .logo span { color: var(--cyan); }
+  nav { display: flex; gap: .25rem; }
+  nav button {
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 500;
+    letter-spacing: .05em;
+    padding: .35rem .85rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all .2s;
+  }
+  nav button:hover { color: var(--text); background: var(--surface2); }
+  nav button.active {
+    color: var(--cyan);
+    border-color: var(--cyan);
+    background: var(--cyan-dim);
+    box-shadow: 0 0 12px var(--cyan-glow);
+  }
+  .status-bar {
+    display: flex; align-items: center; gap: .75rem;
+    font-family: var(--mono); font-size: .7rem; color: var(--text-muted);
+  }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 var(--green)} 50%{opacity:.7;box-shadow:0 0 0 4px transparent} }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    width: 55%;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: .6rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: .7rem;
+    color: var(--text-muted);
+    letter-spacing: .06em;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .panel-header .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .scenario-content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+  .scenario { display: none; height: 100%; padding: 1.5rem; overflow-y: auto; }
+  .scenario.active { display: flex; flex-direction: column; }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .engine-grid {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+  .engine-section {
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .engine-section:last-child { border-bottom: none; }
+  .engine-section.mem { flex: 2; }
+  .engine-section.ip  { flex: 3; }
+  .engine-section.ds  { flex: 3.5; }
+  .engine-title {
+    padding: .45rem 1rem;
+    font-family: var(--mono);
+    font-size: .65rem;
+    letter-spacing: .1em;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: .5rem;
+    flex-shrink: 0;
+  }
+  .engine-title.cyan { color: var(--cyan); }
+  .engine-title.amber { color: var(--amber); }
+  .engine-title.purple { color: var(--purple); }
+  .engine-body {
+    padding: .75rem 1rem;
+    font-family: var(--mono);
+    font-size: .72rem;
+    overflow-y: auto;
+    flex: 1;
+    line-height: 1.7;
+  }
+
+  /* ── MEMORY TOKENS ── */
+  .mem-grid { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .mem-token {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .2rem .55rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    font-family: var(--mono);
+    font-size: .68rem;
+    transition: all .25s;
+  }
+  .mem-token .key { color: var(--cyan); }
+  .mem-token .val { color: var(--amber); }
+  .mem-token .type { color: var(--text-dim); font-size: .6rem; }
+  .mem-token.flash {
+    border-color: var(--cyan);
+    background: var(--cyan-dim);
+    box-shadow: 0 0 8px var(--cyan-glow);
+  }
+  .mem-token.flash-amber {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+    box-shadow: 0 0 8px var(--amber-glow);
+  }
+
+  /* ── INSTRUCTION POINTER ── */
+  .ip-lines { display: flex; flex-direction: column; gap: 0; }
+  .ip-line {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .12rem .2rem;
+    border-radius: 3px;
+    transition: all .2s;
+  }
+  .ip-line .ln { color: var(--text-dim); min-width: 22px; text-align: right; font-size: .65rem; }
+  .ip-line .code { color: var(--text-muted); }
+  .ip-line .kw { color: var(--purple); }
+  .ip-line .fn { color: var(--cyan); }
+  .ip-line .str { color: var(--green); }
+  .ip-line .num { color: var(--amber); }
+  .ip-line .cmt { color: var(--text-dim); font-style: italic; }
+  .ip-line.active {
+    background: var(--amber-dim);
+    border-left: 2px solid var(--amber);
+  }
+  .ip-line.active .code { color: var(--text); }
+  .ip-arrow { color: var(--amber); font-size: .7rem; }
+
+  /* ── DATA STRUCTURE VIZ ── */
+  .ds-body { display: flex; flex-direction: column; gap: .75rem; overflow-y: auto; padding: .75rem 1rem; flex: 1; }
+  .ds-label { font-family: var(--mono); font-size: .62rem; color: var(--text-dim); letter-spacing: .08em; margin-bottom: .3rem; }
+  .array-viz { display: flex; gap: 3px; align-items: flex-end; flex-wrap: wrap; }
+  .arr-cell {
+    min-width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: .68rem; color: var(--text-muted);
+    border-radius: 3px;
+    transition: all .2s;
+    position: relative;
+  }
+  .arr-cell.match { border-color: var(--cyan); background: var(--cyan-dim); color: var(--cyan); box-shadow: 0 0 6px var(--cyan-glow); }
+  .arr-cell.checking { border-color: var(--amber); background: var(--amber-dim); color: var(--amber); }
+  .arr-cell.no-match { border-color: var(--red); background: var(--red-dim); color: var(--red); opacity: .5; }
+  .stack-viz { display: flex; flex-direction: column-reverse; gap: 3px; }
+  .stack-item {
+    padding: .25rem .6rem;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    border-radius: 3px;
+    font-family: var(--mono); font-size: .68rem; color: var(--text-muted);
+    transition: all .3s;
+    display: flex; justify-content: space-between;
+  }
+  .stack-item.top { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+  .stack-item.popping { border-color: var(--red); color: var(--red); background: var(--red-dim); animation: pop .4s forwards; }
+  .stack-item.pushing { animation: push .3s forwards; }
+  @keyframes pop { to { opacity: 0; transform: translateY(-8px); } }
+  @keyframes push { from { opacity: 0; transform: translateY(8px); } }
+  .hash-viz { display: flex; flex-direction: column; gap: .35rem; }
+  .hash-step {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .25rem .5rem; border-radius: 4px;
+    font-size: .68rem; font-family: var(--mono);
+    border: 1px solid var(--border); background: var(--surface2);
+    transition: all .3s;
+  }
+  .hash-step .arrow { color: var(--text-dim); }
+  .hash-step.active { border-color: var(--amber); background: var(--amber-dim); }
+  .hash-step .val { color: var(--cyan); word-break: break-all; }
+  .hash-step .label { color: var(--text-dim); min-width: 60px; font-size: .6rem; }
+
+  /* ══════════════ SCENARIO 1: GAME ══════════════ */
+  .game-area {
+    position: relative;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    flex: 1;
+    min-height: 240px;
+  }
+  .game-score {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: .8rem; color: var(--cyan);
+    background: rgba(0,0,0,.5); padding: .2rem .7rem; border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .game-lives {
+    position: absolute; top: 10px; right: 12px;
+    font-family: var(--mono); font-size: .75rem; color: var(--red);
+  }
+  .paddle {
+    position: absolute;
+    bottom: 14px;
+    width: 80px; height: 10px;
+    background: var(--cyan);
+    border-radius: 5px;
+    box-shadow: 0 0 12px var(--cyan-glow);
+    transition: left .05s;
+  }
+  .ball {
+    position: absolute;
+    width: 14px; height: 14px;
+    background: var(--amber);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--amber-glow);
+  }
+  .obstacle {
+    position: absolute;
+    width: 36px; height: 12px;
+    border-radius: 3px;
+  }
+  .game-over-msg {
+    position: absolute; inset: 0;
+    display: none; align-items: center; justify-content: center; flex-direction: column; gap: .75rem;
+    background: rgba(8,12,16,.85);
+    font-family: var(--mono);
+  }
+  .game-over-msg.show { display: flex; }
+  .game-controls {
+    display: flex; gap: .75rem; margin-top: .75rem; align-items: center;
+    flex-shrink: 0;
+  }
+  .explanation-box {
+    margin: 0;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(88,166,255,0.02));
+    border: 1px solid rgba(88,166,255,0.25);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    color: var(--text);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .explanation-box:hover {
+    border-color: rgba(88,166,255,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(88,166,255,0.15);
+  }
+  .explanation-box::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 5px; height: 100%;
+    background: var(--cyan);
+  }
+  .explanation-box h4 {
+    margin-bottom: 0.6rem; color: var(--cyan); font-size: 0.95rem; font-weight: 700;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .explanation-box p { margin-bottom: 0.6rem; line-height: 1.6; color: var(--text-muted); }
+  .explanation-box ul { margin-left: 1.2rem; margin-bottom: 0.8rem; color: var(--text); line-height: 1.5; }
+  .explanation-box li { margin-bottom: 0.4rem; list-style-type: none; position: relative; }
+  .explanation-box li::before { content: '▹'; position: absolute; left: -1.2rem; color: var(--text-dim); }
+  .explanation-box code { font-family: var(--mono); color: var(--text); background: var(--surface2); padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid var(--border); }
+  .hl-data { color: var(--cyan); font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; border: 1px solid var(--cyan-glow); padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--cyan-dim); display: inline-block; transform: translateY(-1px); }
+  .hl-algo { color: var(--amber); font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; border: 1px solid var(--amber-glow); padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--amber-dim); display: inline-block; transform: translateY(-1px); }
+  .emphasize { font-style: italic; color: #fff !important; font-weight: 600; text-align: center; display: block; padding-top: 0.7rem; border-top: 1px dashed var(--border); margin-bottom: 0 !important; }
+
+  /* ══════════════ SCENARIO 2: LOGIN ══════════════ */
+  .login-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.75rem;
+    max-width: 380px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .login-card h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-family: var(--mono); font-size: .7rem; color: var(--text-muted); margin-bottom: .4rem; letter-spacing: .06em; }
+  .field input {
+    width: 100%; padding: .6rem .85rem;
+    background: var(--surface3); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: var(--mono); font-size: .8rem;
+    outline: none; transition: border-color .2s;
+  }
+  .field input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+  .login-feedback {
+    margin-top: .75rem; padding: .55rem .85rem;
+    border-radius: 6px; font-family: var(--mono); font-size: .75rem;
+    display: none;
+  }
+  .login-feedback.success { background: var(--green-dim); border: 1px solid var(--green); color: var(--green); display: block; }
+  .login-feedback.error { background: var(--red-dim); border: 1px solid var(--red); color: var(--red); display: block; }
+  .login-note { font-family: var(--mono); font-size: .65rem; color: var(--text-dim); margin-top: .75rem; }
+
+  /* ══════════════ SCENARIO 3: SEARCH ══════════════ */
+  .search-wrap { display: flex; flex-direction: column; height: 100%; }
+  .search-input {
+    width: 100%; padding: .65rem 1rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: var(--mono); font-size: .85rem;
+    outline: none; transition: border-color .2s;
+    margin-bottom: 1rem; flex-shrink: 0;
+  }
+  .search-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+  .search-results { display: flex; flex-wrap: wrap; gap: .5rem; overflow-y: auto; flex: 1; }
+  .search-item {
+    padding: .35rem .8rem;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    border-radius: 20px;
+    font-family: var(--mono); font-size: .73rem; color: var(--text-muted);
+    transition: all .25s;
+  }
+  .search-item.visible { color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim); }
+  .search-item.hidden { opacity: .2; transform: scale(.95); }
+  .search-stats { font-family: var(--mono); font-size: .68rem; color: var(--text-dim); margin-bottom: .6rem; flex-shrink: 0; }
+
+  /* ══════════════ SCENARIO 4: UNDO/REDO ══════════════ */
+  .editor-wrap { display: flex; flex-direction: column; height: 100%; }
+  .editor-textarea {
+    flex: 1;
+    width: 100%; padding: 1rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: var(--mono); font-size: .8rem;
+    outline: none; resize: none; line-height: 1.6;
+    transition: border-color .2s;
+    min-height: 120px;
+  }
+  .editor-textarea:focus { border-color: var(--cyan); }
+  .editor-actions { display: flex; gap: .5rem; margin-top: .75rem; flex-shrink: 0; }
+  .editor-meta { font-family: var(--mono); font-size: .65rem; color: var(--text-dim); margin-top: .5rem; }
+
+  /* ── SHARED BUTTON ── */
+  .btn {
+    font-family: var(--mono); font-size: .73rem; font-weight: 600; letter-spacing: .04em;
+    padding: .5rem 1.1rem; border-radius: 6px; border: 1px solid;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-cyan {
+    color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim);
+  }
+  .btn-cyan:hover { background: rgba(0,229,255,.22); box-shadow: 0 0 12px var(--cyan-glow); }
+  .btn-amber {
+    color: var(--amber); border-color: var(--amber); background: var(--amber-dim);
+  }
+  .btn-amber:hover { background: rgba(255,179,0,.22); box-shadow: 0 0 12px var(--amber-glow); }
+  .btn-muted {
+    color: var(--text-muted); border-color: var(--border); background: var(--surface2);
+  }
+  .btn-muted:hover { background: var(--surface3); color: var(--text); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  .scenario-content {
+      display: flex;
+      flex-direction: column;
+  }
+  .scenario {
+      flex: 1;
+      height: auto;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+  }
+
+  /* ── SCROLLBARS ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+
+  /* ── FLASH ── */
+  @keyframes flashCyan { 0%,100%{} 50%{background:var(--cyan-dim);} }
+  @keyframes flashAmber { 0%,100%{} 50%{background:var(--amber-dim);} }
+  .fl-c { animation: flashCyan .35s; }
+  .fl-a { animation: flashAmber .35s; }
+
+  /* ── COLLISION FLASH ── */
+  .collision-flash { animation: collFlash .3s; }
+  @keyframes collFlash { 0%,100%{} 50%{background:rgba(255,68,68,.15);} }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    CS <span>X-RAY</span> &mdash; Engine Room
+  </div>
+  <nav>
+    <button class="active" onclick="setScene(0)">01 &nbsp;GAME</button>
+    <button onclick="setScene(1)">02 &nbsp;LOGIN</button>
+    <button onclick="setScene(2)">03 &nbsp;SEARCH</button>
+    <button onclick="setScene(3)">04 &nbsp;UNDO</button>
+  </nav>
+  <div class="status-bar">
+    <div class="pulse"></div>
+    <span id="fps-counter">60 fps</span>
+    <span style="color:var(--border)">|</span>
+    <span id="mem-usage">heap: 0 B</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <div class="dot" style="background:var(--red)"></div>
+      <div class="dot" style="background:var(--amber)"></div>
+      <div class="dot" style="background:var(--green)"></div>
+      &nbsp; INTERFACE LAYER &mdash; <span id="scene-label" style="color:var(--cyan)">GAME ENGINE</span>
+    </div>
+    <div class="scenario-content">
+
+      <!-- SCENE 0: GAME -->
+      <div class="scenario active" id="scene-0">
+        <div class="game-area" id="gameArea">
+          <div class="game-score">SCORE: <span id="g-score">0</span></div>
+          <div class="game-lives" id="g-lives">♥♥♥</div>
+          <div class="paddle" id="paddle"></div>
+          <div class="ball" id="ball"></div>
+          <div class="game-over-msg" id="game-over">
+            <span style="color:var(--red);font-size:1.1rem;font-weight:700">GAME OVER</span>
+            <span style="font-size:.75rem;color:var(--text-muted)">Final score: <span id="final-score">0</span></span>
+            <button class="btn btn-cyan" onclick="initGame()">RESTART</button>
+          </div>
+        </div>
+        <div class="game-controls" style="margin-bottom: 1rem;">
+          <span style="font-family:var(--mono);font-size:.7rem;color:var(--text-dim)">← → or mouse to move paddle</span>
+          <button class="btn btn-muted" onclick="initGame()" style="margin-left:auto">RESET</button>
+        </div>
+      </div>
+
+      <!-- SCENE 1: LOGIN -->
+      <div class="scenario" id="scene-1">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%">
+          <div class="login-card">
+            <h2>🔐 Secure Login</h2>
+            <div class="field">
+              <label>USERNAME</label>
+              <input type="text" id="login-user" placeholder="admin" autocomplete="off" oninput="updateLoginXray()">
+            </div>
+            <div class="field">
+              <label>PASSWORD</label>
+              <input type="password" id="login-pass" placeholder="••••••••" autocomplete="off" oninput="updateLoginXray()">
+            </div>
+            <button class="btn btn-cyan" style="width:100%" onclick="doLogin()">AUTHENTICATE →</button>
+            <div class="login-feedback" id="login-fb"></div>
+            <div class="login-note">Hint: user <b style="color:var(--cyan)">admin</b> / pass <b style="color:var(--cyan)">secret123</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCENE 2: SEARCH -->
+      <div class="scenario" id="scene-2">
+        <div class="search-wrap">
+          <input class="search-input" id="search-input" placeholder="Search algorithms, data structures..." oninput="doSearch()" autofocus>
+          <div class="search-stats" id="search-stats">Showing 20 / 20 items &nbsp;·&nbsp; 0 iterations</div>
+          <div class="search-results" id="search-results"></div>
+        </div>
+      </div>
+
+      <!-- SCENE 3: UNDO/REDO -->
+      <div class="scenario" id="scene-3">
+        <div class="editor-wrap">
+          <textarea class="editor-textarea" id="editor-ta" placeholder="Start typing here...&#10;&#10;Every keystroke pushes a state to the stack.&#10;Use Ctrl+Z or the buttons below to undo." oninput="editorInput()" onkeydown="editorKeyDown(event)"></textarea>
+          <div class="editor-actions">
+            <button class="btn btn-amber" id="undo-btn" onclick="doUndo()" disabled>⟲ UNDO</button>
+            <button class="btn btn-cyan" id="redo-btn" onclick="doRedo()" disabled>⟳ REDO</button>
+            <button class="btn btn-muted" onclick="doClear()" style="margin-left:auto">CLEAR</button>
+          </div>
+          <div class="editor-meta" id="editor-meta">Stack: 0 states &nbsp;·&nbsp; Redo: 0 states</div>
+        </div>
+      </div>
+
+      <!-- EXPLANATION AREA (DYNAMIC) -->
+      <div id="exp-panel" style="padding: 1.5rem; border-top: 1px solid var(--border); background: rgba(88,166,255,0.02);"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: ENGINE ROOM -->
+  <div class="right-panel">
+    <div class="engine-grid">
+
+      <!-- MEMORY -->
+      <div class="engine-section mem">
+        <div class="engine-title cyan">▸ MÉMOIRE ET TAS <span style="color:var(--text-dim);font-weight:400">(variables en direct)</span></div>
+        <div class="engine-body" id="mem-panel">
+          <div class="mem-grid" id="mem-grid"></div>
+        </div>
+      </div>
+
+      <!-- INSTRUCTION POINTER -->
+      <div class="engine-section ip">
+        <div class="engine-title amber">▸ POINTEUR D'INSTRUCTION <span style="color:var(--text-dim);font-weight:400">(ligne en cours)</span></div>
+        <div class="engine-body" style="padding:0 .5rem">
+          <div class="ip-lines" id="ip-lines"></div>
+        </div>
+      </div>
+
+      <!-- DATA STRUCTURES -->
+      <div class="engine-section ds">
+        <div class="engine-title purple">▸ STRUCTURES DE DONNÉES <span style="color:var(--text-dim);font-weight:400">(visualisées)</span></div>
+        <div class="ds-body" id="ds-panel"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+// ════════════════════════════════════════════════
+//  GLOBAL STATE
+// ════════════════════════════════════════════════
+let currentScene = 0;
+const sceneLabels = ['MOTEUR DE JEU','MODULE D\'AUTH','MOTEUR DE RECHERCHE','PILE D\'ANNULATION'];
+const EXPLANATIONS = [
+  // Scene 0: Game
+  `<div class="explanation-box" style="margin:0;">
+    <h4>🚀 Moteur de Physique & Boucle de Rendu</h4>
+    <p><strong>En résumé :</strong> L'ordinateur déplace une balle sur l'écran en calculant sa nouvelle position 60 fois par seconde. Il regarde en permanence si la balle "touche" la raquette pour la faire rebondir.</p>
+    <hr style="border:0; border-top:1px dashed var(--border); margin:0.8rem 0;">
+    <p style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; font-weight:700; margin-bottom:0.4rem;">Détails Techniques :</p>
+    <ul>
+      <li><span class="hl-algo">Boucle rAF (requestAnimationFrame) :</span> Cette fonction "réveille" le code à chaque rafraîchissement de votre écran. Chaque "frame" recalcule la position en ajoutant un <code>vecteur vitesse</code> aux coordonnées.</li>
+      <li><span class="hl-data">Détection de Collision AABB :</span> Le CPU compare les boîtes englobantes des objets : <code>if (rect1.x < rect2.x + rect2.w && ...)</code>. Si les zones se chevauchent, le rebond est déclenché.</li>
+      <li><span class="hl-data">Gestion de l'État :</span> Toutes les propriétés (score, vies, positions) forment la <code>Data Structure</code> globale du jeu. Un seul bit erroné et la physique s'effondre !</li>
+    </ul>
+    <p class="emphasize">Le CPU transforme les mathématiques en mouvement fluide ! ⚡</p>
+  </div>`,
+  // Scene 1: Login
+  `<div class="explanation-box" style="margin:0; border-color: rgba(0,255,136,0.25);">
+    <h4 style="color:var(--green)">🔐 Cryptographie & Intégrité</h4>
+    <p><strong>En résumé :</strong> Plutôt que de stocker votre mot de passe, l'ordinateur stocke une "empreinte" cryptée. Quand vous tapez votre mot de passe, il crée une nouvelle empreinte et vérifie si elle correspond à celle enregistrée.</p>
+    <hr style="border:0; border-top:1px dashed var(--border); margin:0.8rem 0;">
+    <p style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; font-weight:700; margin-bottom:0.4rem;">Détails Techniques :</p>
+    <ul>
+      <li><span class="hl-algo" style="color:var(--green);border-color:var(--green);background:var(--green-dim)">Hachage Déterministe :</span> Le mot de passe est transformé par une fonction mathématique irréversible. On ne peut pas retrouver le texte original à partir du hash résultat.</li>
+      <li><span class="hl-algo">Comparaison "Timing-Safe" :</span> Pour bloquer les pirates, le CPU compare les empreintes en un temps fixe. Cela empêche de deviner le mot de passe en mesurant la vitesse de réponse de l'ordinateur.</li>
+      <li><span class="hl-data" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim)">Persistance :</span> La base de données (objet <code>DB</code>) est une structure de données qui agit comme un coffre-fort d'empreintes numériques.</li>
+    </ul>
+    <p class="emphasize" style="color: #fff !important;">La sécurité repose sur l'irréversibilité mathématique ! 🔒</p>
+  </div>`,
+  // Scene 2: Search
+  `<div class="explanation-box" style="margin:0; border-color: rgba(192,132,252,0.25);">
+    <h4 style="color:var(--purple)">🔍 Algorithmique & Complexité</h4>
+    <p><strong>En résumé :</strong> Pour trouver un mot, l'ordinateur lit la liste d'un bout à l'autre très rapidement et élimine tout ce qui ne correspond pas à votre recherche.</p>
+    <hr style="border:0; border-top:1px dashed var(--border); margin:0.8rem 0;">
+    <p style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; font-weight:700; margin-bottom:0.4rem;">Détails Techniques :</p>
+    <ul>
+      <li><span class="hl-data" style="color:var(--purple);border-color:rgba(192,132,252,0.5);background:rgba(192,132,252,0.1)">Linéarité de la Mémoire :</span> Les données sont rangées côte à côte dans la RAM (Tableau). Cela permet au processeur de lire les éléments suivants avant même qu'on lui demande (cache-prefetching).</li>
+      <li><span class="hl-algo">Complexité O(n) :</span> Le temps de recherche est proportionnel au nombre d'éléments. C'est l'essence même de l'algorithme de recherche linéaire.</li>
+      <li><span class="hl-algo">Filtrage Prédicatif :</span> L'algorithme utilise une condition logique pour "décider" quel bit de donnée est pertinent, créant un nouveau tableau de résultats à la volée.</li>
+    </ul>
+    <p class="emphasize">L'organisation intelligente des données est la clé de la vitesse ! 🏎️</p>
+  </div>`,
+  // Scene 3: Undo
+  `<div class="explanation-box" style="margin:0; border-color: rgba(255,179,0,0.25);">
+    <h4 style="color:var(--amber)">⏱️ Gestion d'État & Invariant de Pile</h4>
+    <p><strong>En résumé :</strong> Chaque fois que vous agissez, l'ordinateur prend une "photo" de votre travail et la pose sur une pile. Annuler revient simplement à retirer la photo du dessus pour voir celle d'avant.</p>
+    <hr style="border:0; border-top:1px dashed var(--border); margin:0.8rem 0;">
+    <p style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; font-weight:700; margin-bottom:0.4rem;">Détails Techniques :</p>
+    <ul>
+      <li><span class="hl-data" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim)">Structure de Pile (LIFO) :</span> C'est le principe "Dernier Entré, Premier Sorti" (Last-In, First-Out). Comme une pile d'assiettes, on ne manipule que le sommet.</li>
+      <li><span class="hl-algo">Snapshots (Instantanés) :</span> Nous sauvegardons l'état complet du texte. Lors d'un "Undo", nous faisons un <code>pop()</code> pour restaurer cet état précédent instantanément.</li>
+      <li><span class="hl-algo">Piles Conjuguées :</span> Nous utilisons deux piles (Undo et Redo) pour permettre de voyager dans les deux sens de la ligne temporelle des données.</li>
+    </ul>
+    <p class="emphasize">Le passé est une pile de données que l'on peut dépiler à volonté ! 📚</p>
+  </div>`
+];
+
+function setScene(n) {
+  if (currentScene === 0) stopGame();
+  document.querySelectorAll('.scenario').forEach((s,i) => s.classList.toggle('active', i===n));
+  document.querySelectorAll('nav button').forEach((b,i) => b.classList.toggle('active', i===n));
+  document.getElementById('scene-label').textContent = sceneLabels[n];
+  document.getElementById('exp-panel').innerHTML = EXPLANATIONS[n];
+  currentScene = n;
+  if (n===0) initGame();
+  else if (n===1) initLoginXray();
+  else if (n===2) initSearch();
+  else if (n===3) initEditor();
+}
+
+// ── Memory Panel ──
+function setMem(vars) {
+  const grid = document.getElementById('mem-grid');
+  grid.innerHTML = vars.map(v => `
+    <div class="mem-token ${v.flash||''}" id="mt-${v.k}">
+      <span class="type">${v.t}</span>
+      <span class="key">${v.k}</span>
+      <span style="color:var(--text-dim)">:</span>
+      <span class="val">${v.v}</span>
+    </div>`).join('');
+  let bytes = vars.reduce((a,v)=>a+JSON.stringify(v.v).length,0)*8;
+  document.getElementById('mem-usage').textContent = `heap: ${bytes}B`;
+}
+
+function flashMem(id, type='') {
+  const el = document.getElementById('mt-'+id);
+  if(!el) return;
+  el.classList.remove('flash','flash-amber');
+  void el.offsetWidth;
+  el.classList.add(type==='amber'?'flash-amber':'flash');
+  setTimeout(()=>el.classList.remove('flash','flash-amber'),400);
+}
+
+// ── IP Panel ──
+function setIP(lines, activeLine) {
+  document.getElementById('ip-lines').innerHTML = lines.map((l,i) => `
+    <div class="ip-line ${i===activeLine?'active':''}">
+      ${i===activeLine?`<span class="ip-arrow">▶</span>`:`<span style="width:12px;display:inline-block"></span>`}
+      <span class="ln">${i+1}</span>
+      <span class="code">${l}</span>
+    </div>`).join('');
+}
+
+// ── DS Panel ──
+function setDS(html) {
+  document.getElementById('ds-panel').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════
+//  SCENE 0: GAME
+// ════════════════════════════════════════════════
+let gameState = {};
+let rafId = null;
+let keys = {};
+
+function initGame() {
+  const area = document.getElementById('gameArea');
+  const W = area.clientWidth, H = area.clientHeight;
+  document.getElementById('game-over').classList.remove('show');
+  gameState = {
+    running: true,
+    score: 0, lives: 3,
+    paddleX: W/2 - 40, paddleW: 80,
+    ballX: W/2, ballY: H/2,
+    ballVX: 3.5, ballVY: 4,
+    obstacles: [],
+    frame: 0,
+    W, H,
+    collision: false,
+    lastFPS: 60,
+    fpsFrames: 0, fpsTime: performance.now()
+  };
+  document.getElementById('paddle').style.width = gameState.paddleW+'px';
+  spawnObstacles();
+  updateGameXray(false);
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function stopGame() { if(rafId){cancelAnimationFrame(rafId);rafId=null;} }
+
+function spawnObstacles() {
+  const { W } = gameState;
+  const colors = ['#ff4444','#c084fc','#00ff88','#ffb300'];
+  gameState.obstacles = Array.from({length:5},(_,i)=>({
+    x: 40+i*(W-80)/5, y: 40+Math.random()*80,
+    vx: (Math.random()>.5?1:-1)*(1.5+Math.random()),
+    w:36, h:12,
+    color: colors[i%colors.length]
+  }));
+}
+
+function gameLoop(ts) {
+  if(!gameState.running) return;
+  const gs = gameState;
+  const { W, H } = gs;
+
+  // FPS
+  gs.fpsFrames++;
+  if(ts - gs.fpsTime > 500) {
+    gs.lastFPS = Math.round(gs.fpsFrames*1000/(ts-gs.fpsTime));
+    gs.fpsFrames=0; gs.fpsTime=ts;
+    document.getElementById('fps-counter').textContent = gs.lastFPS+' fps';
+  }
+
+  // Paddle
+  const paddle = document.getElementById('paddle');
+  if(keys['ArrowLeft']||keys['a']) gs.paddleX = Math.max(0, gs.paddleX-6);
+  if(keys['ArrowRight']||keys['d']) gs.paddleX = Math.min(W-gs.paddleW, gs.paddleX+6);
+  paddle.style.left = gs.paddleX+'px';
+
+  // Ball
+  gs.ballX += gs.ballVX;
+  gs.ballY += gs.ballVY;
+  if(gs.ballX<=7||gs.ballX>=W-7) gs.ballVX*=-1;
+  if(gs.ballY<=7) gs.ballVY*=-1;
+
+  // Paddle collision
+  gs.collision = false;
+  const pTop = H-28;
+  if(gs.ballY+7>=pTop && gs.ballY+7<=pTop+14 && gs.ballX+7>=gs.paddleX && gs.ballX-7<=gs.paddleX+gs.paddleW) {
+    gs.ballVY = -Math.abs(gs.ballVY);
+    gs.score++;
+    gs.collision = true;
+    document.getElementById('g-score').textContent = gs.score;
+    if(gs.score%5===0) { gs.ballVX*=1.05; gs.ballVY*=1.05; }
+  }
+
+  // Miss
+  if(gs.ballY > H) {
+    gs.lives--;
+    document.getElementById('g-lives').textContent = '♥'.repeat(Math.max(0,gs.lives));
+    if(gs.lives<=0) { endGame(); return; }
+    gs.ballX=W/2; gs.ballY=H/2;
+    gs.ballVY=Math.abs(gs.ballVY);
+  }
+
+  // Obstacles
+  gs.obstacles.forEach(o=>{
+    o.x+=o.vx;
+    if(o.x<=0||o.x+o.w>=W) o.vx*=-1;
+    // Ball-obstacle collision
+    if(gs.ballX+7>o.x && gs.ballX-7<o.x+o.w && gs.ballY+7>o.y && gs.ballY-7<o.y+o.h) {
+      gs.ballVY*=-1; gs.score++; gs.collision=true;
+      document.getElementById('g-score').textContent=gs.score;
+    }
+  });
+
+  const ball = document.getElementById('ball');
+  ball.style.left=(gs.ballX-7)+'px';
+  ball.style.top=(gs.ballY-7)+'px';
+
+  // Render obstacles
+  document.querySelectorAll('.obstacle').forEach(el=>el.remove());
+  const area = document.getElementById('gameArea');
+  gs.obstacles.forEach(o=>{
+    const el = document.createElement('div');
+    el.className='obstacle';
+    el.style.cssText=`left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px;background:${o.color};box-shadow:0 0 8px ${o.color}55;`;
+    area.appendChild(el);
+  });
+
+  if(gs.collision) area.classList.add('collision-flash');
+  else area.classList.remove('collision-flash');
+
+  gs.frame++;
+  updateGameXray(gs.collision);
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+  gameState.running=false;
+  document.getElementById('final-score').textContent=gameState.score;
+  document.getElementById('game-over').classList.add('show');
+  stopGame();
+}
+
+function updateGameXray(collision) {
+  const gs = gameState;
+  setMem([
+    {t:'int',  k:'ballX',   v:Math.round(gs.ballX),  flash: collision?'flash':''},
+    {t:'int',  k:'ballY',   v:Math.round(gs.ballY)},
+    {t:'float',k:'ballVX',  v:gs.ballVX?.toFixed(2)},
+    {t:'float',k:'ballVY',  v:gs.ballVY?.toFixed(2), flash: collision?'flash-amber':''},
+    {t:'int',  k:'paddleX', v:Math.round(gs.paddleX||0)},
+    {t:'int',  k:'score',   v:gs.score},
+    {t:'int',  k:'lives',   v:gs.lives},
+    {t:'bool', k:'collision',v:collision?'true':'false', flash: collision?'flash-amber':''},
+    {t:'int',  k:'frame',   v:gs.frame},
+    {t:'int',  k:'fps',     v:gs.lastFPS},
+  ]);
+
+  const activeLine = collision ? 8 : (gs.ballY>gs.H-30 ? 10 : 3);
+  setIP([
+    `<span class="kw">function</span> <span class="fn">gameLoop</span>(timestamp) {`,
+    `  <span class="fn">requestAnimationFrame</span>(gameLoop);`,
+    `  ballX += ballVX; ballY += ballVY;`,
+    `  <span class="kw">if</span> (ballX &lt;= 0 || ballX >= W) ballVX *= -1;`,
+    `  <span class="kw">if</span> (ballY &lt;= 0) ballVY *= -1;`,
+    `  <span class="cmt">// ── Paddle Collision Detection ──</span>`,
+    `  <span class="kw">if</span> (ballY + r >= paddleTop`,
+    `     &amp;&amp; ballX >= paddleX`,
+    `     &amp;&amp; ballX &lt;= paddleX + paddleW) {`,
+    `    ballVY = -<span class="fn">Math.abs</span>(ballVY); score++;`,
+    `  } <span class="kw">else if</span> (ballY > H) { lives--; reset(); }`,
+    `}`,
+  ], activeLine);
+
+  // DS: obstacles array
+  const obstacleRows = gs.obstacles?.map((o,i)=>
+    `<div class="arr-cell ${collision&&i===0?'match':''}" style="min-width:44px;height:36px;font-size:.6rem;flex-direction:column;gap:0">
+      <span style="color:var(--text-dim)">obs[${i}]</span>
+      <span style="color:var(--amber)">${Math.round(o.x)},${Math.round(o.y)}</span>
+    </div>`).join('') || '';
+
+  setDS(`
+    <div>
+      <div class="ds-label">OBSTACLE[] — positions array</div>
+      <div class="array-viz">${obstacleRows}</div>
+    </div>
+    <div>
+      <div class="ds-label">rAF LOOP — call graph</div>
+      <div style="font-family:var(--mono);font-size:.68rem;color:var(--text-dim)">
+        <span style="color:var(--cyan)">requestAnimationFrame</span> → gameLoop
+        <br><span style="padding-left:1rem">→ updatePhysics()</span>
+        <br><span style="padding-left:1rem">→ detectCollisions()</span>
+        <br><span style="padding-left:1rem">→ renderFrame()</span>
+        <br><span style="color:var(--text-dim);padding-left:1rem">↻ repeat @ ${gs.lastFPS}fps</span>
+      </div>
+    </div>
+  `);
+}
+
+// ════════════════════════════════════════════════
+//  SCENE 1: LOGIN
+// ════════════════════════════════════════════════
+const DB = { admin: simpleHash('secret123') };
+
+function simpleHash(s) {
+  let h = 5381;
+  for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i);
+  return (h>>>0).toString(16).padStart(8,'0').repeat(4).slice(0,32);
+}
+
+function initLoginXray() {
+  updateLoginXray();
+}
+
+function updateLoginXray() {
+  const user = document.getElementById('login-user')?.value||'';
+  const pass = document.getElementById('login-pass')?.value||'';
+  const hash = pass ? simpleHash(pass) : '????????????????????????????????';
+
+  setMem([
+    {t:'str', k:'username', v:`"${user||'…'}"`},
+    {t:'str', k:'password', v:`"${'*'.repeat(Math.min(pass.length,8))||'…'}"`},
+    {t:'hex', k:'inputHash', v:hash.slice(0,16)+'…'},
+    {t:'hex', k:'storedHash', v:(DB.admin||'').slice(0,16)+'…'},
+    {t:'obj', k:'DB', v:`{admin: Hash[32]}`},
+    {t:'bool',k:'match', v:'pending'},
+  ]);
+
+  setIP([
+    `<span class="kw">const</span> user = form.<span class="fn">get</span>(<span class="str">'username'</span>);`,
+    `<span class="kw">const</span> pass = form.<span class="fn">get</span>(<span class="str">'password'</span>);`,
+    `<span class="kw">const</span> hash = <span class="fn">SHA256</span>(pass); <span class="cmt">// one-way</span>`,
+    `<span class="kw">const</span> stored = DB[user];`,
+    `<span class="kw">if</span> (!stored) <span class="kw">return</span> <span class="str">"NO_USER"</span>;`,
+    `<span class="kw">const</span> match = <span class="fn">timingSafeEqual</span>(hash, stored);`,
+    `<span class="kw">if</span> (match) <span class="fn">issueToken</span>(user);`,
+    `<span class="kw">else return</span> <span class="str">"INVALID_CREDS"</span>;`,
+  ], pass.length > 0 ? 2 : 0);
+
+  setDS(`
+    <div>
+      <div class="ds-label">HASH PIPELINE</div>
+      <div class="hash-viz">
+        <div class="hash-step ${pass?'active':''}">
+          <span class="label">INPUT</span>
+          <span class="arrow">→</span>
+          <span class="val">"${'*'.repeat(Math.min(pass.length,12))||'(empty)'}"</span>
+        </div>
+        <div class="hash-step ${pass.length>2?'active':''}">
+          <span class="label">SHA-256</span>
+          <span class="arrow">→</span>
+          <span class="val" style="font-size:.6rem">${hash.slice(0,24)}…</span>
+        </div>
+        <div class="hash-step">
+          <span class="label">STORED</span>
+          <span class="arrow">→</span>
+          <span class="val" style="font-size:.6rem">${(DB.admin||'').slice(0,24)}…</span>
+        </div>
+        <div class="hash-step">
+          <span class="label">CMP</span>
+          <span class="arrow">→</span>
+          <span class="val" style="color:var(--text-dim)">timingSafeEqual(a,b)</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="ds-label">DATABASE OBJECT</div>
+      <div style="font-family:var(--mono);font-size:.68rem;background:var(--surface2);padding:.5rem .7rem;border-radius:4px;border:1px solid var(--border)">
+        <span style="color:var(--cyan)">DB</span> = {<br>
+        &nbsp;&nbsp;<span style="color:var(--text-muted)">admin</span>: <span style="color:var(--amber);font-size:.6rem">"${(DB.admin||'').slice(0,20)}…"</span><br>
+        }
+      </div>
+    </div>
+  `);
+}
+
+function doLogin() {
+  const user = document.getElementById('login-user').value;
+  const pass = document.getElementById('login-pass').value;
+  const fb = document.getElementById('login-fb');
+  fb.className = 'login-feedback';
+
+  const hash = simpleHash(pass);
+  const stored = DB[user];
+
+  setMem([
+    {t:'str', k:'username', v:`"${user}"`},
+    {t:'hex', k:'inputHash', v:hash.slice(0,16)+'…', flash:'flash'},
+    {t:'hex', k:'storedHash', v:(stored||'').slice(0,16)+'…'},
+    {t:'bool',k:'userExists', v:stored?'true':'false'},
+    {t:'bool',k:'match', v:(stored&&hash===stored)?'true':'false', flash:'flash-amber'},
+  ]);
+
+  if(!stored) {
+    fb.textContent = '✗ User not found in database'; fb.className='login-feedback error';
+    setIP([`<span class="kw">const</span> stored = DB[<span class="str">"${user}"</span>];`,`<span class="kw">if</span> (!stored) <span class="kw">return</span> <span class="str">"NO_USER"</span>;`,`<span class="cmt">// ← execution stops here</span>`], 1);
+  } else if(hash===stored) {
+    fb.textContent = '✓ Authentication successful! Token issued.'; fb.className='login-feedback success';
+    setIP([`hash === stored <span class="cmt">// TRUE</span>`,`<span class="fn">issueJWT</span>({ sub: <span class="str">"${user}"</span>, exp: +1h });`,`<span class="fn">redirect</span>(<span class="str">'/dashboard'</span>);`], 1);
+  } else {
+    fb.textContent = '✗ Invalid credentials (hash mismatch)'; fb.className='login-feedback error';
+    setIP([`hash === stored <span class="cmt">// FALSE</span>`,`<span class="kw">return</span> <span class="str">"INVALID_CREDS"</span>;`,`<span class="cmt">// 401 Unauthorized</span>`], 1);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  SCENE 2: SEARCH
+// ════════════════════════════════════════════════
+const SEARCH_DATA = [
+  'Array','Binary Tree','BFS','DFS','Dijkstra','Dynamic Programming',
+  'Graph','Hash Map','Heap','Insertion Sort','Linked List','Merge Sort',
+  'Queue','Quick Sort','Red-Black Tree','Stack','Trie','Union Find',
+  'AVL Tree','Bubble Sort'
+];
+
+let searchIter = 0;
+
+function initSearch() {
+  const res = document.getElementById('search-results');
+  res.innerHTML = SEARCH_DATA.map((d,i)=>`<div class="search-item visible" id="si-${i}">${d}</div>`).join('');
+  updateSearchXray('', SEARCH_DATA.length, 0);
+}
+
+function doSearch() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  let iters=0, matches=0;
+  SEARCH_DATA.forEach((d,i)=>{
+    iters++;
+    const el=document.getElementById('si-'+i);
+    const match = !q || d.toLowerCase().includes(q);
+    el.className='search-item '+(match?'visible':'hidden');
+    if(match) matches++;
+  });
+  searchIter=iters;
+  document.getElementById('search-stats').textContent=`Showing ${matches} / ${SEARCH_DATA.length} items · ${iters} comparisons`;
+  updateSearchXray(q, matches, iters);
+}
+
+function updateSearchXray(q, matches, iters) {
+  setMem([
+    {t:'str',  k:'query',  v:`"${q||''}"`},
+    {t:'int',  k:'n',      v:SEARCH_DATA.length},
+    {t:'int',  k:'matches',v:matches},
+    {t:'int',  k:'iters',  v:iters},
+    {t:'arr',  k:'results',v:`Array[${matches}]`},
+  ]);
+
+  const activeLine = q ? 3 : 0;
+  setIP([
+    `<span class="kw">const</span> query = input.<span class="fn">toLowerCase</span>();`,
+    `<span class="kw">const</span> results = [];`,
+    `<span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i < data.length; i++) {`,
+    `  <span class="kw">if</span> (data[i].<span class="fn">includes</span>(query)) {`,
+    `    results.<span class="fn">push</span>(data[i]); <span class="cmt">// match!</span>`,
+    `  } <span class="kw">else</span> {`,
+    `    <span class="cmt">// filtered out</span>`,
+    `  }`,
+    `}`,
+    `<span class="kw">return</span> results; <span class="cmt">// O(n) linear</span>`,
+  ], activeLine);
+
+  const cells = SEARCH_DATA.map((d,i)=>{
+    const match = !q||d.toLowerCase().includes(q);
+    return `<div class="arr-cell ${q?(match?'match':'no-match'):''}" title="${d}" style="min-width:28px">${i}</div>`;
+  }).join('');
+
+  setDS(`
+    <div>
+      <div class="ds-label">data[] — all items (${SEARCH_DATA.length} entries)</div>
+      <div class="array-viz">${cells}</div>
+    </div>
+    <div style="margin-top:.25rem">
+      <div class="ds-label">ALGORITHM — Linear Filter O(n)</div>
+      <div style="font-family:var(--mono);font-size:.68rem;color:var(--text-dim);background:var(--surface2);padding:.5rem .7rem;border-radius:4px;border:1px solid var(--border)">
+        <span style="color:var(--cyan)">Array.filter(</span>item => item.includes(query)<span style="color:var(--cyan)">)</span><br>
+        <span style="color:var(--text-dim)">Comparisons: ${iters} &nbsp;·&nbsp; Complexity: O(n)</span><br>
+        <span style="color:var(--green)">Matches: ${matches}</span> <span style="color:var(--red)">Filtered: ${SEARCH_DATA.length-matches}</span>
+      </div>
+    </div>
+  `);
+}
+
+// ════════════════════════════════════════════════
+//  SCENE 3: UNDO/REDO
+// ════════════════════════════════════════════════
+let undoStack = [], redoStack = [], lastVal = '';
+
+function initEditor() {
+  undoStack=[]; redoStack=[];
+  lastVal = document.getElementById('editor-ta').value;
+  updateEditorXray();
+}
+
+function editorInput() {
+  const val = document.getElementById('editor-ta').value;
+  undoStack.push(lastVal);
+  redoStack = [];
+  lastVal = val;
+  if(undoStack.length>20) undoStack.shift();
+  updateEditorXray('push');
+  document.getElementById('undo-btn').disabled = undoStack.length===0;
+  document.getElementById('redo-btn').disabled = redoStack.length===0;
+}
+
+function editorKeyDown(e) {
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();doUndo();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='y'){e.preventDefault();doRedo();}
+}
+
+function doUndo() {
+  if(!undoStack.length) return;
+  redoStack.push(lastVal);
+  lastVal = undoStack.pop();
+  document.getElementById('editor-ta').value = lastVal;
+  updateEditorXray('pop');
+  document.getElementById('undo-btn').disabled = undoStack.length===0;
+  document.getElementById('redo-btn').disabled = redoStack.length===0;
+}
+
+function doRedo() {
+  if(!redoStack.length) return;
+  undoStack.push(lastVal);
+  lastVal = redoStack.pop();
+  document.getElementById('editor-ta').value = lastVal;
+  updateEditorXray('redo');
+  document.getElementById('undo-btn').disabled = undoStack.length===0;
+  document.getElementById('redo-btn').disabled = redoStack.length===0;
+}
+
+function doClear() {
+  undoStack.push(lastVal); redoStack=[];
+  document.getElementById('editor-ta').value='';
+  lastVal='';
+  updateEditorXray('push');
+  document.getElementById('undo-btn').disabled=false;
+  document.getElementById('redo-btn').disabled=true;
+}
+
+function updateEditorXray(action) {
+  const chars = lastVal.length;
+  document.getElementById('editor-meta').textContent=`Stack: ${undoStack.length} states · Redo: ${redoStack.length} states`;
+
+  setMem([
+    {t:'str',  k:'current',  v:`"${lastVal.slice(-12).replace(/\n/g,'↵')||'""'}"`, flash: action==='pop'?'flash-amber':action==='push'?'flash':''},
+    {t:'int',  k:'chars',    v:chars},
+    {t:'int',  k:'undoDepth',v:undoStack.length, flash: action==='push'?'flash':''},
+    {t:'int',  k:'redoDepth',v:redoStack.length, flash: action==='redo'?'flash':''},
+    {t:'str',  k:'action',   v:`"${action||'idle'}"`, flash: action?'flash-amber':''},
+  ]);
+
+  const activeLine = action==='push'?2:action==='pop'?5:action==='redo'?8:0;
+  setIP([
+    `<span class="kw">// LIFO Stack — Text Editor</span>`,
+    `<span class="kw">function</span> <span class="fn">onInput</span>(newVal) {`,
+    `  undoStack.<span class="fn">push</span>(currentVal); <span class="cmt">// PUSH</span>`,
+    `  redoStack = []; currentVal = newVal;`,
+    `}`,
+    `<span class="kw">function</span> <span class="fn">undo</span>() {`,
+    `  redoStack.<span class="fn">push</span>(currentVal);`,
+    `  currentVal = undoStack.<span class="fn">pop</span>(); <span class="cmt">// POP</span>`,
+    `}`,
+    `<span class="kw">function</span> <span class="fn">redo</span>() {`,
+    `  undoStack.<span class="fn">push</span>(currentVal);`,
+    `  currentVal = redoStack.<span class="fn">pop</span>(); <span class="cmt">// POP redo</span>`,
+    `}`,
+  ], activeLine);
+
+  // Stack visualization (LIFO — show top 6)
+  const display = undoStack.slice(-6);
+  const stackItems = [...display].reverse().map((s,i,arr)=>`
+    <div class="stack-item ${i===0?'top':''} ${action==='pop'&&i===0?'popping':action==='push'&&i===0?'pushing':''}">
+      <span>${s.slice(-20).replace(/\n/g,'↵')||'(empty)'}</span>
+      <span style="color:var(--text-dim);font-size:.6rem">${s.length}ch</span>
+    </div>`).join('');
+
+  setDS(`
+    <div>
+      <div class="ds-label">UNDO STACK (LIFO) — ${undoStack.length} states</div>
+      ${undoStack.length
+        ? `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem;font-family:var(--mono);font-size:.65rem;color:var(--amber)">← TOP (most recent)</div>
+           <div class="stack-viz">${stackItems}</div>`
+        : `<div style="font-family:var(--mono);font-size:.7rem;color:var(--text-dim);padding:.5rem">(empty — start typing)</div>`}
+    </div>
+    <div>
+      <div class="ds-label">REDO STACK — ${redoStack.length} states</div>
+      ${redoStack.length
+        ? `<div class="stack-viz">${[...redoStack].reverse().slice(0,3).map((s,i)=>`<div class="stack-item ${i===0?'top':''}">${s.slice(-20).replace(/\n/g,'↵')||'(empty)'}</div>`).join('')}</div>`
+        : `<div style="font-family:var(--mono);font-size:.7rem;color:var(--text-dim);padding:.5rem">(empty)</div>`}
+    </div>
+  `);
+}
+
+// ════════════════════════════════════════════════
+//  KEYBOARD + MOUSE CONTROLS
+// ════════════════════════════════════════════════
+document.addEventListener('keydown', e=>{ keys[e.key]=true; });
+document.addEventListener('keyup', e=>{ keys[e.key]=false; });
+
+document.getElementById('gameArea').addEventListener('mousemove', e=>{
+  if(currentScene!==0||!gameState.running) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const mx = e.clientX-rect.left;
+  gameState.paddleX = Math.max(0, Math.min(gameState.W-gameState.paddleW, mx-gameState.paddleW/2));
+});
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+setScene(0);
+</script>
+</body>
+</html>

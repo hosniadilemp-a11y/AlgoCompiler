@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Éditeur de Cours (Notebook)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=4">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    html, body { height:100%; }
+    body { background:#0b0f14; color:#e6edf3; overflow-y:auto; }
+    .page { max-width:1200px; margin:0 auto; padding:24px 24px 80px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .topbar .left { display:flex; align-items:center; gap:12px; }
+    .btn { padding:8px 14px; border-radius:7px; border:none; cursor:pointer; font-size:0.85rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .btn-info { background:rgba(74,110,224,0.2); color:#4a6ee0; }
+    .btn-success { background:rgba(46,204,113,0.15); color:#2ecc71; }
+    .btn-danger { background:rgba(231,76,60,0.15); color:#e74c3c; }
+    .btn-outline { background:transparent; border:1px solid #30363d; color:#c9d1d9; }
+    .btn-sm { padding:6px 10px; font-size:0.78rem; }
+
+    .notebook { display:flex; flex-direction:column; gap:14px; }
+    .cell { background:#151b23; border:1px solid #2b3441; border-radius:12px; padding:14px; box-shadow:0 6px 18px rgba(0,0,0,0.25); }
+    .cell-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .cell-title { font-weight:700; font-size:0.95rem; display:flex; gap:8px; align-items:center; }
+    .field-row { margin-bottom:10px; }
+    .field-row label { display:block; font-size:0.75rem; color:#8b949e; margin-bottom:4px; }
+    input, textarea, select { width:100%; background:#0d1117; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:8px; }
+    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .grid-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; }
+    .tag-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
+    .muted { color:#8b949e; font-size:0.8rem; }
+
+    .chapter-block { border-left:3px solid #4a6ee0; padding-left:10px; }
+    .section-cell { background:#0f141b; border:1px solid #243040; }
+    .section-actions { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+    .code-block { display:none; }
+    .code-block.open { display:block; }
+    .section-body { display:none; }
+    .section-body.open { display:block; }
+    .textarea-content { font-size:1.05rem; line-height:1.55; }
+    .textarea-content { min-height:50vh; }
+
+    .icon-picker { display:flex; flex-wrap:wrap; gap:8px; }
+    .icon-btn { width:36px; height:36px; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#c9d1d9; cursor:pointer; }
+    .icon-btn.active { border-color:#4a6ee0; box-shadow:0 0 0 2px rgba(74,110,224,0.2); color:#4a6ee0; }
+    .icon-btn i { pointer-events:none; }
+
+    .section-anim-add { animation: sectionAdd 0.45s ease; }
+    .section-anim-move { animation: sectionMove 0.35s ease; }
+    .section-anim-delete { animation: sectionDelete 0.35s ease forwards; }
+    @keyframes sectionAdd {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes sectionMove {
+      from { transform: translateY(-6px); }
+      to { transform: translateY(0); }
+    }
+    @keyframes sectionDelete {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(8px); opacity: 0; }
+    }
+
+    .section-anim-add { animation: sectionAdd 0.45s ease; }
+    .section-anim-move { animation: sectionMove 0.35s ease; }
+    @keyframes sectionAdd {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes sectionMove {
+      from { transform: translateY(-6px); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:50; }
+    .modal-bg.open { display:flex; }
+    .modal { background:#151b23; border:1px solid #2b3441; border-radius:10px; padding:16px; width:90%; max-width:520px; }
+
+    .progress-modal { max-width:520px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="left">
+        <a class="btn btn-outline" href="/admin/dashboard#courses"><i class="fas fa-arrow-left"></i> Admin</a>
+        <h2 style="margin:0;"><i class="fas fa-book"></i> Éditeur de Cours — Notebook</h2>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-outline" id="btn-prev" onclick="navigateChapter(-1)"><i class="fas fa-arrow-left"></i> Précédent</button>
+        <button class="btn btn-outline" id="btn-next" onclick="navigateChapter(1)">Suivant <i class="fas fa-arrow-right"></i></button>
+        <button class="btn btn-success" id="btn-new" onclick="openChapterModal()"><i class="fas fa-plus"></i> Nouveau chapitre</button>
+        <button class="btn btn-info" onclick="exportCourseJson()"><i class="fas fa-file-export"></i> Exporter JSON</button>
+        <button class="btn btn-info" onclick="triggerImportCourseJson()"><i class="fas fa-file-import"></i> Importer JSON</button>
+        <button class="btn btn-success" onclick="previewCourse()"><i class="fas fa-eye"></i> Aperçu</button>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="cell-header">
+        <div class="cell-title"><i class="fas fa-layer-group"></i> Structure du Cours</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-info" onclick="saveAll()"><i class="fas fa-save"></i> Tout Sauver</button>
+        </div>
+      </div>
+      <div class="muted">Chaque chapitre et section est un « cell ». Modifiez et sauvegardez.</div>
+    </div>
+
+    <div id="notebook" class="notebook"></div>
+  </div>
+
+  <input type="file" id="courseJsonInput" accept="application/json,.json" style="display:none;">
+
+  <div class="modal-bg" id="chapterModal">
+    <div class="modal">
+      <h3 id="chapterModalTitle">Nouveau Chapitre</h3>
+      <div class="field-row"><label>Titre</label><input id="chap-title"></div>
+      <div class="field-row"><label>Identifiant</label><input id="chap-id"></div>
+      <div class="field-row">
+        <label>Icône</label>
+        <input type="hidden" id="chap-icon" value="fas fa-book">
+        <div class="icon-picker" id="chap-icon-picker"></div>
+      </div>
+      <div class="field-row"><label>Publié</label>
+        <select id="chap-pub"><option value="true">Oui</option><option value="false">Non</option></select>
+      </div>
+      <div class="section-actions">
+        <button class="btn btn-danger" onclick="closeModal('chapterModal')">Annuler</button>
+        <button class="btn btn-success" onclick="saveChapter()"><i class="fas fa-save"></i> Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="importProgressModal">
+    <div class="modal progress-modal">
+      <h3 id="importProgressTitle">Import</h3>
+      <div id="importProgressList" style="margin-top:10px; max-height:300px; overflow:auto;"></div>
+      <div id="importProgressFooter" style="margin-top:10px; color:#8b949e;"></div>
+      <div class="section-actions">
+        <button class="btn btn-danger" onclick="closeModal('importProgressModal')">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let chapters = [];
+    let sectionsByChapter = {};
+    let editingChapterId = null;
+    let currentChapterIndex = 0;
+    const singleChapterId = new URLSearchParams(window.location.search).get('chapter_id');
+    const highlightSectionIds = new Set();
+    const movedSectionIds = new Set();
+    const COURSE_ICON_OPTIONS = [
+      { value: 'fas fa-book', label: 'Livre' },
+      { value: 'fas fa-compass', label: 'Boussole' },
+      { value: 'fas fa-table', label: 'Tableau' },
+      { value: 'fas fa-font', label: 'Texte' },
+      { value: 'fas fa-memory', label: 'Mémoire' },
+      { value: 'fas fa-puzzle-piece', label: 'Puzzle' },
+      { value: 'fas fa-id-card', label: 'Enregistrement' },
+      { value: 'fas fa-folder-open', label: 'Fichier' },
+      { value: 'fas fa-link', label: 'Chaîne' },
+      { value: 'fas fa-layer-group', label: 'Pile' },
+      { value: 'fas fa-people-arrows', label: 'File' },
+      { value: 'fas fa-laptop-code', label: 'Tutoriel' }
+    ];
+
+    async function api(url, opts={}) {
+      const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Erreur');
+      return d;
+    }
+
+    function closeModal(id) { $(id).classList.remove('open'); }
+    function openModal(id) { $(id).classList.add('open'); }
+
+    function openImportProgress(title, items) {
+      $('importProgressTitle').textContent = title || 'Import';
+      $('importProgressFooter').textContent = 'En cours...';
+      $('importProgressList').innerHTML = items.map(name => `
+        <div data-file="${name}" style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #21262d;">
+          <span>${name}</span>
+          <span class="status">⏳</span>
+        </div>`).join('');
+      openModal('importProgressModal');
+    }
+    function updateImportItem(name, status, msg = '') {
+      const row = document.querySelector(`#importProgressList [data-file="${CSS.escape(name)}"] .status`);
+      if (!row) return;
+      if (status === 'uploading') row.textContent = '⬆️';
+      if (status === 'done') row.textContent = '✅';
+      if (status === 'error') row.textContent = `❌ ${msg || ''}`.trim();
+    }
+    function finishImportProgress(text) { $('importProgressFooter').textContent = text || 'Terminé'; }
+
+    async function loadAll() {
+      const d = await api('/admin/api/course/chapters');
+      const all = d.items || [];
+      chapters = singleChapterId ? all.filter(c => String(c.id) === String(singleChapterId)) : all;
+      sectionsByChapter = {};
+      for (const c of chapters) {
+        const s = await api(`/admin/api/course/chapters/${c.id}/sections`);
+        sectionsByChapter[c.id] = s.items || [];
+      }
+      renderNotebook();
+      if (singleChapterId) {
+        $('btn-prev').style.display = 'none';
+        $('btn-next').style.display = 'none';
+        $('btn-new').style.display = 'none';
+      }
+    }
+
+    function renderNotebook() {
+      const container = $('notebook');
+      container.innerHTML = chapters.map((c, idx) => {
+        const sections = sectionsByChapter[c.id] || [];
+        return `
+          <div class="cell chapter-block" data-chapter="${c.id}" data-index="${idx}" onmousedown="setCurrentChapterIndex(${idx})">
+            <div class="cell-header">
+              <div class="cell-title"><i class="${c.icon}"></i> Chapitre</div>
+              <div class="section-actions">
+                <button class="btn btn-success btn-sm" onclick="addSection(${c.id})"><i class="fas fa-plus"></i> Section</button>
+                <button class="btn btn-info btn-sm" onclick="saveChapterInline(${c.id})"><i class="fas fa-save"></i> Sauver</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteChapter(${c.id})"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field-row"><label>Titre</label><input data-field="title" value="${escapeHtml(c.title)}"></div>
+              <div class="field-row"><label>Identifiant</label><input data-field="identifier" value="${escapeHtml(c.identifier)}"></div>
+            </div>
+            <div class="grid-2">
+              <div class="field-row">
+                <label>Icône</label>
+                <input type="hidden" data-field="icon" value="${escapeHtml(c.icon)}">
+                <div class="icon-picker">${renderIconPicker(c.icon)}</div>
+              </div>
+              <div class="field-row"><label>Publié</label>
+                <select data-field="is_published">
+                  <option value="true" ${c.is_published ? 'selected' : ''}>Oui</option>
+                  <option value="false" ${!c.is_published ? 'selected' : ''}>Non</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          ${sections.map(s => renderSectionCell(c.id, s)).join('')}
+        `;
+      }).join('');
+      applySectionAnimations();
+    }
+
+    function renderSectionCell(chapterId, s) {
+      return `
+        <div class="cell section-cell" data-section="${s.id}" data-chapter="${chapterId}">
+          <div class="cell-header">
+            <div class="cell-title"><i class="fas fa-align-left"></i> Section</div>
+            <div class="section-actions">
+              <button class="btn btn-outline btn-sm" data-section-toggle="${s.id}" onclick="toggleSection(${s.id})" title="Afficher/Masquer"><i class="fas fa-chevron-down"></i></button>
+              <button class="btn btn-success btn-sm" onclick="addSectionAfter(${s.id})"><i class="fas fa-plus"></i></button>
+              <button class="btn btn-info btn-sm" onclick="saveSectionInline(${s.id})"><i class="fas fa-save"></i> Sauver</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteSection(${s.id})"><i class="fas fa-trash"></i></button>
+              <button class="btn btn-outline btn-sm" onclick="moveSection(${s.id}, -1)"><i class="fas fa-arrow-up"></i></button>
+              <button class="btn btn-outline btn-sm" onclick="moveSection(${s.id}, 1)"><i class="fas fa-arrow-down"></i></button>
+              <button class="btn btn-outline btn-sm" data-code-toggle="${s.id}" onclick="toggleCode(${s.id})"><i class="fas fa-code"></i></button>
+            </div>
+          </div>
+          <div class="field-row"><label>Titre</label><input data-field="title" value="${escapeHtml(s.title || '')}"></div>
+          <div class="section-body" data-section-body="${s.id}">
+            <div class="field-row">
+              <label>Contenu</label>
+              <div class="tag-bar">
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '[[NOTE]] ')">Note</button>
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '[[ALERT]] ')">Alerte</button>
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '[[DEF]] ')">Définition</button>
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '[[FUN]] ')">Fun Fact</button>
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '- ')">Liste</button>
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '### ')">Sous-titre</button>
+                <button class="btn btn-info btn-sm" type="button" onclick="insertTag(this, '[texte](https://exemple.com) ')">Lien</button>
+              </div>
+              <textarea class="textarea-content" data-field="content" rows="6">${escapeHtml(s.content || '')}</textarea>
+            </div>
+            <div class="field-row code-block" data-code-block="${s.id}">
+              <label>Code (optionnel)</label>
+              <textarea data-field="code" rows="6">${escapeHtml(s.code || '')}</textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function renderIconPicker(selected) {
+      return COURSE_ICON_OPTIONS.map(opt => {
+        const active = opt.value === selected ? 'active' : '';
+        return `<button type="button" class="icon-btn ${active}" onclick="pickIcon(this, '${opt.value}')"><i class="${opt.value}"></i></button>`;
+      }).join('');
+    }
+
+    function pickIcon(btn, value) {
+      const wrap = btn.closest('.field-row');
+      if (!wrap) return;
+      const input = wrap.querySelector('input[data-field="icon"], #chap-icon');
+      if (input) input.value = value;
+      wrap.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function renderModalIconPicker(selected) {
+      const container = $('chap-icon-picker');
+      if (!container) return;
+      container.innerHTML = COURSE_ICON_OPTIONS.map(opt => {
+        const active = opt.value === selected ? 'active' : '';
+        return `<button type="button" class="icon-btn ${active}" onclick="pickIcon(this, '${opt.value}')"><i class="${opt.value}"></i></button>`;
+      }).join('');
+    }
+
+    function insertTag(btn, tag) {
+      const cell = btn.closest('.cell');
+      const area = cell.querySelector('textarea[data-field="content"]');
+      if (!area) return;
+      const start = area.selectionStart || 0;
+      const end = area.selectionEnd || 0;
+      area.value = area.value.substring(0, start) + tag + area.value.substring(end);
+      area.setSelectionRange(start + tag.length, start + tag.length);
+      area.focus();
+    }
+    function toggleCode(id) {
+      setSectionOpen(id, true);
+      const block = document.querySelector(`[data-code-block="${id}"]`);
+      if (!block) return;
+      block.classList.toggle('open');
+    }
+    function setSectionOpen(id, open) {
+      const body = document.querySelector(`[data-section-body="${id}"]`);
+      if (!body) return;
+      body.classList.toggle('open', open);
+      const btn = document.querySelector(`[data-section-toggle="${id}"] i`);
+      if (btn) btn.className = open ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    }
+    function toggleSection(id) {
+      const body = document.querySelector(`[data-section-body="${id}"]`);
+      if (!body) return;
+      setSectionOpen(id, !body.classList.contains('open'));
+    }
+
+    function applySectionAnimations() {
+      highlightSectionIds.forEach(id => {
+        const el = document.querySelector(`.cell[data-section="${id}"]`);
+        if (el) el.classList.add('section-anim-add');
+      });
+      movedSectionIds.forEach(id => {
+        const el = document.querySelector(`.cell[data-section="${id}"]`);
+        if (el) el.classList.add('section-anim-move');
+      });
+      highlightSectionIds.clear();
+      movedSectionIds.clear();
+    }
+    function setCurrentChapterIndex(idx) {
+      currentChapterIndex = idx;
+    }
+
+    function navigateChapter(delta) {
+      if (singleChapterId) return;
+      const list = Array.from(document.querySelectorAll('.chapter-block'));
+      if (!list.length) {
+        if (delta > 0) openChapterModal();
+        return;
+      }
+      let idx = Number.isFinite(currentChapterIndex) ? currentChapterIndex : 0;
+      if (idx < 0 || idx >= list.length) {
+        idx = list.findIndex(el => el.getBoundingClientRect().top >= 0);
+        if (idx < 0) idx = 0;
+      }
+      const next = idx + delta;
+      if (next >= list.length && delta > 0) {
+        openChapterModal();
+        return;
+      }
+      const target = list[Math.max(0, next)];
+      currentChapterIndex = Math.max(0, next);
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function openChapterModal(id=null) {
+      editingChapterId = id;
+      $('chapterModalTitle').textContent = id ? 'Modifier Chapitre' : 'Nouveau Chapitre';
+      $('chap-title').value = '';
+      $('chap-id').value = '';
+      $('chap-icon').value = 'fas fa-book';
+      $('chap-pub').value = 'true';
+      renderModalIconPicker('fas fa-book');
+      if (id) {
+        const c = chapters.find(x => x.id === id);
+        if (c) {
+          $('chap-title').value = c.title || '';
+          $('chap-id').value = c.identifier || '';
+          $('chap-icon').value = c.icon || 'fas fa-book';
+          $('chap-pub').value = (c.is_published ?? true) ? 'true' : 'false';
+          renderModalIconPicker(c.icon || 'fas fa-book');
+        }
+      }
+      openModal('chapterModal');
+    }
+
+    async function saveChapter() {
+      const currentOrder = editingChapterId
+        ? (chapters.find(x => x.id === editingChapterId)?.order_index ?? 0)
+        : (chapters.length + 1);
+      const body = {
+        title: $('chap-title').value,
+        identifier: $('chap-id').value,
+        icon: $('chap-icon').value,
+        order_index: currentOrder,
+        is_published: $('chap-pub').value === 'true'
+      };
+      if (editingChapterId) await api(`/admin/api/course/chapters/${editingChapterId}`, { method:'PUT', body: JSON.stringify(body) });
+      else await api('/admin/api/course/chapters', { method:'POST', body: JSON.stringify(body) });
+      closeModal('chapterModal');
+      await loadAll();
+    }
+
+    async function saveChapterInline(id) {
+      const cell = document.querySelector(`.cell[data-chapter="${id}"]`);
+      if (!cell) return;
+      const orderIndex = (chapters.findIndex(c => c.id === id) + 1) || 0;
+      const body = {
+        title: cell.querySelector('[data-field="title"]').value,
+        identifier: cell.querySelector('[data-field="identifier"]').value,
+        icon: cell.querySelector('[data-field="icon"]').value,
+        order_index: orderIndex,
+        is_published: cell.querySelector('[data-field="is_published"]').value === 'true'
+      };
+      await api(`/admin/api/course/chapters/${id}`, { method:'PUT', body: JSON.stringify(body) });
+      await loadAll();
+    }
+
+    async function deleteChapter(id) {
+      if (!confirm('Supprimer ce chapitre et ses sections ?')) return;
+      await api(`/admin/api/course/chapters/${id}`, { method:'DELETE' });
+      await loadAll();
+    }
+
+    async function addSection(chapterId) {
+      const order = (sectionsByChapter[chapterId] || []).length + 1;
+      await api(`/admin/api/course/chapters/${chapterId}/sections`, { method:'POST', body: JSON.stringify({ title: '', content: '', code: '', order_index: order }) });
+      await loadAll();
+    }
+
+    async function addSectionAfter(sectionId) {
+      const cell = document.querySelector(`.cell[data-section="${sectionId}"]`);
+      if (!cell) return;
+      const chapterId = Number(cell.dataset.chapter);
+      const list = sectionsByChapter[chapterId] || [];
+      const ordered = [...list].sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || a.id - b.id);
+      const idx = ordered.findIndex(s => s.id === sectionId);
+      if (idx < 0) return;
+      const tempId = `tmp-${Date.now()}`;
+      const placeholder = { id: tempId, title: '', content: '', code: '', order_index: (ordered[idx].order_index || idx + 1) + 0.5 };
+      const optimistic = [...ordered];
+      optimistic.splice(idx + 1, 0, placeholder);
+      for (let i = 0; i < optimistic.length; i++) optimistic[i].order_index = i + 1;
+      sectionsByChapter[chapterId] = optimistic;
+      highlightSectionIds.add(tempId);
+      renderNotebook();
+
+      // Persist in background (no UI blocking)
+      (async () => {
+        try {
+          const created = await api(`/admin/api/course/chapters/${chapterId}/sections`, { method:'POST', body: JSON.stringify({ title: '', content: '', code: '', order_index: optimistic.length }) });
+          const merged = optimistic.map(s => (s.id === tempId ? { ...s, id: created.id } : s));
+          sectionsByChapter[chapterId] = merged;
+          await Promise.all(merged.map((s, i) =>
+            api(`/admin/api/course/sections/${s.id}`, { method:'PUT', body: JSON.stringify({ order_index: i + 1 }) })
+          ));
+          highlightSectionIds.add(created.id);
+          renderNotebook();
+        } catch (e) {
+          await loadAll();
+        }
+      })();
+    }
+
+    async function saveSectionInline(id) {
+      const cell = document.querySelector(`.cell[data-section="${id}"]`);
+      if (!cell) return;
+      const body = {
+        title: cell.querySelector('[data-field="title"]').value,
+        content: cell.querySelector('[data-field="content"]').value,
+        code: cell.querySelector('[data-field="code"]').value
+      };
+      await api(`/admin/api/course/sections/${id}`, { method:'PUT', body: JSON.stringify(body) });
+      await loadAll();
+    }
+
+    async function deleteSection(id) {
+      if (!confirm('Supprimer cette section ?')) return;
+      const cell = document.querySelector(`.cell[data-section="${id}"]`);
+      const chapterId = Number(cell?.dataset?.chapter || 0);
+      const list = sectionsByChapter[chapterId] || [];
+      const idx = list.findIndex(s => s.id === id);
+      if (cell) cell.classList.add('section-anim-delete');
+      const newList = idx >= 0 ? list.filter(s => s.id !== id) : list;
+      sectionsByChapter[chapterId] = newList;
+      setTimeout(() => renderNotebook(), 200);
+
+      (async () => {
+        try {
+          await api(`/admin/api/course/sections/${id}`, { method:'DELETE' });
+        } catch (e) {
+          await loadAll();
+          alert(`Erreur suppression section: ${e.message || e}`);
+        }
+      })();
+    }
+
+    async function moveSection(id, delta) {
+      const cell = document.querySelector(`.cell[data-section="${id}"]`);
+      if (!cell) return;
+      const chapterId = Number(cell.dataset.chapter);
+      const list = sectionsByChapter[chapterId] || [];
+      const idx = list.findIndex(s => s.id === id);
+      const swap = list[idx + delta];
+      if (!swap) return;
+      const a = list[idx];
+      const aOrder = a.order_index;
+      a.order_index = swap.order_index;
+      swap.order_index = aOrder;
+      list[idx] = swap;
+      list[idx + delta] = a;
+      sectionsByChapter[chapterId] = list;
+      movedSectionIds.add(a.id);
+      movedSectionIds.add(swap.id);
+      renderNotebook();
+
+      // Persist in background
+      (async () => {
+        try {
+          await Promise.all([
+            api(`/admin/api/course/sections/${a.id}`, { method:'PUT', body: JSON.stringify({ order_index: a.order_index }) }),
+            api(`/admin/api/course/sections/${swap.id}`, { method:'PUT', body: JSON.stringify({ order_index: swap.order_index }) })
+          ]);
+        } catch (e) {
+          await loadAll();
+        }
+      })();
+    }
+
+    async function saveAll() {
+      for (const c of chapters) {
+        await saveChapterInline(c.id);
+      }
+      for (const list of Object.values(sectionsByChapter)) {
+        for (const s of list) {
+          await saveSectionInline(s.id);
+        }
+      }
+    }
+
+    function previewCourse() { window.open('/course', '_blank'); }
+    function triggerImportCourseJson() { $('courseJsonInput').click(); }
+
+    async function exportCourseJson() {
+      const res = await fetch('/admin/api/course/export_json');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'course_full.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    $('courseJsonInput').addEventListener('change', async (evt) => {
+      const file = evt.target.files && evt.target.files[0];
+      if (!file) return;
+      openImportProgress('Import Cours JSON', [file.name]);
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/admin/api/course/import_json', { method:'POST', body: form });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        updateImportItem(file.name, 'error', data.error || 'Import JSON impossible');
+        finishImportProgress('Import échoué');
+      } else {
+        updateImportItem(file.name, 'done');
+        finishImportProgress('Import terminé');
+      }
+      await loadAll();
+      evt.target.value = '';
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>

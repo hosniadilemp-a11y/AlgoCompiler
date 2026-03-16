@@ -58,6 +58,35 @@ class TestCase(db.Model):
     expected_output = db.Column(db.Text, nullable=False)
     is_public = db.Column(db.Boolean, default=False) # Only public cases used for "Run Tests"
 
+class CourseChapter(db.Model):
+    __tablename__ = 'course_chapters'
+
+    id = db.Column(db.Integer, primary_key=True)
+    identifier = db.Column(db.String(60), nullable=False, unique=True, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    icon = db.Column(db.String(100), nullable=False, default='fas fa-book')
+    order_index = db.Column(db.Integer, nullable=False, default=0, index=True)
+    is_published = db.Column(db.Boolean, default=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    sections = db.relationship(
+        'CourseSection',
+        backref='chapter',
+        lazy=True,
+        cascade="all, delete-orphan",
+        order_by="CourseSection.order_index"
+    )
+
+class CourseSection(db.Model):
+    __tablename__ = 'course_sections'
+
+    id = db.Column(db.Integer, primary_key=True)
+    chapter_id = db.Column(db.Integer, db.ForeignKey('course_chapters.id'), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=True)
+    content = db.Column(db.Text, nullable=True)
+    code = db.Column(db.Text, nullable=True)
+    order_index = db.Column(db.Integer, nullable=False, default=0, index=True)
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     

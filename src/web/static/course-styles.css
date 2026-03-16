@@ -238,6 +238,20 @@ body.light-theme .course-sidebar {
     color: var(--course-ink);
 }
 
+.course-text a {
+    color: var(--course-accent);
+    text-decoration: none;
+    border-bottom: 2px solid rgba(74, 110, 224, 0.35);
+    padding-bottom: 1px;
+    font-weight: 600;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.course-text a:hover {
+    color: #6ed68a;
+    border-color: rgba(110, 214, 138, 0.5);
+}
+
 .course-text ul {
     margin: 15px 0 25px 20px;
     list-style: none;
@@ -350,6 +364,24 @@ body.light-theme .course-sidebar {
 
 .light-theme .course-callout-note .course-callout-title {
     color: #9a6700;
+}
+
+.course-callout-fun {
+    background: rgba(46, 204, 113, 0.12);
+    border-left-color: #2ecc71;
+}
+
+.light-theme .course-callout-fun {
+    background: #dcfce7;
+    border-left-color: #16a34a;
+}
+
+.course-callout-fun .course-callout-title {
+    color: #2ecc71;
+}
+
+.light-theme .course-callout-fun .course-callout-title {
+    color: #16a34a;
 }
 
 .stylish-lesson-intro {

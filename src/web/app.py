@@ -15,7 +15,7 @@ from compiler.parser import parser, compile_algo
 print(">>> [DEBUG] PARSER IMPORTED", flush=True)
 
 from web.debugger import TraceRunner
-from web.models import db, Chapter, Question, Choice, Problem, TestCase, User, QuizAttempt, ChallengeSubmission, UserBadge
+from web.models import db, Chapter, Question, Choice, Problem, TestCase, User, QuizAttempt, ChallengeSubmission, UserBadge, CourseChapter, CourseSection
 from web.extensions import login_manager, oauth, mail
 from web.sandbox.runner import execute_code
 print(">>> [DEBUG] MODELS AND EXTENSIONS IMPORTED", flush=True)
@@ -63,6 +63,13 @@ def update_last_seen():
                     db.session.commit()
                 except:
                     db.session.rollback()
+
+
+@app.teardown_request
+def cleanup_db_session(exc):
+    if exc is not None:
+        db.session.rollback()
+    db.session.remove()
 
 
 # Basic Config
@@ -190,6 +197,40 @@ def favicon():
 @app.route('/course')
 def course():
     return render_template('course.html')
+
+@app.route('/demo-course/<path:filename>')
+def demo_course_file(filename):
+    return send_from_directory(os.path.join(app.root_path, 'DemoCourse'), filename)
+
+@app.route('/api/course', methods=['GET'])
+def get_course():
+    chapters = CourseChapter.query.filter_by(is_published=True).order_by(CourseChapter.order_index.asc(), CourseChapter.id.asc()).all()
+    items = []
+    for c in chapters:
+        items.append({
+            'id': c.identifier,
+            'title': c.title,
+            'icon': c.icon,
+            'file': f"/api/course/chapters/{c.identifier}",
+            'sections': []
+        })
+    return jsonify({'chapters': items})
+
+
+@app.route('/api/course/chapters/<string:identifier>', methods=['GET'])
+def get_course_chapter(identifier):
+    chapter = CourseChapter.query.filter_by(identifier=identifier, is_published=True).first()
+    if not chapter:
+        return jsonify({'error': 'Not found'}), 404
+    sections = CourseSection.query.filter_by(chapter_id=chapter.id).order_by(CourseSection.order_index.asc(), CourseSection.id.asc()).all()
+    return jsonify({
+        'id': chapter.identifier,
+        'title': chapter.title,
+        'sections': [
+            {'title': s.title, 'content': s.content, 'code': s.code}
+            for s in sections
+        ]
+    })
 
 @app.route('/progress')
 @login_required

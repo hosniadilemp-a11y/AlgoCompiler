@@ -22,7 +22,7 @@ class CourseController {
 
     async init() {
         try {
-            const response = await fetch(`/static/algo-course.json?v=${this.contentVersion}`);
+            const response = await fetch(`/api/course?v=${this.contentVersion}`);
             this.courseData = await response.json();
             await this.fetchUserProgress();
             this.loadState();
@@ -373,12 +373,20 @@ class CourseController {
 
     formatContent(text) {
         if (!text) return '';
+        const escapeLabel = (value) => this.escapeHtml(value);
+        const sanitizeLink = (value) => this.sanitizeLinkUrl(value);
         let html = text
             .replace(/\[\[DEF\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-def"><div class="course-callout-title">Définition</div><p>$1</p></div>')
             .replace(/\[\[ALERT\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-alert"><div class="course-callout-title">Alerte</div><p>$1</p></div>')
             .replace(/\[\[NOTE\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-note"><div class="course-callout-title">Note</div><p>$1</p></div>')
+            .replace(/\[\[FUN\]\]\s*(.*?)(\n|$)/g, '<div class="course-callout course-callout-fun"><div class="course-callout-title">Fun Fact</div><p>$1</p></div>')
             .replace(/\[\[STYLISH_EX\]\]/g, '<div class="stylish-lesson-intro"><i class="fas fa-star"></i> Objectifs pédagogiques</div>')
             .replace(/### (.*?)\n/g, '<h4 class="course-h4">$1</h4>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
+                const safeUrl = sanitizeLink(url);
+                const safeLabel = escapeLabel(label);
+                return `<a href="${safeUrl}" target="_blank" rel="noopener">${safeLabel}</a>`;
+            })
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/`(.*?)`/g, '<code class="course-inline-code">$1</code>')
@@ -403,6 +411,14 @@ class CourseController {
             }
             return `<p>${normalized.replace(/\n/g, '<br>')}</p>`;
         }).join('');
+    }
+
+    sanitizeLinkUrl(rawUrl) {
+        const url = String(rawUrl || '').trim();
+        if (!url) return '#';
+        if (/^(https?:\/\/|\/)/i.test(url)) return url;
+        if (/^[\w\-./#?=&%]+$/.test(url)) return url;
+        return '#';
     }
 
     createCodeBlock(code) {
