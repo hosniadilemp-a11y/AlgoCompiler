@@ -2,12 +2,17 @@ import sys
 import os
 import secrets
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from env.env
+load_dotenv('env.env', override=True)
 # Add parent directory to path to allow importing 'compiler'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 print(">>> [DEBUG] APP STARTING UP...", flush=True)
 
 from flask import Flask, render_template, request, jsonify, Response
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import current_user, login_required
 import io
 import contextlib
@@ -40,6 +45,8 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 logging.getLogger('werkzeug').disabled = True
 
 app = Flask(__name__)
+# Fix for OAuth redirection if behind a proxy (Render, Heroku, etc.)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 
 @app.before_request
@@ -97,6 +104,9 @@ if database_url:
     safe_log_url = database_url.split('@')[-1] if '@' in database_url else "HIDDEN"
     print(f">>> CONFIGURED DATABASE_URL: {safe_log_url} (Psycopg3: {use_psycopg3})", flush=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or f"sqlite:///{os.path.join(BASE_DIR, 'algocompiler.db')}"
+if not app.config['SQLALCHEMY_DATABASE_URI']:
+     # Fail-safe
+     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(BASE_DIR, 'algocompiler.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 engine_options = {
     'pool_recycle': 300,
@@ -104,14 +114,28 @@ engine_options = {
 }
 if use_psycopg3:
     # Avoid prepared statement conflicts with PgBouncer / pooled connections
-    engine_options['connect_args'] = {'prepare_threshold': 0}
+    # prepare_threshold=None disables server-side statements in psycopg3
+    engine_options['connect_args'] = {'prepare_threshold': None}
+
 if database_url and 'pooler' in database_url:
     # Supabase pooler (PgBouncer) works best without client-side pooling
     engine_options['poolclass'] = NullPool
 else:
     engine_options['pool_size'] = 10
     engine_options['max_overflow'] = 20
+
+# Force zero statement cache to prevent DuplicatePreparedStatement errors with psycopg3
+# Note: statement_cache_size is not supported with some poolers/dialects in this way
+# if use_psycopg3:
+#     engine_options['statement_cache_size'] = 0
+
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
+
+# Production session security
+if database_url and not database_url.startswith('sqlite'):
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 safe_uri = app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
 print(f">>> [DEBUG] SQLALCHEMY_DATABASE_URI: {safe_uri}", flush=True)

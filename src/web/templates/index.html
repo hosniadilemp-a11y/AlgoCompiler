@@ -297,6 +297,90 @@ Fin.</textarea>
             setTimeout(window.checkNewBadges, 2000);
             setInterval(window.checkNewBadges, 60000);
         }
+
+        // --- Profile Completion Modal for OAuth Users ---
+        {% if not current_user.password_hash or not current_user.security_question %}
+        {% if not session.get('profile_modal_dismissed') %}
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                Swal.fire({
+                    title: 'Compléter votre profil',
+                    html: `
+                        <p style="font-size: 0.9rem; color: var(--text-color); margin-bottom: 15px;">
+                            Puisque vous vous êtes connecté via un service tiers (Google/GitHub), 
+                            nous vous recommandons de définir un mot de passe et une question de sécurité 
+                            pour sécuriser votre compte en cas de perte d'accès.
+                        </p>
+                        <form id="complete-profile-form" style="text-align: left;">
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 0.8rem; margin-bottom: 4px;">Nouveau mot de passe</label>
+                                <input type="password" id="modal-password" class="swal2-input" placeholder="Min 8 car., Maj, Chiffre..." style="width: 100%; margin: 0;">
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 0.8rem; margin-bottom: 4px;">Question de sécurité</label>
+                                <input type="text" id="modal-question" class="swal2-input" placeholder="Ex: Nom de mon chat ?" style="width: 100%; margin: 0;">
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 0.8rem; margin-bottom: 4px;">Réponse secrète</label>
+                                <input type="text" id="modal-answer" class="swal2-input" placeholder="Réponse" style="width: 100%; margin: 0;">
+                            </div>
+                        </form>
+                    `,
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sauvegarder',
+                    cancelButtonText: 'Plus tard',
+                    confirmButtonColor: '#4a6ee0',
+                    preConfirm: () => {
+                        const password = document.getElementById('modal-password').value;
+                        const question = document.getElementById('modal-question').value;
+                        const answer = document.getElementById('modal-answer').value;
+                        
+                        if (!password || !question || !answer) {
+                            Swal.showValidationMessage('Tous les champs sont obligatoires');
+                            return false;
+                        }
+                        
+                        // Basic complexity check in JS to save a round trip
+                        if (password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+                            Swal.showValidationMessage('Le mot de passe doit comporter au moins 8 caractères, une majuscule et un chiffre.');
+                            return false;
+                        }
+                        
+                        return { password, security_question: question, security_answer: answer };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch("{{ url_for('auth.complete_profile') }}", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-Requested-With": "XMLHttpRequest"
+                            },
+                            body: JSON.stringify(result.value)
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('Succès', data.message, 'success');
+                            } else {
+                                Swal.fire('Erreur', data.message, 'error');
+                            }
+                        })
+                        .catch(err => {
+                            Swal.fire('Erreur', 'Une erreur est survenue.', 'error');
+                        });
+                    } else if (result.dismiss === Swal.DismissReason.cancel) {
+                        // Mark as dismissed for this session only (requires a route or just ignore for now)
+                        // For simplicity, we'll just let it pop up again on refresh unless they save.
+                        // But let's send a quick ping to dismiss it.
+                        fetch("{{ url_for('auth.complete_profile') }}?dismiss=1", { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
+                    }
+                });
+            }, 3000); // Wait 3s before popping up
+        });
+        {% endif %}
+        {% endif %}
     </script>
     {% endif %}
 </body>

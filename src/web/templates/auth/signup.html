@@ -65,7 +65,20 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Mot de passe</label>
-                    <input type="password" name="password" class="form-control" required minlength="6">
+                    <input type="password" name="password" id="signup-password" class="form-control" required minlength="8">
+                    <div id="password-strength-container" style="margin-top: 8px;">
+                        <div class="progress" style="height: 6px; background-color: #eee; border-radius: 3px; overflow: hidden;">
+                            <div id="password-strength-bar" class="progress-bar" style="width: 0%; height: 100%; transition: width 0.3s ease, background-color 0.3s ease;"></div>
+                        </div>
+                        <div id="password-strength-text" style="font-size: 0.8rem; margin-top: 4px; color: #666;">Force : -</div>
+                        <ul id="password-requirements" style="font-size: 0.75rem; margin-top: 8px; list-style: none; padding-left: 0; color: #666;">
+                            <li id="req-length"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 5px;"></i> 8+ caractères</li>
+                            <li id="req-upper"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 5px;"></i> Majuscule</li>
+                            <li id="req-lower"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 5px;"></i> Minuscule</li>
+                            <li id="req-digit"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 5px;"></i> Chiffre</li>
+                            <li id="req-special"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 5px;"></i> Caractère spécial</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -117,6 +130,50 @@
         </div>
     </div>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
+    <script>
+        const passwordInput = document.getElementById('signup-password');
+        const strengthBar = document.getElementById('password-strength-bar');
+        const strengthText = document.getElementById('password-strength-text');
+        
+        const reqs = {
+            length: document.getElementById('req-length'),
+            upper: document.getElementById('req-upper'),
+            lower: document.getElementById('req-lower'),
+            digit: document.getElementById('req-digit'),
+            special: document.getElementById('req-special')
+        };
+
+        passwordInput.addEventListener('input', () => {
+            const val = passwordInput.value;
+            let strength = 0;
+            
+            const checks = {
+                length: val.length >= 8,
+                upper: /[A-Z]/.test(val),
+                lower: /[a-z]/.test(val),
+                digit: /\d/.test(val),
+                special: /[!@#$%^&*(),.?":{}|<>]/.test(val)
+            };
+
+            for (const key in checks) {
+                if (checks[key]) {
+                    strength++;
+                    reqs[key].style.color = '#28a745';
+                    reqs[key].querySelector('i').className = 'fas fa-check-circle';
+                } else {
+                    reqs[key].style.color = '#666';
+                    reqs[key].querySelector('i').className = 'fas fa-circle';
+                }
+            }
+
+            const colors = ['#ff4d4d', '#ff4d4d', '#ffa64d', '#ffff4d', '#99ff33', '#28a745'];
+            const labels = ['Très faible', 'Faible', 'Moyen', 'Bon', 'Fort', 'Très fort'];
+            
+            strengthBar.style.width = (strength / 5 * 100) + '%';
+            strengthBar.style.backgroundColor = colors[strength];
+            strengthText.innerText = 'Force : ' + labels[strength];
+        });
+    </script>
 </body>
 
 </html>

@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
 from web.models import db, User
+from sqlalchemy import func
 from web.extensions import oauth, mail
 import re
 
@@ -32,15 +33,63 @@ from datetime import datetime, timedelta
 def generate_verification_code():
     return f"{random.randint(100000, 999999)}"
 
+def validate_password_strength(password):
+    """
+    Validates that the password:
+    - Is at least 8 characters long
+    - Contains at least one uppercase letter
+    - Contains at least one lowercase letter
+    - Contains at least one digit
+    - Contains at least one special character
+    """
+    if len(password) < 8:
+        return False, "Le mot de passe doit contenir au moins 8 caractères."
+    if not re.search(r"[a-z]", password):
+        return False, "Le mot de passe doit contenir au moins une lettre minuscule."
+    if not re.search(r"[A-Z]", password):
+        return False, "Le mot de passe doit contenir au moins une lettre majuscule."
+    if not re.search(r"\d", password):
+        return False, "Le mot de passe doit contenir au moins un chiffre."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "Le mot de passe doit contenir au moins un caractère spécial."
+    return True, ""
+
 def generate_math_captcha():
-    num1 = random.randint(1, 10)
+    num1 = random.randint(1, 12)
     num2 = random.randint(1, 10)
-    operator = random.choice(['+', '-'])
-    if operator == '-' and num1 < num2: 
+    operator = random.choice(['+', '-', '*'])
+    
+    # Word representations for numbers 0-12 in French
+    words = {
+        0: "zéro", 1: "un", 2: "deux", 3: "trois", 3: "trois", 4: "quatre", 5: "cinq",
+        6: "six", 7: "sept", 8: "huit", 9: "neuf", 10: "dix",
+        11: "onze", 12: "douze"
+    }
+    
+    if operator == '-' and num1 < num2:
         num1, num2 = num2, num1
-    answer = num1 - num2 if operator == '-' else num1 + num2
+        
+    if operator == '*':
+        # Keep multiplication simpler
+        num1 = random.randint(2, 9)
+        num2 = random.randint(2, 9)
+        
+    if operator == '+':
+        answer = num1 + num2
+        op_str = "plus"
+    elif operator == '-':
+        answer = num1 - num2
+        op_str = "moins"
+    else:
+        answer = num1 * num2
+        op_str = "fois"
+    
+    # Randomly use words for the numbers
+    n1_str = words[num1] if random.random() > 0.4 else str(num1)
+    n2_str = words[num2] if random.random() > 0.4 else str(num2)
+    
     session['captcha_answer'] = str(answer)
-    return f"Combien font {num1} {operator} {num2} ?"
+    return f"Combien font {n1_str} {op_str} {n2_str} ?"
 
 def send_email(to, subject, template):
     msg = Message(
@@ -62,10 +111,10 @@ def login():
         return redirect(url_for('index'))
         
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip()
         password = request.form.get('password')
         
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter(func.lower(User.email) == email.lower()).first()
         
         if not user:
             flash('Adresse e-mail ou mot de passe incorrect.', 'danger')
@@ -122,12 +171,13 @@ def signup():
             return redirect(url_for('auth.signup'))
         
         # Validation
-        if len(password) < 6:
-            flash('Le mot de passe doit contenir au moins 6 caractères.', 'danger')
+        is_strong, msg = validate_password_strength(password)
+        if not is_strong:
+            flash(msg, 'danger')
             return redirect(url_for('auth.signup'))
             
-        # Check existing
-        user = User.query.filter_by(email=email).first()
+        # Check existing (case-insensitive)
+        user = User.query.filter(func.lower(User.email) == email.lower()).first()
         if user:
             # If user exists but is locked out or has too many resend attempts, check lockout time
             if user.lockout_until and user.lockout_until > datetime.utcnow():
@@ -250,17 +300,31 @@ def resend_code():
 @auth_bp.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form.get('email')
-        user = User.query.filter_by(email=email).first()
+        email = request.form.get('email', '').strip()
+        captcha_input = request.form.get('captcha')
+        
+        # Verify Captcha
+        if not captcha_input or captcha_input.strip() != session.get('captcha_answer'):
+            flash('Réponse de sécurité (Captcha) incorrecte.', 'danger')
+            return redirect(url_for('auth.forgot_password'))
+            
+        user = User.query.filter(func.lower(User.email) == email.lower()).first()
         
         if user and user.password_hash:
+            # Check if locked out
+            if user.lockout_until and user.lockout_until > datetime.utcnow():
+                flash('Ce compte est temporairement bloqué. Réessayez plus tard.', 'danger')
+                return redirect(url_for('auth.forgot_password'))
+                
             session['reset_email'] = user.email
             session['reset_verified'] = False
+            session.pop('captcha_answer', None)
             return redirect(url_for('auth.security_check'))
         else:
             flash('Aucun compte (avec mot de passe) n\'est associé à cet e-mail.', 'danger')
             
-    return render_template('auth/forgot_password.html')
+    captcha_text = generate_math_captcha()
+    return render_template('auth/forgot_password.html', captcha_text=captcha_text)
 
 @auth_bp.route('/security_check', methods=['GET', 'POST'])
 def security_check():
@@ -268,18 +332,37 @@ def security_check():
     if not email:
         return redirect(url_for('auth.forgot_password'))
         
-    user = User.query.filter_by(email=email).first()
+    user = User.query.filter(func.lower(User.email) == email.lower()).first()
     if not user:
+        return redirect(url_for('auth.forgot_password'))
+        
+    # Check if user is locked out
+    if user.lockout_until and user.lockout_until > datetime.utcnow():
+        flash('Votre compte est bloqué en raison de trop nombreuses tentatives. Réessayez plus tard.', 'danger')
         return redirect(url_for('auth.forgot_password'))
         
     if request.method == 'POST':
         answer = request.form.get('security_answer')
         if answer and answer.strip().lower() == user.security_answer.strip().lower():
+            # Reset failed attempts on success
+            user.failed_login_attempts = 0
+            db.session.commit()
             session['reset_verified'] = True
             flash('Parfait ! Saisissez votre nouveau mot de passe.', 'info')
             return redirect(url_for('auth.new_password'))
         else:
-            flash('Réponse incorrecte.', 'danger')
+            # Increment failed attempts
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= 5:
+                # Lock out for 6 hours
+                user.lockout_until = datetime.utcnow() + timedelta(hours=6)
+                db.session.commit()
+                flash('Trop de tentatives incorrectes. Votre compte est bloqué pour 6 heures.', 'danger')
+                session.pop('reset_email', None) # Force restart
+                return redirect(url_for('auth.forgot_password'))
+            else:
+                db.session.commit()
+                flash(f'Réponse incorrecte ({user.failed_login_attempts}/5).', 'danger')
             
     return render_template('auth/security_check.html', question=user.security_question)
 
@@ -310,8 +393,9 @@ def new_password():
         
     if request.method == 'POST':
         password = request.form.get('password')
-        if len(password) < 6:
-            flash('Le mot de passe doit contenir au moins 6 caractères.', 'danger')
+        is_strong, msg = validate_password_strength(password)
+        if not is_strong:
+            flash(msg, 'danger')
             return render_template('auth/new_password.html')
             
         user = User.query.filter_by(email=email).first()
@@ -415,3 +499,38 @@ def oauth_auth(provider):
         print(f"OAuth Error: {e}")
         flash('Échec de la connexion. Veuillez réessayer.', 'danger')
         return redirect(url_for('auth.login'))
+
+@auth_bp.route('/complete_profile', methods=['POST'])
+@login_required
+def complete_profile():
+    if request.args.get('dismiss'):
+        session['profile_modal_dismissed'] = True
+        return jsonify({'success': True})
+        
+    data = request.get_json(silent=True) or request.form
+    password = data.get('password')
+    security_question = data.get('security_question')
+    security_answer = data.get('security_answer')
+    
+    if not password or not security_question or not security_answer:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': 'Tous les champs sont obligatoires.'}), 400
+        flash('Tous les champs sont obligatoires.', 'danger')
+        return redirect(url_for('index'))
+        
+    is_strong, msg = validate_password_strength(password)
+    if not is_strong:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'danger')
+        return redirect(url_for('index'))
+        
+    current_user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+    current_user.security_question = security_question
+    current_user.security_answer = security_answer
+    db.session.commit()
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'message': 'Profil complété avec succès !'})
+    flash('Profil complété avec succès !', 'success')
+    return redirect(url_for('index'))
