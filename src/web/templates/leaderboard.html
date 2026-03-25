@@ -163,12 +163,14 @@
                     </tbody>
                 </table>
                 <div id="leaderboard-pagination"
-                    style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid var(--border-color);">
-                    <button id="prev-btn" class="course-theme-btn" disabled>
+                    style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.1);">
+                    <button id="prev-btn" class="course-theme-btn" disabled style="min-width: 120px; border: 1px solid var(--border-color);">
                         <i class="fas fa-chevron-left"></i> Précédent
                     </button>
-                    <span id="page-info" style="font-weight: 600; color: var(--text-secondary);">Page 1 sur 1</span>
-                    <button id="next-btn" class="course-theme-btn">
+                    <span id="page-info" style="font-weight: 600; color: var(--text-secondary); background: var(--panel-bg); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border-color);">
+                        Page 1 sur 1
+                    </span>
+                    <button id="next-btn" class="course-theme-btn" style="min-width: 120px; border: 1px solid var(--border-color);">
                         Suivant <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -179,7 +181,7 @@
     <script>
         let fullLeaderboard = [];
         let currentPage = 1;
-        const pageSize = 20;
+        const pageSize = 10;
 
         document.addEventListener('DOMContentLoaded', async () => {
             const body = document.getElementById('leaderboard-body');

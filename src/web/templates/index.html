@@ -302,6 +302,8 @@ Fin.</textarea>
         {% if not current_user.password_hash or not current_user.security_question %}
         {% if not session.get('profile_modal_dismissed') %}
         window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('profile_modal_dismissed') === 'true') return;
+            
             setTimeout(() => {
                 Swal.fire({
                     title: 'Compléter votre profil',
@@ -362,7 +364,8 @@ Fin.</textarea>
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                Swal.fire('Succès', data.message, 'success');
+                                 Swal.fire('Succès', data.message, 'success');
+                                localStorage.setItem('profile_modal_dismissed', 'true');
                             } else {
                                 Swal.fire('Erreur', data.message, 'error');
                             }
@@ -371,6 +374,7 @@ Fin.</textarea>
                             Swal.fire('Erreur', 'Une erreur est survenue.', 'error');
                         });
                     } else if (result.dismiss === Swal.DismissReason.cancel) {
+                        localStorage.setItem('profile_modal_dismissed', 'true');
                         // Mark as dismissed for this session only (requires a route or just ignore for now)
                         // For simplicity, we'll just let it pop up again on refresh unless they save.
                         // But let's send a quick ping to dismiss it.
