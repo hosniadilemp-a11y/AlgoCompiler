@@ -65,17 +65,17 @@
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
-        "si": {
-            text: "Si condition Alors\n    // Code ici\nFin Si;",
-            displayText: "Si ... Alors (if)",
+        "si_sinon": {
+            text: "Si condition Alors\n    // Code ici\nSinon\n    // Code ici\nFin Si;",
+            displayText: "Si ... Alors ... Sinon (if/else structure)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
-        "si_sinon": {
-            text: "Si condition Alors\n    // Code ici\nSinon\n    // Code ici\nFin Si;",
-            displayText: "Si ... Alors ... Sinon (if/else)",
+        "si": {
+            text: "Si condition Alors\n    // Code ici\nFin Si;",
+            displayText: "Si ... Alors (if structure)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
