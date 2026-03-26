@@ -7,8 +7,17 @@ from web.models import db, User
 from sqlalchemy import func
 from web.extensions import oauth, mail
 import re
+from urllib.parse import urlparse, urljoin
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def is_safe_redirect_target(target):
+    if not target:
+        return False
+    host_url = urlparse(request.host_url)
+    redirect_url = urlparse(urljoin(request.host_url, target))
+    return redirect_url.scheme in ('http', 'https') and host_url.netloc == redirect_url.netloc
 
 # Register OAuth clients
 oauth.register(
@@ -32,6 +41,53 @@ from datetime import datetime, timedelta
 
 def generate_verification_code():
     return f"{random.randint(100000, 999999)}"
+
+
+def normalize_security_answer(answer):
+    return str(answer or '').strip().casefold()
+
+
+def hash_security_answer(answer):
+    return generate_password_hash(normalize_security_answer(answer))
+
+
+def is_hashed_security_answer(value):
+    text = str(value or '')
+    return text.startswith('scrypt:') or text.startswith('pbkdf2:')
+
+
+def verify_security_answer(user, submitted_answer):
+    stored_answer = str(user.security_answer or '')
+    candidate = normalize_security_answer(submitted_answer)
+
+    if not stored_answer or not candidate:
+        return False
+
+    if is_hashed_security_answer(stored_answer):
+        return check_password_hash(stored_answer, candidate)
+
+    if candidate == normalize_security_answer(stored_answer):
+        user.security_answer = hash_security_answer(candidate)
+        return True
+
+    return False
+
+
+def migrate_security_answers_to_hashes():
+    updated = 0
+    users = User.query.filter(User.security_answer.isnot(None)).all()
+
+    for user in users:
+        stored_answer = str(user.security_answer or '').strip()
+        if not stored_answer or is_hashed_security_answer(stored_answer):
+            continue
+        user.security_answer = hash_security_answer(stored_answer)
+        updated += 1
+
+    if updated:
+        db.session.commit()
+
+    return updated
 
 def validate_password_strength(password):
     """
@@ -146,7 +202,9 @@ def login():
             
         login_user(user, remember=True)
         next_page = request.args.get('next')
-        return redirect(next_page or url_for('index'))
+        if next_page and is_safe_redirect_target(next_page):
+            return redirect(next_page)
+        return redirect(url_for('index'))
         
     return render_template('auth/login.html')
 
@@ -200,7 +258,7 @@ def signup():
             email=email, 
             name=name,
             security_question=security_question,
-            security_answer=security_answer,
+            security_answer=hash_security_answer(security_answer),
             date_of_birth=date_of_birth, 
             study_year=study_year, 
             password_hash=hashed_password
@@ -343,7 +401,7 @@ def security_check():
         
     if request.method == 'POST':
         answer = request.form.get('security_answer')
-        if answer and answer.strip().lower() == user.security_answer.strip().lower():
+        if verify_security_answer(user, answer):
             # Reset failed attempts on success
             user.failed_login_attempts = 0
             db.session.commit()
@@ -527,7 +585,7 @@ def complete_profile():
         
     current_user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
     current_user.security_question = security_question
-    current_user.security_answer = security_answer
+    current_user.security_answer = hash_security_answer(security_answer)
     db.session.commit()
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

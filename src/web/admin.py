@@ -24,8 +24,12 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 
 # ── Credentials (override via env vars) ──────────────────────────────────────
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'Teacher1')
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'teacher')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
+
+
+def has_env_admin_credentials():
+    return bool(ADMIN_USERNAME and ADMIN_PASSWORD)
 
 
 def admin_required(f):
@@ -66,8 +70,8 @@ def login_api():
             session['admin_user_email'] = user.email
             return jsonify({'success': True})
 
-    # Fallback to Environment Variables
-    if username_input == ADMIN_USERNAME and password_input == ADMIN_PASSWORD:
+    # Fallback only when env credentials were explicitly configured.
+    if has_env_admin_credentials() and username_input == ADMIN_USERNAME and password_input == ADMIN_PASSWORD:
         session['admin_logged_in'] = True
         session.permanent = True
         session['admin_user_id'] = None

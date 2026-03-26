@@ -42,6 +42,7 @@
             {% endwith %}
 
             <form method="POST" action="{{ url_for('auth.security_check') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label class="form-label" style="text-align: left;">{{ question }}</label>
                     <input type="text" name="security_answer" class="form-control" required autofocus

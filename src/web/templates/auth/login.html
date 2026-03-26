@@ -118,6 +118,7 @@
             {% endwith %}
 
             <form method="POST" action="{{ url_for('auth.login') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label class="form-label">Adresse e-mail</label>
                     <input type="email" name="email" class="form-control" required autofocus>

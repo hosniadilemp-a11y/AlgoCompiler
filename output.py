@@ -1,4 +1,4 @@
-# Algo: TutorielPointeurs
+# Algo: DemoComplete
 import sys
 import builtins
 
@@ -163,7 +163,7 @@ def _algo_liberer(ptr):
             ptr.base_var = None
             ptr.var_name = None
 
-_algo_record_sizes = {}
+_algo_record_sizes = {'Etudiant': 9}
 
 def _algo_taille(type_name):
     t = type_name.lower()
@@ -187,7 +187,7 @@ def _algo_allouer_record(record_dict):
     return ptr
 
 global _algo_vars_info
-_algo_vars_info = {"p": {"addr": 1000, "size": 1, "element_size": 1, "type": "POINTEUR_Entier"}, "n": {"addr": 1001, "size": 4, "element_size": 4, "type": "Entier"}}
+_algo_vars_info = {"n": {"addr": 1000, "size": 4, "element_size": 4, "type": "Entier"}, "i": {"addr": 1004, "size": 4, "element_size": 4, "type": "Entier"}, "somme": {"addr": 1008, "size": 8, "element_size": 8, "type": "Reel"}, "e": {"addr": 1016, "size": 9, "element_size": 9, "type": "Etudiant"}, "continuer": {"addr": 1025, "size": 1, "element_size": 1, "type": "Booleen"}}
 
 
 class Pointer:
@@ -323,35 +323,41 @@ class Pointer:
         (self + i)._set(value)
 
 
-p = Pointer("p", globals()) # POINTEUR_Entier
+i = 0
 n = 0 # Entier
+somme = 0.0 # Reel
+e = {'nom': "", 'note': 0.0} # Etudiant
+continuer = False # Booleen
 
 
+None
 
-
-_algo_ecrire('=== 🔗 Tutoriel : Les Pointeurs ===\n')
-n = 10
-_tmp_p = Pointer("n", globals(), alloc_name="n")
-p._assign(Pointer("p_ptr_src", globals(), index=0, base_var=_tmp_p) if isinstance(_tmp_p, list) and not hasattr(_tmp_p, '_get_target_container') else _tmp_p)
-_algo_ecrire('Valeur de n : ', n, '\n')
-_algo_ecrire('Adresse de n (p) : ', p, '\n')
-_algo_ecrire('Contenu pointé par p (p^) : ', (p)._get(), '\n')
-_algo_ecrire('\n--- Modification via le pointeur (p^ := 20) ---\n')
-p._set(20)
-_algo_ecrire('Nouvelle valeur de n : ', n, ' (n a été modifié !)\n')
-_algo_ecrire('Contenu pointé par p : ', (p)._get(), '\n')
-_algo_ecrire('\n--- Modification de n (n := 30) ---\n')
-n = 30
-_algo_ecrire('Le contenu pointé par p a aussi changé : ', (p)._get(), '\n')
-_algo_ecrire('\n--- Allocation Dynamique (Allouer) ---\n')
-_tmp_p = _algo_allouer(_algo_taille('Entier'), element_size=4)
-p._assign(Pointer("p_ptr_src", globals(), index=0, base_var=_tmp_p) if isinstance(_tmp_p, list) and not hasattr(_tmp_p, '_get_target_container') else _tmp_p)
-p._set(100)
-_algo_ecrire('Nouvelle adresse dans le TAS : ', p, '\n')
-_algo_ecrire('Valeur à cette adresse : ', (p)._get(), '\n')
-_algo_ecrire('\n--- Libération (Liberer) et NIL ---\n')
-_algo_liberer(p)
-_tmp_p = None
-p._assign(Pointer("p_ptr_src", globals(), index=0, base_var=_tmp_p) if isinstance(_tmp_p, list) and not hasattr(_tmp_p, '_get_target_container') else _tmp_p)
-_algo_ecrire('p est maintenant : ', p, " (NIL représente l'absence d'adresse)\n")
-_algo_ecrire('\nFin du tutoriel.\n')
+_algo_ecrire('=== Demo Progressive AlgoCompiler ===\n')
+_tmp_val = 'Adel'
+e['nom'] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val
+_tmp_val = 15.5
+e['note'] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val
+i = _algo_read_typed(i, _algo_read(), 'Entier')
+if e['note'] >= 10:
+    _algo_ecrire(e['nom'], ' est admis avec ', e['note'], '/20\n')
+else:
+    _algo_ecrire(e['nom'], ' est ajourne\n')
+_algo_ecrire('\nDepart imminent :\n')
+for i in range(1, 3 + 1):
+    _algo_ecrire(i, '... ')
+_algo_ecrire('Decollage !\n')
+somme = 0
+i = 1
+while i <= 5:
+    somme = somme + i
+    i = i + 1
+_algo_ecrire('Somme des entiers de 1 a 5 = ', somme, '\n')
+n = 0
+while True:
+    n = n + 1
+    _algo_ecrire('Passage numero : ', n, '\n')
+    if n >= 3:
+        break
+continuer = True
+if continuer:
+    _algo_ecrire('Programme termine avec succes.\n')

@@ -43,6 +43,7 @@
             {% endwith %}
 
             <form method="POST" action="{{ url_for('auth.verify_reset') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label class="form-label" style="text-align: left;">Code de réinitialisation</label>
                     <input type="text" name="code" class="form-control" placeholder="123456" maxlength="6" required

@@ -18,6 +18,7 @@ env/
 .env/
 *.txt
 *.env
+env.env
 # --- PLY parser cache ---
 src/compiler/parser.out
 src/compiler/parsetab.py

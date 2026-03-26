@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let eventSource = null;
     let editor = null;
+    let currentRunId = null;
 
     console.log("Script initialization started");
     console.log("Essential elements found:", {
@@ -337,15 +338,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusChars = document.getElementById('status-chars');
     const statusLines = document.getElementById('status-lines');
     const statusFontSize = document.getElementById('status-fontsize');
+    const wordWrapBtn = document.getElementById('wordwrap-btn');
+
+    function getActiveEditor() {
+        return window.editor || editor;
+    }
 
     function updateStatusBar() {
-        if (!editor) return;
-        const cursor = editor.getCursor();
+        const activeEditor = getActiveEditor();
+        if (!activeEditor) return;
+        const cursor = activeEditor.getCursor();
         const line = cursor.line + 1;
         const col = cursor.ch + 1;
-        const text = editor.getValue();
+        const text = activeEditor.getValue();
         const charCount = text.length;
-        const lineCount = editor.lineCount();
+        const lineCount = activeEditor.lineCount();
 
         if (statusCursor) statusCursor.innerHTML = `<i class="fas fa-map-pin"></i> Ln ${line}, Col ${col}`;
         if (statusChars) statusChars.innerHTML = `<i class="fas fa-font"></i> ${charCount.toLocaleString()} car.`;
@@ -355,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editor) {
         editor.on('cursorActivity', updateStatusBar);
         editor.on('change', updateStatusBar);
+        editor._algoStatusHandlersBound = true;
         updateStatusBar(); // initial
     }
 
@@ -368,9 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyFontSize(size) {
         currentFontSize = Math.min(MAX_FONT, Math.max(MIN_FONT, size));
-        if (editor) {
-            editor.getWrapperElement().style.fontSize = currentFontSize + 'px';
-            editor.refresh();
+        const activeEditor = getActiveEditor();
+        if (activeEditor) {
+            activeEditor.getWrapperElement().style.fontSize = currentFontSize + 'px';
+            activeEditor.refresh();
         }
         if (statusFontSize) statusFontSize.textContent = currentFontSize + 'px';
     }
@@ -408,11 +417,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // WORD WRAP TOGGLE
     // ═══════════════════════════════════════════════════════════
     let wordWrapEnabled = false;
-    const wordWrapBtn = document.getElementById('wordwrap-btn');
 
     function toggleWordWrap() {
+        const activeEditor = getActiveEditor();
         wordWrapEnabled = !wordWrapEnabled;
-        if (editor) editor.setOption('lineWrapping', wordWrapEnabled);
+        if (activeEditor) activeEditor.setOption('lineWrapping', wordWrapEnabled);
         if (wordWrapBtn) wordWrapBtn.classList.toggle('active', wordWrapEnabled);
     }
 
@@ -1213,8 +1222,9 @@ Fin.`);
                 return;
             }
 
+            currentRunId = data.run_id || null;
             console.log("Connecting to stream...");
-            eventSource = new EventSource('/stream');
+            eventSource = new EventSource(`/stream?run_id=${encodeURIComponent(currentRunId || '')}`);
 
             eventSource.onmessage = (e) => {
                 const msg = JSON.parse(e.data);
@@ -1271,8 +1281,17 @@ Fin.`);
             statusBadge.style.backgroundColor = "#cf222e";
         }
 
+        if (!currentRunId) {
+            finishExecution(true);
+            return;
+        }
+
         try {
-            await fetch('/stop_execution', { method: 'POST' });
+            await fetch('/stop_execution', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ run_id: currentRunId })
+            });
         } catch (e) {
             console.error("Failed to stop execution on server", e);
         }
@@ -1288,6 +1307,7 @@ Fin.`);
             eventSource.close();
             eventSource = null;
         }
+        currentRunId = null;
         if (consoleInputContainer) consoleInputContainer.style.display = 'none';
 
         if (stopped) {
@@ -1364,7 +1384,7 @@ Fin.`);
                     const response = await fetch('/send_input', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ input: text })
+                        body: JSON.stringify({ input: text, run_id: currentRunId })
                     });
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 } catch (err) {
@@ -1411,7 +1431,7 @@ Fin.`);
     }
 
     window.initEditorUI = function () {
-        const editor = window.editor;
+        editor = window.editor || editor;
         if (!editor) return;
 
         const formatBtn = document.getElementById('format-btn');
@@ -1432,45 +1452,24 @@ Fin.`);
         const replaceBtn = document.getElementById('replace-btn');
         if (replaceBtn) replaceBtn.onclick = () => editor.execCommand('replace');
 
-        const wordWrapBtn = document.getElementById('wordwrap-btn');
         if (wordWrapBtn) {
             wordWrapBtn.onclick = () => {
                 const wrap = !editor.getOption('lineWrapping');
                 editor.setOption('lineWrapping', wrap);
+                wordWrapEnabled = wrap;
                 wordWrapBtn.classList.toggle('active', wrap);
             };
         }
 
-        const fsInc = document.getElementById('font-increase-btn');
-        const fsDec = document.getElementById('font-decrease-btn');
-        const fsReset = document.getElementById('font-reset-btn');
-        const fsSpan = document.getElementById('status-fontsize');
+        if (!editor._algoStatusHandlersBound) {
+            editor.on('cursorActivity', updateStatusBar);
+            editor.on('change', updateStatusBar);
+            editor._algoStatusHandlersBound = true;
+        }
 
-        let fontSize = 14;
-        const updateFS = () => {
-            const cmEl = document.querySelector('.CodeMirror');
-            if (cmEl) {
-                cmEl.style.fontSize = fontSize + 'px';
-                editor.refresh();
-            }
-            if (fsSpan) fsSpan.textContent = fontSize + 'px';
-        };
-
-        if (fsInc) fsInc.onclick = () => { fontSize += 2; updateFS(); };
-        if (fsDec) fsDec.onclick = () => { fontSize = Math.max(8, fontSize - 2); updateFS(); };
-        if (fsReset) fsReset.onclick = () => { fontSize = 14; updateFS(); };
-
-        editor.on("cursorActivity", () => {
-            const cursor = editor.getCursor();
-            const statusCursor = document.getElementById('status-cursor');
-            if (statusCursor) {
-                statusCursor.innerHTML = `<i class="fas fa-map-pin"></i> Ln ${cursor.line + 1}, Col ${cursor.ch + 1}`;
-            }
-            const content = editor.getValue();
-            const statusChars = document.getElementById('status-chars');
-            if (statusChars) statusChars.innerHTML = `<i class="fas fa-font"></i> ${content.length} car.`;
-            const statusLines = document.getElementById('status-lines');
-            if (statusLines) statusLines.innerHTML = `<i class="fas fa-list-ol"></i> ${editor.lineCount()} lignes`;
-        });
+        wordWrapEnabled = !!editor.getOption('lineWrapping');
+        if (wordWrapBtn) wordWrapBtn.classList.toggle('active', wordWrapEnabled);
+        applyFontSize(currentFontSize);
+        updateStatusBar();
     };
 });

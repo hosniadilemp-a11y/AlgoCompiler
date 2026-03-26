@@ -3,15 +3,25 @@ import os
 import secrets
 import logging
 from dotenv import load_dotenv
+from urllib.parse import urlparse, urljoin
 
-# Load environment variables from env.env
-load_dotenv('env.env', override=True)
+APP_DIR = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(APP_DIR, '..', '..'))
+
+# Load local development secrets from .env first, then legacy env.env if present.
+for env_path in (
+    os.path.join(PROJECT_ROOT, '.env'),
+    os.path.join(PROJECT_ROOT, 'env.env'),
+):
+    if os.path.exists(env_path):
+        load_dotenv(env_path, override=False)
+
 # Add parent directory to path to allow importing 'compiler'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(APP_DIR, '..')))
 
 print(">>> [DEBUG] APP STARTING UP...", flush=True)
 
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, session as flask_session, flash, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import current_user, login_required
 import io
@@ -48,6 +58,60 @@ app = Flask(__name__)
 # Fix for OAuth redirection if behind a proxy (Render, Heroku, etc.)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+APP_BUILD_ID = (
+    os.environ.get('APP_BUILD_ID')
+    or os.environ.get('RENDER_GIT_COMMIT')
+    or os.environ.get('GIT_COMMIT')
+    or 'dev'
+)
+ASSET_VERSION = os.environ.get('STATIC_ASSET_VERSION') or APP_BUILD_ID[:12]
+
+
+def _is_safe_path(base_dir, requested_path):
+    base_dir_abs = os.path.abspath(base_dir)
+    requested_abs = os.path.abspath(requested_path)
+    try:
+        return os.path.commonpath([base_dir_abs, requested_abs]) == base_dir_abs
+    except ValueError:
+        return False
+
+
+def _is_safe_redirect_target(target):
+    if not target:
+        return False
+    host_url = urlparse(request.host_url)
+    redirect_url = urlparse(urljoin(request.host_url, target))
+    return redirect_url.scheme in ('http', 'https') and host_url.netloc == redirect_url.netloc
+
+
+def generate_csrf_token():
+    token = flask_session.get('_csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        flask_session['_csrf_token'] = token
+    return token
+
+
+def get_submitted_csrf_token():
+    token = request.headers.get('X-CSRF-Token')
+    if token:
+        return token
+    token = request.form.get('csrf_token')
+    if token:
+        return token
+    data = request.get_json(silent=True) or {}
+    return data.get('csrf_token')
+
+
+def csrf_error_response():
+    if request.is_json or request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': False, 'error': 'Invalid or missing CSRF token'}), 400
+
+    flash('Votre session a expiré. Veuillez réessayer.', 'danger')
+    if _is_safe_redirect_target(request.referrer):
+        return redirect(request.referrer)
+    return redirect(url_for('index'))
+
 
 @app.before_request
 def update_last_seen():
@@ -71,6 +135,18 @@ def update_last_seen():
                     db.session.commit()
                 except:
                     db.session.rollback()
+
+
+@app.before_request
+def protect_against_csrf():
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return None
+
+    expected_token = flask_session.get('_csrf_token')
+    submitted_token = get_submitted_csrf_token()
+    if not expected_token or not submitted_token or not secrets.compare_digest(expected_token, submitted_token):
+        return csrf_error_response()
+    return None
 
 
 @app.teardown_request
@@ -150,6 +226,14 @@ try:
         print(">>> [DEBUG] ENSURING TABLES EXIST (db.create_all)...", flush=True)
         db.create_all()
         print(">>> [DEBUG] DB TABLES CHECKED/CREATED OK", flush=True)
+
+        try:
+            from web.auth import migrate_security_answers_to_hashes
+            migrated_security_answers = migrate_security_answers_to_hashes()
+            if migrated_security_answers:
+                print(f">>> [DEBUG] SECURITY ANSWERS HASHED: {migrated_security_answers}", flush=True)
+        except Exception as migrate_err:
+            print(f">>> [DEBUG] SECURITY ANSWER MIGRATION FAILED (NON-FATAL): {migrate_err}", flush=True)
         
         # Auto-seed if empty
         if Question.query.count() == 0 and not os.environ.get('SKIP_SEED'):
@@ -201,7 +285,10 @@ def inject_supabase_credentials():
     return {
         'INJECTED_SUPABASE_URL': os.environ.get('SUPABASE_URL', ''),
         'INJECTED_SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
-        'ANNOUNCEMENT_MTIME': mtime
+        'ANNOUNCEMENT_MTIME': mtime,
+        'APP_BUILD_ID': APP_BUILD_ID,
+        'ASSET_VERSION': ASSET_VERSION,
+        'csrf_token': generate_csrf_token
     }
 
 # Register Auth Blueprint
@@ -237,6 +324,9 @@ def course():
 @app.route('/demo-course/<path:filename>')
 @app.route('/demoCourse/<path:filename>')
 def demo_course_file(filename):
+    full_path = os.path.join(os.path.join(app.root_path, 'DemoCourse'), filename)
+    if not _is_safe_path(os.path.join(app.root_path, 'DemoCourse'), full_path):
+        return jsonify({'error': 'Invalid filename'}), 400
     return send_from_directory(os.path.join(app.root_path, 'DemoCourse'), filename)
 
 @app.route('/api/course', methods=['GET'])
@@ -293,6 +383,7 @@ def add_header(r):
     r.headers["Pragma"] = "no-cache"
     r.headers["Expires"] = "0"
     r.headers['Cache-Control'] = 'public, max-age=0'
+    r.headers['X-App-Build'] = APP_BUILD_ID
     return r
 
 @app.route('/examples')
@@ -389,16 +480,17 @@ def list_examples():
 @app.route('/example/<path:filename>')
 def get_example(filename):
     try:
-        # Security check
-        if '..' in filename:
-             return jsonify({'error': "Invalid filename"}), 400
-             
         # Determine path
         if filename.startswith('fixtures/'):
             real_filename = filename.split('/', 1)[1]
             filepath = os.path.join(FIXTURES_DIR, real_filename)
+            base_dir = FIXTURES_DIR
         else:
             filepath = os.path.join(EXAMPLES_DIR, filename)
+            base_dir = EXAMPLES_DIR
+
+        if not _is_safe_path(base_dir, filepath):
+             return jsonify({'error': "Invalid filename"}), 400
 
         if not os.path.exists(filepath):
             return jsonify({'error': "File not found"}), 404
@@ -579,14 +671,59 @@ import threading
 import queue
 import time
 import json
+import uuid
+
+_ORIGINAL_STDOUT = sys.stdout
+_ORIGINAL_STDERR = sys.stderr
+_execution_io_local = threading.local()
+
+
+class ThreadBoundTextProxy:
+    def __init__(self, fallback, attr_name):
+        self.fallback = fallback
+        self.attr_name = attr_name
+
+    def _target(self):
+        return getattr(_execution_io_local, self.attr_name, None) or self.fallback
+
+    def write(self, text):
+        return self._target().write(text)
+
+    def flush(self):
+        target = self._target()
+        if hasattr(target, 'flush'):
+            return target.flush()
+        return None
+
+    def isatty(self):
+        target = self._target()
+        return target.isatty() if hasattr(target, 'isatty') else False
+
+    def fileno(self):
+        target = self._target()
+        if hasattr(target, 'fileno'):
+            return target.fileno()
+        raise io.UnsupportedOperation("fileno")
+
+    def __getattr__(self, name):
+        return getattr(self._target(), name)
+
+
+EXECUTION_STDOUT_PROXY = ThreadBoundTextProxy(_ORIGINAL_STDOUT, 'stdout')
+EXECUTION_STDERR_PROXY = ThreadBoundTextProxy(_ORIGINAL_STDERR, 'stderr')
 
 # Global Session State
 class GlobalSession:
-    def __init__(self):
+    def __init__(self, owner_id=None, run_id=None):
+        self.owner_id = owner_id
+        self.run_id = run_id
         self.input_queue = queue.Queue(maxsize=1000) # Limit size to prevent memory issues
         self.output_queue = queue.Queue(maxsize=10000) # Limit output buffer
         self.is_running = False
         self.current_thread = None
+        self.current_ctx = None
+        self.created_at = time.time()
+        self.updated_at = self.created_at
 
     def reset(self):
         self.input_queue = queue.Queue(maxsize=1000)
@@ -594,8 +731,78 @@ class GlobalSession:
         self.is_running = False
         self.current_thread = None
         self.current_ctx = None
+        self.touch()
 
-session = GlobalSession()
+    def touch(self):
+        self.updated_at = time.time()
+
+
+class ExecutionManager:
+    def __init__(self, ttl_seconds=3600, max_active_runs_per_owner=3):
+        self.ttl_seconds = ttl_seconds
+        self.max_active_runs_per_owner = max_active_runs_per_owner
+        self.runs = {}
+        self.lock = threading.Lock()
+
+    def _cleanup_locked(self):
+        now = time.time()
+        stale_run_ids = [
+            run_id for run_id, state in self.runs.items()
+            if not state.is_running and (now - state.updated_at) > self.ttl_seconds
+        ]
+        for run_id in stale_run_ids:
+            self.runs.pop(run_id, None)
+
+    def create_run(self, owner_id):
+        with self.lock:
+            self._cleanup_locked()
+            active_runs = sum(
+                1 for state in self.runs.values()
+                if state.owner_id == owner_id and state.is_running
+            )
+            if active_runs >= self.max_active_runs_per_owner:
+                return None
+
+            run_id = uuid.uuid4().hex
+            state = GlobalSession(owner_id=owner_id, run_id=run_id)
+            self.runs[run_id] = state
+            return state
+
+    def get_run(self, owner_id, run_id):
+        if not run_id:
+            return None
+
+        with self.lock:
+            self._cleanup_locked()
+            state = self.runs.get(run_id)
+            if not state or state.owner_id != owner_id:
+                return None
+            state.touch()
+            return state
+
+    def remove_run(self, run_id):
+        with self.lock:
+            self.runs.pop(run_id, None)
+
+
+execution_manager = ExecutionManager()
+
+
+def get_execution_owner_id():
+    owner_id = flask_session.get('_execution_owner_id')
+    if not owner_id:
+        owner_id = secrets.token_urlsafe(24)
+        flask_session['_execution_owner_id'] = owner_id
+        flask_session.modified = True
+    return owner_id
+
+
+def get_requested_run_id():
+    if request.method == 'GET':
+        return request.args.get('run_id', '').strip()
+
+    data = request.get_json(silent=True) or {}
+    return str(data.get('run_id') or request.form.get('run_id') or '').strip()
 
 import ctypes
 
@@ -619,35 +826,37 @@ def terminate_thread(thread):
 
 @app.route('/stop_execution', methods=['POST'])
 def stop_execution_route():
-    global session
-    if session.is_running:
-        session.is_running = False
-        if hasattr(session, 'current_ctx') and session.current_ctx:
-            session.current_ctx.is_running = False
+    owner_id = get_execution_owner_id()
+    run_state = execution_manager.get_run(owner_id, get_requested_run_id())
+    if run_state and run_state.is_running:
+        run_state.is_running = False
+        run_state.touch()
+        if hasattr(run_state, 'current_ctx') and run_state.current_ctx:
+            run_state.current_ctx.is_running = False
         
         # Force kill the thread
-        if session.current_thread:
+        if run_state.current_thread:
              try:
-                 terminate_thread(session.current_thread)
+                 terminate_thread(run_state.current_thread)
              except Exception as e:
                  print(f"Error terminating thread: {e}")
 
         # Unblock any waiting input
         try:
              # Drain input queue to ensure put doesn't block if full
-             while not session.input_queue.empty():
-                 try: session.input_queue.get_nowait()
+             while not run_state.input_queue.empty():
+                 try: run_state.input_queue.get_nowait()
                  except: break
-             session.input_queue.put(None) 
+             run_state.input_queue.put(None) 
         except:
              pass
         
         # Clear queues
         try:
-            with session.input_queue.mutex:
-                session.input_queue.queue.clear()
-            with session.output_queue.mutex:
-                session.output_queue.queue.clear()
+            with run_state.input_queue.mutex:
+                run_state.input_queue.queue.clear()
+            with run_state.output_queue.mutex:
+                run_state.output_queue.queue.clear()
         except Exception:
             # In case mutex is locked or other issues
             pass
@@ -656,7 +865,9 @@ def stop_execution_route():
         # We rely on the thread catching SystemExit and sending 'stopped'
         
         return jsonify({'success': True})
-    return jsonify({'success': False, 'error': 'Not running'})
+    if not run_state:
+        return jsonify({'success': False, 'error': 'Execution not found'}), 404
+    return jsonify({'success': False, 'error': 'Not running'}), 409
 
 @app.route('/doc/errors')
 def doc_errors():
@@ -664,8 +875,7 @@ def doc_errors():
 
 @app.route('/start_execution', methods=['POST'])
 def start_execution():
-    global session
-    data = request.json
+    data = request.get_json(silent=True) or {}
     code = data.get('code', '')
     if isinstance(code, dict):
         # Fallback if frontend accidentally sends an object or object payload was double-nested
@@ -673,10 +883,15 @@ def start_execution():
         code = json.dumps(code)
     code = str(code)
 
-    if session.is_running:
-        return jsonify({'success': False, 'error': 'Already running'})
-
     try:
+        owner_id = get_execution_owner_id()
+        run_state = execution_manager.create_run(owner_id)
+        if run_state is None:
+            return jsonify({
+                'success': False,
+                'error': 'Too many active executions for this browser session. Stop one before starting another.'
+            }), 429
+
         # Transpile to Python
         # Use compile_algo to ensure indent_level is reset
         result = compile_algo(code)
@@ -685,23 +900,28 @@ def start_execution():
         if isinstance(result, tuple):
             python_code, errors = result
             if errors:
+                execution_manager.remove_run(run_state.run_id)
                 # Return structured errors
                 return jsonify({'success': False, 'error': 'Compilation failed', 'details': errors})
         else:
              python_code = result # Fallback for backward compatibility if parser didn't update (shouldn't happen)
 
         if not python_code:
+            execution_manager.remove_run(run_state.run_id)
             return jsonify({'success': False, 'error': 'Compilation failed (Syntax Error)'})
 
-        print(f"\n--- DEBUG: GENERATED PYTHON CODE (LIVE EXECUTION) ---\n{python_code}\n-----------------------------------------------------\n")
+        if os.environ.get('LOG_COMPILED_CODE', '').lower() in ('1', 'true', 'yes', 'on'):
+            print(f"\n--- DEBUG: GENERATED PYTHON CODE (LIVE EXECUTION) ---\n{python_code}\n-----------------------------------------------------\n")
 
-        # Save to file (optional, for debug)
-        with open('output.py', 'w', encoding='utf-8') as f:
-            f.write(python_code)
+        # Save to file only when explicitly enabled
+        if os.environ.get('WRITE_COMPILED_OUTPUT', '').lower() in ('1', 'true', 'yes', 'on'):
+            with open(f'output_{run_state.run_id}.py', 'w', encoding='utf-8') as f:
+                f.write(python_code)
 
         # Reset Session
-        session.reset()
-        session.is_running = True
+        run_state.reset()
+        run_state.is_running = True
+        run_state.touch()
         
         class RunContext:
             def __init__(self, in_q, out_q):
@@ -709,8 +929,8 @@ def start_execution():
                 self.input_queue = in_q
                 self.output_queue = out_q
                 
-        ctx = RunContext(session.input_queue, session.output_queue)
-        session.current_ctx = ctx
+        ctx = RunContext(run_state.input_queue, run_state.output_queue)
+        run_state.current_ctx = ctx
         
         # Check for pre-loaded input file
         input_file_content = data.get('inputFileContent', '')
@@ -718,7 +938,7 @@ def start_execution():
              # Split by lines and put into input queue
              lines = input_file_content.split('\n')
              for line in lines:
-                 session.input_queue.put(line.strip())
+                 run_state.input_queue.put(line.strip())
 
         # Thread Target
         def run_script():
@@ -780,9 +1000,11 @@ def start_execution():
                         raise io.UnsupportedOperation("fileno")
                 
                 stream = StreamToQueue()
+                _execution_io_local.stdout = stream
+                _execution_io_local.stderr = stream
                 
-                # Global redirection for this thread to capture all prints and logs
-                with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
+                # Redirect through thread-aware proxies so one execution cannot capture another thread's logs.
+                with contextlib.redirect_stdout(EXECUTION_STDOUT_PROXY), contextlib.redirect_stderr(EXECUTION_STDERR_PROXY):
 
                     # Prepare builtins
                     # Custom print to ensure capture
@@ -897,6 +1119,8 @@ def start_execution():
                         safe_builtins = __builtins__.copy()
                     else:
                         safe_builtins = __builtins__.__dict__.copy()
+                    safe_builtins['print'] = custom_print
+                    safe_builtins['input'] = mock_input
 
                     exec_globals = {
                         '_algo_to_string': _algo_to_string,
@@ -905,7 +1129,8 @@ def start_execution():
                         '_algo_assign_fixed_string': _algo_assign_fixed_string,
                         '_algo_set_char': _algo_set_char,
                         '_algo_get_char': _algo_get_char,
-                            'input': mock_input, 
+                        'print': custom_print,
+                        'input': mock_input, 
                         '__builtins__': safe_builtins
                     }
 
@@ -961,53 +1186,73 @@ def start_execution():
                 elif isinstance(e, MemoryError):
                     err_msg = "[E4.3] Dépassement de capacité mémoire (Trop d'allocations)."
                     
-                session.output_queue.put({'type': 'error', 'data': f"Erreur d'exécution ({error_type}): {err_msg}"})
+                run_state.output_queue.put({'type': 'error', 'data': f"Erreur d'exécution ({error_type}): {err_msg}"})
             finally:
+                for attr_name in ('stdout', 'stderr'):
+                    if hasattr(_execution_io_local, attr_name):
+                        delattr(_execution_io_local, attr_name)
                 # If we stopped manually, we might have already sent 'stopped'
                 # But to be safe, let's mark finished if we were running
-                if session.is_running:
-                     session.output_queue.put({'type': 'finished'})
-                     session.is_running = False
+                if run_state.is_running:
+                     run_state.output_queue.put({'type': 'finished'})
+                     run_state.is_running = False
+                run_state.touch()
 
         # Start Thread
         t = threading.Thread(target=run_script)
         t.daemon = True # Kill thread if main process ends
+        run_state.current_thread = t
         t.start()
-        session.current_thread = t
 
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'run_id': run_state.run_id})
 
     except Exception as e:
+        if 'run_state' in locals() and run_state and not run_state.is_running:
+            execution_manager.remove_run(run_state.run_id)
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/stream')
 def stream():
+    owner_id = get_execution_owner_id()
+    run_state = execution_manager.get_run(owner_id, get_requested_run_id())
+    if not run_state:
+        return jsonify({'error': 'Execution not found'}), 404
+
     def event_stream():
-        while True:
-            try:
-                # Get message from queue, wait up to 1s
-                msg = session.output_queue.get(timeout=1.0)
-                yield f"data: {json.dumps(msg)}\n\n"
-                if msg['type'] == 'finished':
-                    break
-            except queue.Empty:
-                if not session.is_running and session.output_queue.empty():
-                    break
-                # Send heartbeat
-                yield ": keepalive\n\n"
+        try:
+            while True:
+                try:
+                    # Get message from queue, wait up to 1s
+                    msg = run_state.output_queue.get(timeout=1.0)
+                    run_state.touch()
+                    yield f"data: {json.dumps(msg)}\n\n"
+                    if msg['type'] in ('finished', 'stopped'):
+                        break
+                except queue.Empty:
+                    if not run_state.is_running and run_state.output_queue.empty():
+                        break
+                    # Send heartbeat
+                    yield ": keepalive\n\n"
+        finally:
+            if not run_state.is_running and run_state.output_queue.empty():
+                execution_manager.remove_run(run_state.run_id)
     
     return Response(event_stream(), mimetype="text/event-stream")
 
 @app.route('/send_input', methods=['POST'])
 def send_input():
-    global session
-    if not session.is_running:
-         return jsonify({'success': False, 'error': 'Not running'})
+    owner_id = get_execution_owner_id()
+    data = request.get_json(silent=True) or {}
+    run_state = execution_manager.get_run(owner_id, str(data.get('run_id', '')).strip())
+    if not run_state:
+         return jsonify({'success': False, 'error': 'Execution not found'}), 404
+    if not run_state.is_running:
+         return jsonify({'success': False, 'error': 'Not running'}), 409
          
-    data = request.json
     user_input = data.get('input')
     # print(f"DEBUG: Received input from frontend: '{user_input}'")
-    session.input_queue.put(user_input)
+    run_state.input_queue.put(user_input)
+    run_state.touch()
     return jsonify({'success': True})
 
 
@@ -1856,4 +2101,5 @@ def live_contest(problem_id):
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port, use_reloader=True)
+    debug_enabled = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes', 'on')
+    app.run(debug=debug_enabled, host='0.0.0.0', port=port, use_reloader=debug_enabled)

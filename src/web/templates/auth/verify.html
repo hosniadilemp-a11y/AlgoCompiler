@@ -44,6 +44,7 @@
             {% endwith %}
 
             <form method="POST" action="{{ url_for('auth.verify') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {% if email %}
                 <input type="hidden" name="email" value="{{ email }}">
                 {% else %}
@@ -63,6 +64,7 @@
 
             <form method="POST" action="{{ url_for('auth.resend_code') }}"
                 style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <p style="color: var(--text-secondary); margin-bottom: 10px; font-size: 0.9rem;">Vous n'avez pas reçu le
                     code ?</p>
                 <div class="form-group"

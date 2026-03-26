@@ -14,15 +14,19 @@ Render offers an easy way to deploy web applications. You can deploy using eithe
     - **Environment Variables:**
         - `PYTHONPATH`: `src`
         - `PYTHONUNBUFFERED`: `1`
-        - `DATABASE_URL`: Use a Render PostgreSQL connection string
+        - `DATABASE_URL`: Use a PostgreSQL connection string (Render PostgreSQL or Supabase both work)
         - `AUTO_SEED_QUIZZES`: `true` (optional)
         - `AUTO_SEED_RESET`: `false` (recommended in production)
+        - `APP_BUILD_ID`: set this to your git commit SHA if your platform does not inject one automatically
 
 ### Render data persistence (important)
 
 - Do not rely on repository SQLite files for production data.
 - Use Render PostgreSQL (`DATABASE_URL`) for durable data across deploys/restarts.
 - Keep `AUTO_SEED_RESET=false` to avoid destructive reseeding behavior.
+- Keep real secrets in Render environment variables or a local `.env`, never in a committed file.
+- Rotate any credential that was ever stored in `env.env`, then update the hosting provider variables before redeploying.
+- After deploy, verify the response header `X-App-Build` on the live site to confirm the new build is actually serving traffic.
 
 ### Option 2: Docker
 

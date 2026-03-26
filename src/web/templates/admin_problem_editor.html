@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if problem %}Modifier{% else %}Nouveau{% endif %} Problème — Admin</title>
 
+    <script>
+        window.APP_CSRF_TOKEN = {{ csrf_token()|tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='csrf.js') }}?v={{ ASSET_VERSION }}"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/easymde/2.18.0/easymde.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/easymde/2.18.0/easymde.min.js"></script>
 
