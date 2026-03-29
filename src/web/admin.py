@@ -275,40 +275,26 @@ def stats_insights():
     quiz_chapter_map = {r.user_id: int(r.quiz_chapters or 0) for r in quiz_chapter_rows}
 
     # Recent activity intensity (24h / 7d)
-    recent_quiz_24h = (
-        db.session.query(QuizAttempt.user_id, func.count(QuizAttempt.id).label('cnt'))
-        .filter(QuizAttempt.timestamp >= d1)
-        .group_by(QuizAttempt.user_id)
-        .all()
-    )
-    recent_sub_24h = (
-        db.session.query(ChallengeSubmission.user_id, func.count(ChallengeSubmission.id).label('cnt'))
-        .filter(ChallengeSubmission.timestamp >= d1)
-        .group_by(ChallengeSubmission.user_id)
-        .all()
-    )
-    recent_quiz_7d = (
-        db.session.query(QuizAttempt.user_id, func.count(QuizAttempt.id).label('cnt'))
-        .filter(QuizAttempt.timestamp >= d7)
-        .group_by(QuizAttempt.user_id)
-        .all()
-    )
-    recent_sub_7d = (
-        db.session.query(ChallengeSubmission.user_id, func.count(ChallengeSubmission.id).label('cnt'))
-        .filter(ChallengeSubmission.timestamp >= d7)
-        .group_by(ChallengeSubmission.user_id)
-        .all()
-    )
+    recent_r24 = db.session.query(
+        ChallengeSubmission.user_id, func.count(ChallengeSubmission.id).label('cnt')
+    ).filter(ChallengeSubmission.timestamp >= d1).group_by(ChallengeSubmission.user_id).all()
+    recent_q24 = db.session.query(
+        QuizAttempt.user_id, func.count(QuizAttempt.id).label('cnt')
+    ).filter(QuizAttempt.timestamp >= d1).group_by(QuizAttempt.user_id).all()
+    
+    recent_r7 = db.session.query(
+        ChallengeSubmission.user_id, func.count(ChallengeSubmission.id).label('cnt')
+    ).filter(ChallengeSubmission.timestamp >= d7).group_by(ChallengeSubmission.user_id).all()
+    recent_q7 = db.session.query(
+        QuizAttempt.user_id, func.count(QuizAttempt.id).label('cnt')
+    ).filter(QuizAttempt.timestamp >= d7).group_by(QuizAttempt.user_id).all()
+
     r24_map = {}
     r7_map = {}
-    for row in recent_quiz_24h:
-        r24_map[row.user_id] = r24_map.get(row.user_id, 0) + int(row.cnt or 0)
-    for row in recent_sub_24h:
-        r24_map[row.user_id] = r24_map.get(row.user_id, 0) + int(row.cnt or 0)
-    for row in recent_quiz_7d:
-        r7_map[row.user_id] = r7_map.get(row.user_id, 0) + int(row.cnt or 0)
-    for row in recent_sub_7d:
-        r7_map[row.user_id] = r7_map.get(row.user_id, 0) + int(row.cnt or 0)
+    for r in recent_r24: r24_map[r.user_id] = r24_map.get(r.user_id, 0) + r.cnt
+    for r in recent_q24: r24_map[r.user_id] = r24_map.get(r.user_id, 0) + r.cnt
+    for r in recent_r7: r7_map[r.user_id] = r7_map.get(r.user_id, 0) + r.cnt
+    for r in recent_q7: r7_map[r.user_id] = r7_map.get(r.user_id, 0) + r.cnt
 
     badge_rows = (
         db.session.query(UserBadge.user_id, func.count(UserBadge.id).label('badge_count'))
@@ -317,16 +303,24 @@ def stats_insights():
     )
     badge_map = {r.user_id: int(r.badge_count or 0) for r in badge_rows}
 
+    # Fetch all users once with only needed columns
+    users_basic = db.session.query(User.id, User.name, User.email, User.last_seen).all()
+    user_ids = [u.id for u in users_basic]
+
     ranked = []
     # Use the same XP source as profile/leaderboard to keep scores consistent.
+    bulk_stats = {}
     try:
-        from web.app import compute_xp_and_level
+        # Avoid redundant User.query.all() inside get_bulk_users_stats by manually doing it or passing IDs
+        from web.app import get_bulk_users_stats
+        bulk_stats = get_bulk_users_stats()
     except Exception:
-        compute_xp_and_level = None
+        pass
+
     online_now = 0
     active_24h = 0
-    for uid in user_ids:
-        u = user_map[uid]
+    for u in users_basic:
+        uid = u.id
         q = quiz_map.get(uid)
         s = sub_map.get(uid)
         ds = challenge_distinct_map.get(uid)
@@ -352,12 +346,10 @@ def stats_insights():
 
         total_actions = quiz_chapters + sub_count
         success_rate = round((passed_count / sub_count * 100), 1) if sub_count else 0
-        xp_total = 0
-        if compute_xp_and_level is not None:
-            try:
-                xp_total, _, _, _ = compute_xp_and_level(uid)
-            except Exception:
-                xp_total = 0
+        
+        # Main displayed score now follows profile/leaderboard XP exactly.
+        xp_total = bulk_stats.get(uid, {}).get('score', 0)
+        activity_score = int(xp_total)
 
         # Main displayed score now follows profile/leaderboard XP exactly.
         activity_score = int(xp_total or 0)
@@ -400,36 +392,42 @@ def stats_insights():
     new_users_7d = User.query.filter(User.created_at >= d7).count()
     submissions_24h = ChallengeSubmission.query.filter(ChallengeSubmission.timestamp >= d1).count()
 
-    submissions_7d = ChallengeSubmission.query.filter(ChallengeSubmission.timestamp >= d7).all()
-    passed_7d = sum(1 for s in submissions_7d if s.passed)
-    pass_rate_7d = round((passed_7d / len(submissions_7d) * 100), 1) if submissions_7d else 0
-    avg_sub_time_7d = round(
-        sum((s.time_taken_seconds or 0) for s in submissions_7d) / len(submissions_7d), 1
-    ) if submissions_7d else 0
+    # 7d Analytics via SQL
+    summ_sub_7d = db.session.query(
+        func.count(ChallengeSubmission.id).label('total'),
+        func.sum(case((ChallengeSubmission.passed == True, 1), else_=0)).label('passed'),
+        func.sum(func.coalesce(ChallengeSubmission.time_taken_seconds, 0)).label('sum_time')
+    ).filter(ChallengeSubmission.timestamp >= d7).first()
+    
+    pass_rate_7d = round((summ_sub_7d.passed / summ_sub_7d.total * 100), 1) if summ_sub_7d and summ_sub_7d.total else 0
+    avg_sub_time_7d = round(float(summ_sub_7d.sum_time or 0) / summ_sub_7d.total, 1) if summ_sub_7d and summ_sub_7d.total else 0
 
-    quiz_7d = QuizAttempt.query.filter(QuizAttempt.timestamp >= d7).all()
-    avg_quiz_score_7d = 0
-    if quiz_7d:
-        vals = [(q.score / q.total_questions * 100) for q in quiz_7d if q.total_questions]
-        avg_quiz_score_7d = round(sum(vals) / len(vals), 1) if vals else 0
+    summ_quiz_7d = db.session.query(
+        func.count(QuizAttempt.id).label('total'),
+        func.avg(QuizAttempt.score * 100.0 / func.nullif(QuizAttempt.total_questions, 0)).label('avg_score')
+    ).filter(QuizAttempt.timestamp >= d7).first()
+    avg_quiz_score_7d = round(float(summ_quiz_7d.avg_score or 0), 1) if summ_quiz_7d else 0
 
     total_questions = Question.query.count()
     total_test_cases = TestCase.query.count()
     public_test_cases = TestCase.query.filter_by(is_public=True).count()
     hidden_test_cases = total_test_cases - public_test_cases
 
-    problems = Problem.query.all()
-    problems_without_hidden_tests = 0
+    # Problems without hidden tests (efficient via subquery)
+    problems_with_hidden = db.session.query(TestCase.problem_id).filter(TestCase.is_public == False).distinct().subquery()
+    problems_without_hidden_tests = db.session.query(func.count(Problem.id)).filter(Problem.id.not_in(problems_with_hidden)).scalar() or 0
+
+    # Problem Spotlight (efficient aggregation)
+    spotlight_stats = db.session.query(
+        Problem.title,
+        func.count(ChallengeSubmission.id).label('attempts'),
+        func.sum(case((ChallengeSubmission.passed == True, 1), else_=0)).label('passed')
+    ).join(ChallengeSubmission, ChallengeSubmission.problem_id == Problem.id).group_by(Problem.id, Problem.title).all()
+    
     per_problem = []
-    for p in problems:
-        has_hidden = any(not bool(tc.is_public) for tc in p.test_cases)
-        if not has_hidden:
-            problems_without_hidden_tests += 1
-        subs = ChallengeSubmission.query.filter_by(problem_id=p.id).all()
-        attempts = len(subs)
-        passed = sum(1 for s in subs if s.passed)
-        pass_rate = round((passed / attempts * 100), 1) if attempts else 0
-        per_problem.append({'title': p.title, 'attempts': attempts, 'pass_rate': pass_rate})
+    for s in spotlight_stats:
+        p_rate = round((s.passed / s.attempts * 100), 1) if s.attempts else 0
+        per_problem.append({'title': s.title, 'attempts': s.attempts, 'pass_rate': p_rate})
 
     attempted = [x for x in per_problem if x['attempts'] > 0]
     hardest = min(attempted, key=lambda x: x['pass_rate']) if attempted else None
@@ -464,40 +462,58 @@ def stats_insights():
 @admin_required
 def stats_users():
     users = User.query.order_by(User.created_at.desc()).all()
+    
+    # Bulk fetch counts and last activity
+    from sqlalchemy import distinct
+    
+    quiz_stats = db.session.query(
+        QuizAttempt.user_id,
+        func.count(QuizAttempt.id).label('count'),
+        func.avg(QuizAttempt.score * 100.0 / func.nullif(QuizAttempt.total_questions, 0)).label('avg_score'),
+        func.max(QuizAttempt.timestamp).label('last_ts')
+    ).group_by(QuizAttempt.user_id).all()
+    quiz_map = {r.user_id: r for r in quiz_stats}
+    
+    chall_stats = db.session.query(
+        ChallengeSubmission.user_id,
+        func.count(distinct(ChallengeSubmission.problem_id)).label('total'),
+        func.max(ChallengeSubmission.timestamp).label('last_ts')
+    ).group_by(ChallengeSubmission.user_id).all()
+    chall_map = {r.user_id: r for r in chall_stats}
+    
+    passed_stats = db.session.query(
+        ChallengeSubmission.user_id,
+        func.count(distinct(ChallengeSubmission.problem_id)).label('passed')
+    ).filter(ChallengeSubmission.passed == True).group_by(ChallengeSubmission.user_id).all()
+    passed_map = {r.user_id: r.passed for r in passed_stats}
+    
+    badge_counts = db.session.query(
+        UserBadge.user_id,
+        func.count(UserBadge.id).label('count')
+    ).group_by(UserBadge.user_id).all()
+    badge_map = {r.user_id: r.count for r in badge_counts}
+    
     result = []
     for u in users:
-        q_list = QuizAttempt.query.filter_by(user_id=u.id).all()
-        avg_score = 0
-        if q_list:
-            scores = [q.score / q.total_questions * 100 for q in q_list if q.total_questions]
-            avg_score = round(sum(scores) / len(scores), 1) if scores else 0
-
-        # Count distinct challenges, not raw submission attempts.
-        c_total = (
-            db.session.query(func.count(func.distinct(ChallengeSubmission.problem_id)))
-            .filter(ChallengeSubmission.user_id == u.id)
-            .scalar()
-        ) or 0
-        c_passed = (
-            db.session.query(func.count(func.distinct(ChallengeSubmission.problem_id)))
-            .filter(ChallengeSubmission.user_id == u.id, ChallengeSubmission.passed == True)
-            .scalar()
-        ) or 0
-        badge_count = UserBadge.query.filter_by(user_id=u.id).count()
-
-        last_quiz = QuizAttempt.query.filter_by(user_id=u.id).order_by(QuizAttempt.timestamp.desc()).first()
-        last_sub = ChallengeSubmission.query.filter_by(user_id=u.id).order_by(ChallengeSubmission.timestamp.desc()).first()
-        dates = [d.timestamp for d in [last_quiz, last_sub] if d]
+        q = quiz_map.get(u.id)
+        c = chall_map.get(u.id)
+        
+        last_q = q.last_ts if q else None
+        last_c = c.last_ts if c else None
+        dates = [d for d in [last_q, last_c] if d]
         last_activity = max(dates).isoformat() if dates else None
 
         result.append({
-            'id': u.id, 'name': u.name,
+            'id': u.id, 
+            'name': u.name,
             'email': u.email,
             'created_at': u.created_at.isoformat() if u.created_at else None,
             'last_activity': last_activity,
-            'quiz_count': len(q_list), 'avg_quiz_score': avg_score,
-            'challenge_total': c_total, 'challenge_passed': c_passed,
-            'badge_count': badge_count,
+            'quiz_count': q.count if q else 0,
+            'avg_quiz_score': round(float(q.avg_score or 0), 1) if q else 0,
+            'challenge_total': c.total if c else 0,
+            'challenge_passed': passed_map.get(u.id, 0),
+            'badge_count': badge_map.get(u.id, 0),
         })
     return jsonify({'users': result})
 
@@ -541,17 +557,30 @@ def stats_user_detail(user_id):
 @admin_required
 def stats_problems():
     problems = Problem.query.order_by(Problem.id.asc()).all()
+    
+    from sqlalchemy import distinct
+    sub_stats = db.session.query(
+        ChallengeSubmission.problem_id,
+        func.count(ChallengeSubmission.id).label('total'),
+        func.sum(case((ChallengeSubmission.passed == True, 1), else_=0)).label('passed'),
+        func.count(distinct(case((ChallengeSubmission.passed == True, ChallengeSubmission.user_id), else_=None))).label('unique_solvers'),
+        func.sum(ChallengeSubmission.score).label('sum_score'),
+        func.sum(ChallengeSubmission.time_taken_seconds).label('sum_time')
+    ).group_by(ChallengeSubmission.problem_id).all()
+    
+    stats_map = {r.problem_id: r for r in sub_stats}
+    
     result = []
     for p in problems:
-        subs = ChallengeSubmission.query.filter_by(problem_id=p.id).all()
-        total = len(subs)
-        passed = sum(1 for s in subs if s.passed)
+        s = stats_map.get(p.id)
+        total = s.total if s else 0
+        passed = s.passed if s else 0
         result.append({
             'id': p.id, 'title': p.title, 'topic': p.topic, 'difficulty': p.difficulty,
             'total_attempts': total, 'total_passed': passed,
-            'unique_solvers': len(set(s.user_id for s in subs if s.passed)),
-            'avg_score': round(sum(s.score for s in subs) / total, 1) if total else 0,
-            'avg_time_seconds': round(sum(s.time_taken_seconds for s in subs) / total, 1) if total else 0,
+            'unique_solvers': s.unique_solvers if s else 0,
+            'avg_score': round(float(s.sum_score or 0) / total, 1) if total else 0,
+            'avg_time_seconds': round(float(s.sum_time or 0) / total, 1) if total else 0,
             'pass_rate': round(passed / total * 100, 1) if total else 0,
         })
     return jsonify({'problems': result})
@@ -562,25 +591,24 @@ def stats_problems():
 @admin_required
 def stats_quizzes():
     chapters = Chapter.query.order_by(Chapter.id.asc()).all()
+    
+    from sqlalchemy import distinct
+    quiz_stats = db.session.query(
+        QuizAttempt.chapter_id,
+        func.count(distinct(QuizAttempt.user_id)).label('participants'),
+        func.avg(QuizAttempt.score * 100.0 / func.nullif(QuizAttempt.total_questions, 0)).label('avg_score')
+    ).group_by(QuizAttempt.chapter_id).all()
+    
+    stats_map = {r.chapter_id: r for r in quiz_stats}
+    
     result = []
     for c in chapters:
-        # Get all attempts for this chapter
-        attempts = QuizAttempt.query.filter_by(chapter_id=c.id).all()
-        
-        # Use a set to identify unique participants
-        participants = len(set(a.user_id for a in attempts))
-        
-        # Calculate average score (normalized to 100%)
-        avg_score = 0
-        if attempts:
-            scores = [(a.score / a.total_questions * 100) for a in attempts if a.total_questions > 0]
-            avg_score = round(sum(scores) / len(scores), 1) if scores else 0
-            
+        s = stats_map.get(c.id)
         result.append({
             'id': c.id,
             'title': c.title,
-            'participants': participants,
-            'avg_score': avg_score
+            'participants': s.participants if s else 0,
+            'avg_score': round(float(s.avg_score or 0), 1) if s else 0
         })
     return jsonify({'chapters': result})
 
@@ -673,7 +701,9 @@ def _normalize_prob(payload):
 @admin_bp.route('/api/problems', methods=['GET'])
 @admin_required
 def admin_list_problems():
-    return jsonify({'items': [_prob_json(p) for p in Problem.query.order_by(Problem.id).all()]})
+    from sqlalchemy.orm import joinedload
+    problems = Problem.query.options(joinedload(Problem.test_cases)).order_by(Problem.id).all()
+    return jsonify({'items': [_prob_json(p) for p in problems]})
 
 
 @admin_bp.route('/api/problems/topics', methods=['GET'])

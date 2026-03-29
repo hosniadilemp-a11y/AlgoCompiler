@@ -130,6 +130,24 @@
     }
 
     /* ── Layout ── */
+    /* Loading Overlay */
+    #loadingOverlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(13, 17, 23, 0.8);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; z-index: 9999; backdrop-filter: blur(4px);
+    }
+    .spinner {
+      width: 50px; height: 50px;
+      border: 4px solid rgba(74, 110, 224, 0.1);
+      border-left-color: #4a6ee0;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: #c9d1d9; font-size: 1.1rem; font-weight: 500; letter-spacing: 0.5px; }
+
     .app {
       display: none;
     }
@@ -817,6 +835,11 @@
 <body>
 
   <!-- LOGIN -->
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Chargement des données...</div>
+  </div>
+
   <div class="login-wrap" id="loginWrap">
     <div class="login-card">
       <div class="logo"><i class="fas fa-terminal"></i> AlgoCompiler</div>
@@ -1465,6 +1488,7 @@
       return data;
     }
     function closeModal(id) { $(id).classList.remove('open'); }
+    function showLoading(show) { $('loadingOverlay').style.display = show ? 'flex' : 'none'; }
     function fmtDate(iso) { return iso ? iso.slice(0, 10) : '—'; }
     function fmtDateTime(iso) {
       if (!iso) return '—';
@@ -1530,31 +1554,35 @@
 
     // ── Overview ─────────────────────────────────────────────────────────────────
     async function loadOverview() {
-      const [ov, act, insights] = await Promise.all([
-        api('/admin/api/stats/overview'),
-        api('/admin/api/stats/activity?days=30'),
-        api('/admin/api/stats/insights')
-      ]);
-      $('kpi-users').textContent = ov.total_users;
-      $('kpi-problems').textContent = ov.total_problems;
-      $('kpi-chapters').textContent = ov.total_chapters;
-      $('kpi-quizzes').textContent = ov.total_quiz_attempts;
-      $('kpi-subs').textContent = ov.total_submissions;
-      $('kpi-passed').textContent = ov.passed_submissions;
-      $('kpi-badges').textContent = ov.total_badges_awarded;
+      showLoading(true);
+      try {
+        const [ov, act, insights] = await Promise.all([
+          api('/admin/api/stats/overview'),
+          api('/admin/api/stats/activity?days=30'),
+          api('/admin/api/stats/insights')
+        ]);
+        $('kpi-users').textContent = ov.total_users;
+        $('kpi-problems').textContent = ov.total_problems;
+        $('kpi-chapters').textContent = ov.total_chapters;
+        $('kpi-quizzes').textContent = ov.total_quiz_attempts;
+        $('kpi-subs').textContent = ov.total_submissions;
+        $('kpi-passed').textContent = ov.passed_submissions;
+        $('kpi-badges').textContent = ov.total_badges_awarded;
 
-      renderOverviewInsights(insights);
+        renderOverviewInsights(insights);
 
-      if (actChart) actChart.destroy();
-      const ctx = $('activityChart').getContext('2d');
-      const grad = ctx.createLinearGradient(0, 0, 0, 200);
-      grad.addColorStop(0, 'rgba(74,110,224,0.4)');
-      grad.addColorStop(1, 'rgba(74,110,224,0)');
-      actChart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: act.labels, datasets: [{ label: 'Activités', data: act.values, borderColor: '#4a6ee0', backgroundColor: grad, fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#4a6ee0' }] },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { maxTicksLimit: 10, color: '#8b949e' } }, y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { stepSize: 1, color: '#8b949e' } } } }
-      });
+        if (actChart) actChart.destroy();
+        const ctx = $('activityChart').getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 0, 200);
+        grad.addColorStop(0, 'rgba(74,110,224,0.4)');
+        grad.addColorStop(1, 'rgba(74,110,224,0)');
+        actChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: act.labels, datasets: [{ label: 'Activités', data: act.values, borderColor: '#4a6ee0', backgroundColor: grad, fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#4a6ee0' }] },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { maxTicksLimit: 10, color: '#8b949e' } }, y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { stepSize: 1, color: '#8b949e' } } } }
+        });
+      } catch (e) { toast(e.message, 'error'); }
+      finally { showLoading(false); }
     }
 
     function renderOverviewInsights(insights) {
@@ -1619,9 +1647,13 @@
 
     // ── Users ─────────────────────────────────────────────────────────────────────
     async function loadUsers() {
-      const d = await api('/admin/api/stats/users');
-      allUsers = d.users;
-      renderUsers(allUsers);
+      showLoading(true);
+      try {
+        const d = await api('/admin/api/stats/users');
+        allUsers = d.users;
+        renderUsers(allUsers);
+      } catch (e) { toast(e.message, 'error'); }
+      finally { showLoading(false); }
     }
     function filterUsers() {
       const q = $('userSearch').value.toLowerCase();
@@ -1678,10 +1710,14 @@
 
     // ── Problems ──────────────────────────────────────────────────────────────────
     async function loadProblems() {
-      const d = await api('/admin/api/problems');
-      allProblems = d.items;
-      $('probCount').textContent = allProblems.length;
-      renderProblems(allProblems);
+      showLoading(true);
+      try {
+        const d = await api('/admin/api/problems');
+        allProblems = d.items;
+        $('probCount').textContent = allProblems.length;
+        renderProblems(allProblems);
+      } catch (e) { toast(e.message, 'error'); }
+      finally { showLoading(false); }
     }
     function filterProblems() {
       const q = $('probSearch').value.toLowerCase();
@@ -1856,24 +1892,32 @@
 
     // ── Prob Stats ────────────────────────────────────────────────────────────────
     async function loadProbStats() {
-      const d = await api('/admin/api/stats/problems');
-      $('probStatTable').innerHTML = d.problems.map(p => `<tr>
-    <td><strong>${p.title}</strong></td>
-    <td>${p.topic}</td>
-    <td>${diffTag(p.difficulty)}</td>
-    <td>${p.total_attempts}</td>
-    <td>${p.total_passed}</td>
-    <td><span class="tag ${p.pass_rate >= 60 ? 'tag-easy' : p.pass_rate >= 30 ? 'tag-medium' : 'tag-hard'}">${p.pass_rate}%</span></td>
-    <td>${p.avg_score}%</td>
-    <td>${p.avg_time_seconds}s</td>
-  </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:30px;">Aucune donnée</td></tr>';
+      showLoading(true);
+      try {
+        const d = await api('/admin/api/stats/problems');
+        $('probStatTable').innerHTML = d.problems.map(p => `<tr>
+      <td><strong>${p.title}</strong></td>
+      <td>${p.topic}</td>
+      <td>${diffTag(p.difficulty)}</td>
+      <td>${p.total_attempts}</td>
+      <td>${p.total_passed}</td>
+      <td><span class="tag ${p.pass_rate >= 60 ? 'tag-easy' : p.pass_rate >= 30 ? 'tag-medium' : 'tag-hard'}">${p.pass_rate}%</span></td>
+      <td>${p.avg_score}%</td>
+      <td>${p.avg_time_seconds}s</td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:30px;">Aucune donnée</td></tr>';
+      } catch (e) { toast(e.message, 'error'); }
+      finally { showLoading(false); }
     }
 
     // ── Chapters / Questions ───────────────────────────────────────────────────────
     async function loadChapters() {
-      const d = await api('/admin/api/stats/quizzes');
-      allChapters = d.chapters;
-      renderChapters();
+      showLoading(true);
+      try {
+        const d = await api('/admin/api/stats/quizzes');
+        allChapters = d.chapters;
+        renderChapters();
+      } catch (e) { toast(e.message, 'error'); }
+      finally { showLoading(false); }
     }
     function renderChapters() {
       $('chapterList').innerHTML = allChapters.map(c => `
@@ -2092,9 +2136,13 @@
 
     // ── Courses ────────────────────────────────────────────────────────────────
     async function loadCourseChapters() {
-      const d = await api('/admin/api/course/chapters');
-      courseChapters = d.items || [];
-      renderCourseChapters();
+      showLoading(true);
+      try {
+        const d = await api('/admin/api/course/chapters');
+        courseChapters = d.items || [];
+        renderCourseChapters();
+      } catch (e) { toast(e.message, 'error'); }
+      finally { showLoading(false); }
     }
 
     function renderCourseChapters() {

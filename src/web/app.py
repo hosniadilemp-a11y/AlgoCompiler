@@ -1617,6 +1617,108 @@ def compute_xp_and_level(user_id):
     }
     return xp, breakdown, level_dict, xp_to_next
 
+def get_bulk_users_stats():
+    """Return a dictionary mapping user_id to their stats (xp, level, counts) computed in bulk."""
+    all_users = User.query.all()
+    if not all_users:
+        return {}
+
+    # 1. Bulk Fetch all data
+    quiz_attempts = QuizAttempt.query.all()
+    submissions = ChallengeSubmission.query.filter_by(passed=True).all()
+    user_badges = UserBadge.query.all()
+    chapters = {c.id: c.identifier for c in Chapter.query.all()}
+    problems = {p.id: p.difficulty for p in Problem.query.all()}
+
+    # 2. Group data by user_id
+    qa_by_user = {}
+    for qa in quiz_attempts:
+        if qa.user_id not in qa_by_user: qa_by_user[qa.user_id] = []
+        qa_by_user[qa.user_id].append(qa)
+
+    sub_by_user = {}
+    for sub in submissions:
+        if sub.user_id not in sub_by_user: sub_by_user[sub.user_id] = []
+        sub_by_user[sub.user_id].append(sub)
+
+    badges_by_user = {}
+    for ub in user_badges:
+        if ub.user_id not in badges_by_user: badges_by_user[ub.user_id] = []
+        badges_by_user[ub.user_id].append(ub)
+
+    # 3. Compute for each user
+    results = {}
+    for user in all_users:
+        uid = user.id
+        u_qas = qa_by_user.get(uid, [])
+        u_subs = sub_by_user.get(uid, [])
+        u_badges = badges_by_user.get(uid, [])
+
+        xp = 0
+        
+        # Quiz XP
+        chapter_best = {}
+        chapter_pct = {}
+        q_count = 0
+        for qa in u_qas:
+            pct = qa.score / qa.total_questions if qa.total_questions else 0
+            chapter_pct[qa.chapter_id] = max(chapter_pct.get(qa.chapter_id, 0), pct * 100)
+            if pct >= 0.8:
+                prev = chapter_best.get(qa.chapter_id, 0)
+                if prev == 0: q_count += 1
+                chapter_best[qa.chapter_id] = max(prev, qa.score)
+        
+        for _ in chapter_best:
+            xp += 10
+
+        # Challenge XP
+        passed_pids = set()
+        for sub in u_subs:
+            if sub.problem_id not in passed_pids:
+                passed_pids.add(sub.problem_id)
+        
+        for pid in passed_pids:
+            diff = problems.get(pid, 'Easy')
+            if diff == 'Easy': val = 10
+            elif diff == 'Medium': val = 20
+            elif diff == 'Hard': val = 50
+            else: val = 25
+            xp += val
+
+        # Badge XP
+        for _ in u_badges:
+            xp += 50
+
+        # Level detection
+        total_challenges = len(passed_pids)
+        all_quiz_pct = sum(chapter_pct.values()) / len(chapter_pct) if chapter_pct else 0
+        master_ok = (xp >= 3000 and all_quiz_pct >= 95 and total_challenges >= 50)
+        
+        current_level = LEVEL_DEFS[0]
+        for lvl in LEVEL_DEFS:
+            min_xp, lnum, name, color, glow, icon, special = lvl
+            if special == "master_criteria":
+                if master_ok: current_level = lvl
+            elif xp >= min_xp:
+                current_level = lvl
+
+        results[uid] = {
+            'name': user.name,
+            'score': xp,
+            'level': {
+                'num': current_level[1],
+                'name': current_level[2],
+                'icon': current_level[5],
+                'color': current_level[3],
+                'glow': current_level[4]
+            },
+            'quizzes': q_count,
+            'challenges': total_challenges,
+            'badges': len(u_badges)
+        }
+
+    return results
+
 @app.route('/api/user/progress', methods=['GET'])
 def get_user_progress():
     if not current_user.is_authenticated:
@@ -1946,40 +2048,21 @@ def leaderboard_page():
 
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
-    users = User.query.all()
-    leaderboard = []
-    
-    for user in users:
-        # Calculate Power Score using the same formula as compute_xp_and_level
-        xp_total, _, level_dict, _ = compute_xp_and_level(user.id)
+    try:
+        stats = get_bulk_users_stats()
+        leaderboard = list(stats.values())
         
-        # Breakdown counters for display in the table
-        q_count = QuizAttempt.query.filter_by(user_id=user.id).filter(QuizAttempt.score / QuizAttempt.total_questions >= 0.8).count()
-        c_count = ChallengeSubmission.query.filter_by(user_id=user.id, passed=True).count()
-        b_count = UserBadge.query.filter_by(user_id=user.id).count()
+        # Sort by score descending
+        leaderboard.sort(key=lambda x: x['score'], reverse=True)
         
-        leaderboard.append({
-            'name': user.name,
-            'score': xp_total,
-            'level': {
-                'num': level_dict['num'],
-                'name': level_dict['name'],
-                'icon': level_dict['icon'],
-                'color': level_dict['color'],
-                'glow': level_dict['glow']
-            },
-            'quizzes': q_count,
-            'challenges': c_count,
-            'badges': b_count
+        return jsonify({
+            'success': True,
+            'leaderboard': leaderboard
         })
-    
-    # Sort by score descending
-    leaderboard.sort(key=lambda x: x['score'], reverse=True)
-    
-    return jsonify({
-        'success': True,
-        'leaderboard': leaderboard
-    })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/badges')
 @login_required
@@ -2049,7 +2132,8 @@ def live_contest(problem_id):
     
     # Simplified real-time tracking: only consider submissions from the last 24 hours
     cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
-    submissions = ChallengeSubmission.query.filter(
+    from sqlalchemy.orm import joinedload
+    submissions = ChallengeSubmission.query.options(joinedload(ChallengeSubmission.user)).filter(
         ChallengeSubmission.problem_id == problem_id,
         ChallengeSubmission.timestamp >= cutoff
     ).all()
