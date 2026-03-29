@@ -2,6 +2,10 @@ import sys
 import os
 import secrets
 import logging
+import datetime
+import time
+from collections import defaultdict
+from decimal import Decimal
 from dotenv import load_dotenv
 from urllib.parse import urlparse, urljoin
 
@@ -30,11 +34,12 @@ from compiler.parser import parser, compile_algo
 print(">>> [DEBUG] PARSER IMPORTED", flush=True)
 
 from web.debugger import TraceRunner
-from web.models import db, Chapter, Question, Choice, Problem, TestCase, User, QuizAttempt, ChallengeSubmission, UserBadge, CourseChapter, CourseSection
+from web.models import db, Chapter, Question, Choice, Problem, TestCase, User, QuizAttempt, ChallengeSubmission, ChallengeAttemptSession, UserBadge, CourseChapter, CourseSection
 from web.extensions import login_manager, oauth, mail
 from web.sandbox.runner import execute_code
 print(">>> [DEBUG] MODELS AND EXTENSIONS IMPORTED", flush=True)
 from sqlalchemy import func, distinct
+from sqlalchemy.orm import joinedload
 from sqlalchemy.pool import NullPool
 import json
 import secrets
@@ -57,6 +62,9 @@ logging.getLogger('werkzeug').disabled = True
 app = Flask(__name__)
 # Fix for OAuth redirection if behind a proxy (Render, Heroku, etc.)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+PROBLEM_LEADERBOARD_CACHE_TTL_SECONDS = 60
+problem_leaderboard_cache = {}
 
 APP_BUILD_ID = (
     os.environ.get('APP_BUILD_ID')
@@ -370,8 +378,304 @@ def problems_page():
 
 @app.route('/challenge/<int:problem_id>')
 def challenge_page(problem_id):
-    # Just render the template. JS will fetch the problem details via API
+    problem = db.session.get(Problem, problem_id)
+    if not problem:
+        return render_template('errors.html'), 404
+    if not problem.is_published:
+        return render_template('errors.html'), 403
+    if current_user.is_authenticated:
+        get_or_create_active_attempt_session(current_user.id, problem_id)
     return render_template('challenge.html', problem_id=problem_id)
+
+def utcnow():
+    return datetime.datetime.utcnow()
+
+def decimal_to_float(value):
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+def safe_metric_sort_value(value):
+    converted = decimal_to_float(value)
+    return converted if converted is not None else float('inf')
+
+def average_metric_from_json(metrics_json, key):
+    if not isinstance(metrics_json, list):
+        return None
+    values = []
+    for item in metrics_json:
+        if not isinstance(item, dict):
+            continue
+        numeric_value = decimal_to_float(item.get(key))
+        if numeric_value is not None:
+            values.append(numeric_value)
+    if not values:
+        return None
+    return round(sum(values) / len(values), 3)
+
+def build_test_case_metrics(results):
+    return [
+        {
+            'test_case_id': result.get('test_case_id'),
+            'passed': bool(result.get('passed')),
+            'execution_time_ms': round(float(result.get('execution_time_ms') or 0.0), 3),
+            'memory_usage_kb': int(result.get('memory_usage_kb') or 0),
+            'error': result.get('error')
+        }
+        for result in results
+    ]
+
+def get_or_create_active_attempt_session(user_id, problem_id):
+    session = (
+        ChallengeAttemptSession.query
+        .filter_by(user_id=user_id, problem_id=problem_id, completed_at=None)
+        .order_by(ChallengeAttemptSession.started_at.desc())
+        .first()
+    )
+    if session:
+        return session
+
+    session = ChallengeAttemptSession(
+        user_id=user_id,
+        problem_id=problem_id,
+        started_at=utcnow(),
+        created_at=utcnow()
+    )
+    db.session.add(session)
+    db.session.commit()
+    return session
+
+def invalidate_problem_leaderboard_cache(problem_id=None):
+    if problem_id is None:
+        problem_leaderboard_cache.clear()
+        return
+    problem_leaderboard_cache.pop(int(problem_id), None)
+
+def get_problem_leaderboard_base(problem_id):
+    now_ts = time.time()
+    cache_key = int(problem_id)
+    cached = problem_leaderboard_cache.get(cache_key)
+    if cached and cached['expires_at'] > now_ts:
+        return cached['payload']
+    if cached:
+        problem_leaderboard_cache.pop(cache_key, None)
+
+    problem = db.session.get(Problem, problem_id)
+    if not problem:
+        return None
+
+    stats_by_user = get_bulk_users_stats()
+    submissions = (
+        ChallengeSubmission.query
+        .options(joinedload(ChallengeSubmission.user))
+        .filter(
+            ChallengeSubmission.problem_id == problem_id,
+            ChallengeSubmission.passed == True
+        )
+        .all()
+    )
+
+    selected_rows = {}
+    available_years = set()
+    for submission in submissions:
+        if not submission.user:
+            continue
+
+        joined_year = submission.user.created_at.year if submission.user.created_at else None
+        if joined_year is not None:
+            available_years.add(joined_year)
+
+        current_level = stats_by_user.get(submission.user_id, {}).get('level') or {
+            'num': 1,
+            'name': 'Débutant',
+            'icon': '🌟',
+            'color': '#6c757d',
+            'glow': 'rgba(108,117,125,0.5)'
+        }
+
+        row = {
+            'submission_id': submission.id,
+            'user_id': submission.user_id,
+            'name': submission.user.name or f'User {submission.user_id}',
+            'joined_year': joined_year,
+            'level': current_level,
+            'time_taken_seconds': int(submission.time_taken_seconds or 0),
+            'avg_execution_time_ms': (
+                decimal_to_float(submission.avg_execution_time_ms)
+                if decimal_to_float(submission.avg_execution_time_ms) is not None
+                else average_metric_from_json(submission.test_case_metrics_json, 'execution_time_ms')
+            ),
+            'avg_memory_kb': (
+                decimal_to_float(submission.avg_memory_kb)
+                if decimal_to_float(submission.avg_memory_kb) is not None
+                else average_metric_from_json(submission.test_case_metrics_json, 'memory_usage_kb')
+            ),
+            'timestamp': submission.timestamp,
+            'test_cases_total': int(submission.test_cases_total or 0),
+            'test_cases_passed': int(submission.test_cases_passed or 0),
+            '_selection_key': (
+                safe_metric_sort_value(submission.avg_execution_time_ms),
+                safe_metric_sort_value(submission.avg_memory_kb),
+                int(submission.time_taken_seconds or 0),
+                submission.timestamp or datetime.datetime.max,
+                submission.id
+            )
+        }
+
+        existing = selected_rows.get(submission.user_id)
+        if existing is None or row['_selection_key'] < existing['_selection_key']:
+            selected_rows[submission.user_id] = row
+
+    rows = []
+    for row in selected_rows.values():
+        row.pop('_selection_key', None)
+        rows.append(row)
+
+    payload = {
+        'problem': {
+            'id': problem.id,
+            'title': problem.title,
+            'difficulty': problem.difficulty
+        },
+        'rows': rows,
+        'available_years': sorted(available_years, reverse=True)
+    }
+    problem_leaderboard_cache[cache_key] = {
+        'expires_at': now_ts + PROBLEM_LEADERBOARD_CACHE_TTL_SECONDS,
+        'payload': payload
+    }
+    return payload
+
+def compute_participation_aware_score(value, values, missing_score=0.0, baseline_score=6.0):
+    numeric_values = [decimal_to_float(v) for v in values if decimal_to_float(v) is not None]
+    numeric_value = decimal_to_float(value)
+    if numeric_value is None:
+        return round(missing_score, 3)
+
+    if not numeric_values:
+        return 10.0
+
+    best = min(numeric_values)
+    worst = max(numeric_values)
+    if best == worst:
+        return 10.0
+
+    relative_score = (worst - numeric_value) / (worst - best)
+    raw_score = 2.0 + 8.0 * relative_score
+    participant_count = len(numeric_values)
+    confidence = min(1.0, max(0.0, (participant_count - 1) / 4.0))
+    adjusted_score = baseline_score + confidence * (raw_score - baseline_score)
+    return round(max(missing_score, min(10.0, adjusted_score)), 3)
+
+def build_problem_leaderboard_rows(problem_id, year=None):
+    base_payload = get_problem_leaderboard_base(problem_id)
+    if base_payload is None:
+        return None
+
+    rows = list(base_payload['rows'])
+    if year is not None:
+        rows = [row for row in rows if row.get('joined_year') == year]
+
+    solve_values = [row.get('time_taken_seconds') for row in rows if row.get('time_taken_seconds') is not None]
+    exec_values = [row.get('avg_execution_time_ms') for row in rows if row.get('avg_execution_time_ms') is not None]
+    memory_values = [row.get('avg_memory_kb') for row in rows if row.get('avg_memory_kb') is not None]
+
+    scored_rows = []
+    for row in rows:
+        scored_row = dict(row)
+        scored_row['tests_score'] = 10.0
+        scored_row['solve_time_score'] = compute_participation_aware_score(
+            row.get('time_taken_seconds'),
+            solve_values
+        )
+        scored_row['execution_score'] = compute_participation_aware_score(
+            row.get('avg_execution_time_ms'),
+            exec_values,
+            missing_score=2.0
+        )
+        scored_row['memory_score'] = compute_participation_aware_score(
+            row.get('avg_memory_kb'),
+            memory_values,
+            missing_score=2.0
+        )
+        scored_row['final_score'] = round(
+            scored_row['tests_score']
+            + scored_row['solve_time_score']
+            + scored_row['execution_score']
+            + scored_row['memory_score'],
+            3
+        )
+        scored_rows.append(scored_row)
+
+    ranked_rows = sorted(
+        scored_rows,
+        key=lambda row: (
+            -row['final_score'],
+            int(row.get('time_taken_seconds') or 0),
+            safe_metric_sort_value(row.get('avg_execution_time_ms')),
+            safe_metric_sort_value(row.get('avg_memory_kb')),
+            row.get('timestamp') or datetime.datetime.max,
+            row.get('user_id') or 0
+        )
+    )
+
+    for index, row in enumerate(ranked_rows, start=1):
+        row['rank'] = index
+        row['badge_label'] = 'Top 1' if index == 1 else ('Top 10' if index <= 10 else None)
+
+    return {
+        'problem': base_payload['problem'],
+        'available_years': base_payload['available_years'],
+        'rows': ranked_rows
+    }
+
+def sort_problem_leaderboard_rows(rows, sort_key, order):
+    if sort_key == 'final_score':
+        ranked_rows = sorted(
+            rows,
+            key=lambda row: (
+                row['rank'],
+                int(row.get('time_taken_seconds') or 0),
+                safe_metric_sort_value(row.get('avg_execution_time_ms')),
+                safe_metric_sort_value(row.get('avg_memory_kb')),
+                row.get('timestamp') or datetime.datetime.max,
+                row.get('user_id') or 0
+            )
+        )
+        return list(reversed(ranked_rows)) if order == 'asc' else ranked_rows
+
+    def metric_key(row):
+        metric_value = decimal_to_float(row.get(sort_key))
+        is_missing = metric_value is None
+        sortable_value = metric_value if metric_value is not None else 0.0
+        if order == 'desc':
+            sortable_value *= -1
+        return (is_missing, sortable_value, row['rank'])
+
+    return sorted(rows, key=metric_key)
+
+def serialize_leaderboard_row(row):
+    return {
+        'rank': row['rank'],
+        'user_id': row['user_id'],
+        'name': row['name'],
+        'level': row['level'],
+        'joined_year': row.get('joined_year'),
+        'time_taken_seconds': int(row.get('time_taken_seconds') or 0),
+        'avg_execution_time_ms': decimal_to_float(row.get('avg_execution_time_ms')),
+        'avg_memory_kb': decimal_to_float(row.get('avg_memory_kb')),
+        'tests_score': round(float(row.get('tests_score') or 0.0), 3),
+        'solve_time_score': round(float(row.get('solve_time_score') or 0.0), 3),
+        'execution_score': round(float(row.get('execution_score') or 0.0), 3),
+        'memory_score': round(float(row.get('memory_score') or 0.0), 3),
+        'final_score': round(float(row.get('final_score') or 0.0), 3),
+        'badge_label': row.get('badge_label')
+    }
 
 @app.after_request
 def add_header(r):
@@ -1343,6 +1647,81 @@ def get_problem(problem_id):
         }
     })
 
+@app.route('/problems/<int:problem_id>/leaderboard')
+def problem_leaderboard_page(problem_id):
+    problem = db.session.get(Problem, problem_id)
+    if not problem:
+        return render_template('errors.html'), 404
+    if not problem.is_published:
+        return render_template('errors.html'), 403
+    return render_template('problem_leaderboard.html', problem=problem)
+
+@app.route('/api/problems/<int:problem_id>/leaderboard', methods=['GET'])
+def get_problem_leaderboard(problem_id):
+    problem = db.session.get(Problem, problem_id)
+    if not problem:
+        return jsonify({'success': False, 'error': 'Problem not found'}), 404
+    if not problem.is_published:
+        return jsonify({'success': False, 'error': 'Problem not published'}), 403
+
+    year_param = (request.args.get('year') or '').strip()
+    year = None
+    if year_param:
+        try:
+            year = int(year_param)
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Invalid year filter'}), 400
+
+    sort_key = (request.args.get('sort') or 'final_score').strip()
+    allowed_sorts = {'final_score', 'time_taken_seconds', 'avg_execution_time_ms', 'avg_memory_kb'}
+    if sort_key not in allowed_sorts:
+        sort_key = 'final_score'
+
+    order = (request.args.get('order') or ('desc' if sort_key == 'final_score' else 'asc')).strip().lower()
+    if order not in {'asc', 'desc'}:
+        order = 'desc' if sort_key == 'final_score' else 'asc'
+
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except ValueError:
+        page = 1
+    try:
+        page_size = min(100, max(1, int(request.args.get('page_size', 10))))
+    except ValueError:
+        page_size = 10
+
+    payload = build_problem_leaderboard_rows(problem_id, year=year)
+    if payload is None:
+        return jsonify({'success': False, 'error': 'Problem not found'}), 404
+
+    ranked_rows = payload['rows']
+    sorted_rows = sort_problem_leaderboard_rows(ranked_rows, sort_key, order)
+    total_items = len(sorted_rows)
+    total_pages = max(1, (total_items + page_size - 1) // page_size)
+    if page > total_pages:
+        page = total_pages
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    paged_rows = sorted_rows[start:end]
+
+    return jsonify({
+        'success': True,
+        'problem': payload['problem'],
+        'available_years': payload['available_years'],
+        'top_users': [serialize_leaderboard_row(row) for row in ranked_rows[:3]],
+        'leaderboard': [serialize_leaderboard_row(row) for row in paged_rows],
+        'sort': sort_key,
+        'order': order,
+        'filters': {'year': year},
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total_items': total_items,
+            'total_pages': total_pages
+        }
+    })
+
 @app.route('/submission_results')
 def submission_results():
     return render_template('submission_results.html')
@@ -1380,11 +1759,28 @@ def submit_custom_code():
     
     
     results = execute_code(python_code, tc_data)
+    avg_execution_time_ms = round(
+        sum(float(r.get('execution_time_ms') or 0.0) for r in results) / len(results),
+        3
+    ) if results else None
+    avg_memory_kb = round(
+        sum(float(r.get('memory_usage_kb') or 0.0) for r in results) / len(results),
+        2
+    ) if results else None
     
     return jsonify({
         'success': True,
         'all_passed': results[0]['passed'],
-        'results': results
+        'results': results,
+        'avg_execution_time_ms': avg_execution_time_ms,
+        'avg_memory_kb': avg_memory_kb,
+        'metrics_summary': {
+            'time_taken_seconds': 0,
+            'test_cases_total': len(results),
+            'test_cases_passed': sum(1 for r in results if r.get('passed')),
+            'avg_execution_time_ms': avg_execution_time_ms,
+            'avg_memory_kb': avg_memory_kb
+        }
     })
 
 @app.route('/api/submissions', methods=['POST'])
@@ -1393,7 +1789,7 @@ def submit_code():
     problem_id = data.get('problem_id')
     code = data.get('code')
     execute_all = data.get('execute_all', False)
-    time_taken_seconds = data.get('time_taken_seconds', 0)
+    requested_time_taken_seconds = data.get('time_taken_seconds', 0)
     
     problem = db.session.get(Problem, problem_id)
     if not problem:
@@ -1430,7 +1826,7 @@ def submit_code():
     
     # 4. Execute in sandbox
     raw_results = execute_code(python_code, tc_data)
-    
+
     # Merge original tc_data with execution results
     results = []
     for i, raw_res in enumerate(raw_results):
@@ -1441,16 +1837,45 @@ def submit_code():
             'expected_output': tc_info['expected_output'],
             'actual_output': raw_res['actual_output'],
             'passed': raw_res['passed'],
-            'error': raw_res['error']
+            'error': raw_res['error'],
+            'execution_time_ms': round(float(raw_res.get('execution_time_ms') or 0.0), 3),
+            'memory_usage_kb': int(raw_res.get('memory_usage_kb') or 0)
         })
-    
+
     # Calculate all_passed
     all_passed = all(r['passed'] for r in results) if results else False
-    
+    passed_count = sum(1 for r in results if r['passed'])
+    total_count = len(results)
+    avg_execution_time_ms = round(
+        sum(float(r.get('execution_time_ms') or 0.0) for r in results) / total_count,
+        3
+    ) if total_count else None
+    avg_memory_kb = round(
+        sum(float(r.get('memory_usage_kb') or 0.0) for r in results) / total_count,
+        2
+    ) if total_count else None
+    submission_timestamp = utcnow()
+    effective_time_taken_seconds = int(requested_time_taken_seconds or 0)
+    attempt_session = None
+    if current_user.is_authenticated and execute_all:
+        attempt_session = get_or_create_active_attempt_session(current_user.id, problem.id)
+        if attempt_session and attempt_session.started_at:
+            effective_time_taken_seconds = max(
+                0,
+                int((submission_timestamp - attempt_session.started_at).total_seconds())
+            )
+    metrics_summary = {
+        'time_taken_seconds': effective_time_taken_seconds,
+        'test_cases_total': total_count,
+        'test_cases_passed': passed_count,
+        'avg_execution_time_ms': avg_execution_time_ms,
+        'avg_memory_kb': avg_memory_kb
+    }
+
     # Save submission if user is logged in and it's a full submission
     level_up_info = None
     if current_user.is_authenticated and execute_all:
-        score_percent = sum(1 for r in results if r['passed']) / len(results) * 100 if results else 0
+        score_percent = passed_count / total_count * 100 if total_count else 0
 
         # Capture level before save
         old_xp, _, old_level, _ = compute_xp_and_level(current_user.id)
@@ -1461,10 +1886,20 @@ def submit_code():
             score=score_percent,
             code=code,
             passed=all_passed,
-            time_taken_seconds=time_taken_seconds
+            time_taken_seconds=effective_time_taken_seconds,
+            test_cases_total=total_count,
+            test_cases_passed=passed_count,
+            avg_execution_time_ms=avg_execution_time_ms,
+            avg_memory_kb=avg_memory_kb,
+            test_case_metrics_json=build_test_case_metrics(results),
+            attempt_session_id=attempt_session.id if attempt_session else None,
+            timestamp=submission_timestamp
         )
+        if all_passed and attempt_session and attempt_session.completed_at is None:
+            attempt_session.completed_at = submission_timestamp
         db.session.add(submission)
         db.session.commit()
+        invalidate_problem_leaderboard_cache(problem.id)
 
         # Capture level after save
         new_xp, _, new_level, new_xp_to_next = compute_xp_and_level(current_user.id)
@@ -1481,6 +1916,12 @@ def submit_code():
         'success': True,
         'all_passed': all_passed,
         'results': results,
+        'time_taken_seconds': effective_time_taken_seconds,
+        'avg_execution_time_ms': avg_execution_time_ms,
+        'avg_memory_kb': avg_memory_kb,
+        'metrics_summary': metrics_summary,
+        'leaderboard_url': url_for('problem_leaderboard_page', problem_id=problem.id),
+        'problem_title': problem.title,
         **(level_up_info or {})
     })
 
@@ -1490,12 +1931,12 @@ def submit_code():
 # ─────────────────────────────────────────────────────────────────────────────
 LEVEL_DEFS = [
     # (min_xp, level_num, name_fr, color, glow, icon, special_requirement_key)
-    (0,    1, "Novice",      "#6c757d", "rgba(108,117,125,0.5)", "⌨️", None),
-    (50,   2, "Initié",      "#0dcaf0", "rgba(13,202,240,0.5)",  "💻", None),
-    (200,  3, "Apprenti",    "#fd7e14", "rgba(253,126,20,0.5)",  "🛠️", None),
-    (500,  4, "Confirmé",    "#0d6efd", "rgba(13,110,253,0.5)",  "⚙️", None),
-    (1200, 5, "Expert",      "#ffc107", "rgba(255,193,7,0.5)",   "🚀", None),
-    (3000, 6, "Maître",      "#a855f7", "rgba(168,85,247,0.5)",  "♾️", "master_criteria"),
+    (0,    1, "Débutant",    "#6c757d", "rgba(108,117,125,0.5)", "🌟", None),
+    (50,   2, "Amateur",     "#0dcaf0", "rgba(13,202,240,0.5)",  "⚡", None),
+    (200,  3, "Bosseur",     "#fd7e14", "rgba(253,126,20,0.5)",  "🔥", None),
+    (500,  4, "Expert",      "#0d6efd", "rgba(13,110,253,0.5)",  "⚙️", None),
+    (1200, 5, "Master",      "#ffc107", "rgba(255,193,7,0.5)",   "🏆", None),
+    (3000, 6, "Légende",     "#a855f7", "rgba(168,85,247,0.5)",  "👑", "master_criteria"),
 ]
 
 def compute_xp_and_level(user_id):
@@ -1646,6 +2087,93 @@ def get_bulk_users_stats():
         if ub.user_id not in badges_by_user: badges_by_user[ub.user_id] = []
         badges_by_user[ub.user_id].append(ub)
 
+    # 2b. Compute per-problem placements in memory so the global leaderboard
+    # can expose Top 1 / Top 3 / Top 10 without issuing one query per problem.
+    best_submissions_by_problem = defaultdict(dict)
+    for sub in submissions:
+        selected_for_problem = best_submissions_by_problem[sub.problem_id]
+        avg_exec = (
+            decimal_to_float(sub.avg_execution_time_ms)
+            if decimal_to_float(sub.avg_execution_time_ms) is not None
+            else average_metric_from_json(sub.test_case_metrics_json, 'execution_time_ms')
+        )
+        avg_memory = (
+            decimal_to_float(sub.avg_memory_kb)
+            if decimal_to_float(sub.avg_memory_kb) is not None
+            else average_metric_from_json(sub.test_case_metrics_json, 'memory_usage_kb')
+        )
+        candidate = {
+            'user_id': sub.user_id,
+            'time_taken_seconds': int(sub.time_taken_seconds or 0),
+            'avg_execution_time_ms': avg_exec,
+            'avg_memory_kb': avg_memory,
+            'timestamp': sub.timestamp,
+            '_selection_key': (
+                safe_metric_sort_value(avg_exec),
+                safe_metric_sort_value(avg_memory),
+                int(sub.time_taken_seconds or 0),
+                sub.timestamp or datetime.datetime.max,
+                sub.id
+            )
+        }
+        existing = selected_for_problem.get(sub.user_id)
+        if existing is None or candidate['_selection_key'] < existing['_selection_key']:
+            selected_for_problem[sub.user_id] = candidate
+
+    placement_counts = defaultdict(lambda: {'top1': 0, 'top3': 0, 'top10': 0})
+    for problem_rows in best_submissions_by_problem.values():
+        rows = list(problem_rows.values())
+        solve_values = [row.get('time_taken_seconds') for row in rows if row.get('time_taken_seconds') is not None]
+        exec_values = [row.get('avg_execution_time_ms') for row in rows if row.get('avg_execution_time_ms') is not None]
+        memory_values = [row.get('avg_memory_kb') for row in rows if row.get('avg_memory_kb') is not None]
+
+        ranked_rows = []
+        for row in rows:
+            tests_score = 10.0
+            solve_time_score = compute_participation_aware_score(row.get('time_taken_seconds'), solve_values)
+            execution_score = compute_participation_aware_score(
+                row.get('avg_execution_time_ms'),
+                exec_values,
+                missing_score=2.0
+            )
+            memory_score = compute_participation_aware_score(
+                row.get('avg_memory_kb'),
+                memory_values,
+                missing_score=2.0
+            )
+            final_score = round(
+                tests_score + solve_time_score + execution_score + memory_score,
+                3
+            )
+            ranked_rows.append({
+                'user_id': row['user_id'],
+                'final_score': final_score,
+                'time_taken_seconds': int(row.get('time_taken_seconds') or 0),
+                'avg_execution_time_ms': row.get('avg_execution_time_ms'),
+                'avg_memory_kb': row.get('avg_memory_kb'),
+                'timestamp': row.get('timestamp') or datetime.datetime.max
+            })
+
+        ranked_rows.sort(
+            key=lambda row: (
+                -row['final_score'],
+                row['time_taken_seconds'],
+                safe_metric_sort_value(row.get('avg_execution_time_ms')),
+                safe_metric_sort_value(row.get('avg_memory_kb')),
+                row['timestamp'],
+                row['user_id']
+            )
+        )
+
+        for rank, row in enumerate(ranked_rows, start=1):
+            counters = placement_counts[row['user_id']]
+            if rank == 1:
+                counters['top1'] += 1
+            if rank <= 3:
+                counters['top3'] += 1
+            if rank <= 10:
+                counters['top10'] += 1
+
     # 3. Compute for each user
     results = {}
     for user in all_users:
@@ -1714,7 +2242,11 @@ def get_bulk_users_stats():
             },
             'quizzes': q_count,
             'challenges': total_challenges,
-            'badges': len(u_badges)
+            'badges': len(u_badges),
+            'year_created': user.created_at.year if user.created_at else None,
+            'top1': placement_counts[uid]['top1'],
+            'top3': placement_counts[uid]['top3'],
+            'top10': placement_counts[uid]['top10']
         }
 
     return results

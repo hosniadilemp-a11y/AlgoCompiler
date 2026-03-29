@@ -17,12 +17,12 @@
         }
 
         .announcement-container {
-            max-width: 800px;
+            max-width: 920px;
             margin: 40px auto;
             padding: 40px;
             background: var(--pane-bg);
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-radius: 18px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
             border: 1px solid var(--border);
         }
 
@@ -38,7 +38,7 @@
             background: rgba(229, 46, 113, 0.1);
             border-left: 4px solid #e52e71;
             padding: 20px;
-            border-radius: 4px;
+            border-radius: 10px;
             margin-bottom: 30px;
         }
 
@@ -72,7 +72,7 @@
             min-width: 250px;
             background: rgba(128, 128, 128, 0.08);
             padding: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             border: 1px solid var(--border);
             text-align: center;
         }
@@ -82,12 +82,67 @@
             border-left: 4px solid #4a6ee0;
             padding: 20px;
             margin-top: 30px;
-            border-radius: 4px;
+            border-radius: 10px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        .feature-card h4 {
+            margin: 0 0 10px;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .feature-card p {
+            margin: 0;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .feature-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 193, 7, 0.12);
+            color: #d3a200;
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        body.light-theme .feature-chip {
+            color: #8f6200;
+            background: rgba(255, 193, 7, 0.16);
+        }
+
+        .callout-list {
+            margin: 14px 0 0;
+            padding-left: 18px;
+            line-height: 1.7;
+        }
+
+        .callout-list li {
+            margin-bottom: 8px;
         }
     </style>
 </head>
 
-<body class="light-theme">
+<body>
 
     {% set header_custom_controls = "" %}
     {% include 'partials/navbar.html' %}
@@ -98,6 +153,35 @@
             <h1 style="font-size: 2.5rem; margin-bottom: 10px;">AlgoCompiler Évolue !</h1>
             <p style="font-size: 1.2rem; color: var(--text-secondary);">Une nouvelle infrastructure pour une plateforme
                 ultra-rapide.</p>
+        </div>
+
+        <div class="edu-box" style="border-left-color: #f5b301; background: rgba(245, 179, 1, 0.10); margin-top: 0;">
+            <div class="feature-chip"><i class="fas fa-trophy"></i> Nouvelle mise à jour des défis</div>
+            <h2 style="margin-top: 0; color: #f5b301;">
+                <i class="fas fa-ranking-star"></i> Leaderboards, métriques de soumission et explication du score
+            </h2>
+            <p style="line-height: 1.7;">
+                Les défis de programmation ont été enrichis avec un <strong>leaderboard par problème</strong>, de nouvelles <strong>métriques de performance</strong> et une <strong>explication claire du calcul du score</strong>.
+            </p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4><i class="fas fa-stopwatch"></i> Résultats de soumission enrichis</h4>
+                    <p>Après une soumission complète, la page de résultats affiche maintenant le temps de résolution, le temps d'exécution moyen et la mémoire moyenne utilisée.</p>
+                </div>
+                <div class="feature-card">
+                    <h4><i class="fas fa-chart-line"></i> Leaderboard par défi</h4>
+                    <p>Chaque problème possède son propre classement avec tri, pagination, filtre par année d'inscription et comparaison des performances des solveurs.</p>
+                </div>
+                <div class="feature-card">
+                    <h4><i class="fas fa-calculator"></i> Score expliqué</h4>
+                    <p>Le leaderboard contient désormais un panneau réductible qui explique comment les 40 points sont calculés et pourquoi les écarts sont adoucis quand il y a peu de participants.</p>
+                </div>
+            </div>
+            <ul class="callout-list">
+                <li>Les solveurs sont classés selon les tests réussis, le temps de résolution, le temps d'exécution et la mémoire.</li>
+                <li>Le système utilise un <strong>score relatif ajusté au nombre de participants</strong> pour rester plus juste quand un défi a seulement 2 ou 3 solveurs.</li>
+                <li>La pastille de score final dans le leaderboard affiche aussi le détail des composantes au survol.</li>
+            </ul>
         </div>
 
         <div class="migration-box">

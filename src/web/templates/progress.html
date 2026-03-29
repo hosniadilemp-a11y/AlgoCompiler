@@ -649,7 +649,7 @@
                     <p class="email">{{ current_user.email }}</p>
                     <div id="level-badge-wrap" style="margin: 4px 0;">
                         <span id="level-badge" class="level-badge"
-                            style="color:#6c757d; --level-glow: rgba(108,117,125,0.4);">🌱 Novice</span>
+                            style="color:#6c757d; --level-glow: rgba(108,117,125,0.4);">🌟 Débutant</span>
                         <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;">
                             <div class="xp-bar-wrap">
                                 <div id="xp-bar-fill" class="xp-bar-fill" style="width:0%; background:#6c757d;"></div>
@@ -782,22 +782,22 @@
                 style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding:14px 16px; background:linear-gradient(135deg,rgba(74,110,224,0.15),rgba(168,85,247,0.15)); border-radius:12px; border:1px solid rgba(124,58,237,0.3);">
                 <span style="font-size:1.8rem; font-weight:900;" id="xp-modal-total">0 XP</span>
                 <span id="xp-modal-level-badge" class="level-badge"
-                    style="color:#6c757d; --level-glow:rgba(108,117,125,0.4)">🌱 Novice</span>
+                    style="color:#6c757d; --level-glow:rgba(108,117,125,0.4)">🌟 Débutant (Mubtadi)</span>
             </div>
             <!-- Level Ladder -->
             <h4
                 style="margin:0 0 10px; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">
                 Niveaux</h4>
             <div class="level-ladder" id="xp-level-ladder">
-                <div class="level-ladder-item"><span>🌱</span><span>Novice</span><span class="lvl-xp">0 XP</span></div>
-                <div class="level-ladder-item"><span>⚡</span><span>Initié</span><span class="lvl-xp">50 XP</span></div>
-                <div class="level-ladder-item"><span>🔥</span><span>Apprenti</span><span class="lvl-xp">200 XP</span>
+                <div class="level-ladder-item"><span>🌟</span><span>Débutant (Mubtadi)</span><span class="lvl-xp">0 XP</span></div>
+                <div class="level-ladder-item"><span>⚡</span><span>Amateur (Hawi)</span><span class="lvl-xp">50 XP</span></div>
+                <div class="level-ladder-item"><span>🔥</span><span>Bosseur (Khabeche)</span><span class="lvl-xp">200 XP</span>
                 </div>
-                <div class="level-ladder-item"><span>💎</span><span>Confirmé</span><span class="lvl-xp">500 XP</span>
+                <div class="level-ladder-item"><span>⚙️</span><span>Expert (Mtemekken)</span><span class="lvl-xp">500 XP</span>
                 </div>
-                <div class="level-ladder-item"><span>🏆</span><span>Expert</span><span class="lvl-xp">1 200 XP</span>
+                <div class="level-ladder-item"><span>🏆</span><span>Master (M3alem)</span><span class="lvl-xp">1 200 XP</span>
                 </div>
-                <div class="level-ladder-item"><span>👑</span><span>Maître Algo</span><span class="lvl-xp">3 000 XP +
+                <div class="level-ladder-item"><span>👑</span><span>Légende (Oustoura)</span><span class="lvl-xp">3 000 XP +
                         score moy ≥ 95% + 50 défis</span></div>
             </div>
             <!-- Comment les points sont comptés -->
@@ -863,6 +863,20 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            const xpDialectNames = {
+                'Débutant': 'Mubtadi',
+                'Amateur': 'Hawi',
+                'Bosseur': 'Khabeche',
+                'Expert': 'Mtemekken',
+                'Master': 'M3alem',
+                'Légende': 'Oustoura'
+            };
+
+            function formatXpModalLevelName(level) {
+                const darija = xpDialectNames[level.name];
+                return darija ? `${level.icon} ${level.name} (${darija})` : `${level.icon} ${level.name}`;
+            }
+
             try {
                 const response = await fetch('/api/user/progress');
                 const data = await response.json();
@@ -886,7 +900,7 @@
 
                     // ── XP & Level rendering ──────────────────────────────
                     const xpTotal = stats.xp_total || 0;
-                    const level = stats.level || { num: 1, name: 'Novice', color: '#6c757d', glow: 'rgba(108,117,125,0.5)', icon: '🌱', min_xp: 0, next_xp: 50 };
+                    const level = stats.level || { num: 1, name: 'Débutant', color: '#6c757d', glow: 'rgba(108,117,125,0.5)', icon: '🌟', min_xp: 0, next_xp: 50 };
                     const xpToNext = stats.xp_to_next || 0;
                     const breakdown = stats.xp_breakdown || [];
 
@@ -915,7 +929,7 @@
                     // XP Modal
                     document.getElementById('xp-modal-total').textContent = xpTotal + ' XP';
                     const modalBadge = document.getElementById('xp-modal-level-badge');
-                    modalBadge.textContent = `${level.icon} ${level.name}`;
+                    modalBadge.textContent = formatXpModalLevelName(level);
                     modalBadge.style.color = level.color;
                     modalBadge.style.setProperty('--level-glow', level.glow);
 

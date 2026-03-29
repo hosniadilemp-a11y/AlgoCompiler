@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .leaderboard-container {
-            max-width: 900px;
+            max-width: 1380px;
             margin: 40px auto;
             padding: 20px;
         }
@@ -39,13 +39,14 @@
             background: var(--panel-bg);
             border-radius: 12px;
             border: 1px solid var(--border-color);
-            overflow: hidden;
+            overflow-x: auto;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
 
         .leaderboard-table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 1120px;
         }
 
         .leaderboard-table th {
@@ -122,12 +123,25 @@
         .stats-badges {
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
             font-size: 0.85rem;
             color: var(--text-secondary);
         }
 
         .stat-item i {
             margin-right: 5px;
+        }
+
+        .top-stat {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 46px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255, 193, 7, 0.12);
+            color: #d4a100;
+            font-weight: 800;
         }
     </style>
 </head>
@@ -149,14 +163,18 @@
                         <tr>
                             <th class="rank-cell">Rang</th>
                             <th>Étudiant</th>
+                            <th>Année</th>
                             <th>Niveau</th>
                             <th>Score Global</th>
+                            <th>Top 1</th>
+                            <th>Top 3</th>
+                            <th>Top 10</th>
                             <th>Réalisations</th>
                         </tr>
                     </thead>
                     <tbody id="leaderboard-body">
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px;">
+                            <td colspan="9" style="text-align: center; padding: 40px;">
                                 <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Chargement du classement...
                             </td>
                         </tr>
@@ -197,7 +215,7 @@
                     renderLeaderboard();
                 }
             } catch (err) {
-                body.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Erreur lors du chargement.</td></tr>';
+                body.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Erreur lors du chargement.</td></tr>';
             }
 
             prevBtn.addEventListener('click', () => {
@@ -251,7 +269,7 @@
                 if (rank === 2) { rankClass = 'rank-2'; rankIcon = '<i class="fas fa-medal"></i>'; }
                 if (rank === 3) { rankClass = 'rank-3'; rankIcon = '<i class="fas fa-medal"></i>'; }
 
-                const level = entry.level || { name: 'Novice', icon: '🌱', color: '#6c757d' };
+                const level = entry.level || { name: 'Débutant', icon: '🌟', color: '#6c757d' };
 
                 body.innerHTML += `
                     <tr>
@@ -264,12 +282,16 @@
                                 </div>
                             </div>
                         </td>
+                        <td>${entry.year_created ?? '—'}</td>
                         <td>
                             <span class="level-badge" style="color: ${level.color}; border: 1px solid ${level.color}; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; background: rgba(0,0,0,0.1);">
                                 ${level.icon} ${level.name}
                             </span>
                         </td>
                         <td class="score-cell">${entry.score} pts</td>
+                        <td><span class="top-stat">${entry.top1 ?? 0}</span></td>
+                        <td><span class="top-stat">${entry.top3 ?? 0}</span></td>
+                        <td><span class="top-stat">${entry.top10 ?? 0}</span></td>
                         <td>
                             <div class="stats-badges">
                                 <span class="stat-item" title="Quiz réussis"><i class="fas fa-check-circle"></i> ${entry.quizzes}</span>

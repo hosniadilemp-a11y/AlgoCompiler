@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="problem-actions">
+                    <a href="/problems/${p.id}/leaderboard" class="btn-leaderboard"><i class="fas fa-trophy"></i> Classement</a>
                     <a href="/challenge/${p.id}" class="btn-solve ${isSolved ? 'done' : ''}">${isSolved ? 'Revoir' : 'Résoudre'} <i class="fas fa-arrow-right"></i></a>
                 </div>
             </div>

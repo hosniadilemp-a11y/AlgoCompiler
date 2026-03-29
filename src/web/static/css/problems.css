@@ -1,3 +1,37 @@
+:root {
+    --problems-bg:
+        radial-gradient(circle at top left, rgba(255, 196, 61, 0.1), transparent 25%),
+        linear-gradient(180deg, #08111d 0%, #0b1526 100%);
+    --problems-panel: rgba(11, 19, 33, 0.92);
+    --problems-panel-strong: #0e182a;
+    --problems-border: rgba(148, 163, 184, 0.16);
+    --problems-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+    --problems-text: #ecf3ff;
+    --problems-muted: #9aa7bc;
+    --problems-chip-hover: rgba(96, 165, 250, 0.12);
+    --problems-chip-active: rgba(96, 165, 250, 0.18);
+    --problems-leaderboard-bg: linear-gradient(135deg, rgba(255, 193, 7, 0.14), rgba(255, 193, 7, 0.08));
+    --problems-leaderboard-text: #ffd96e;
+    --problems-leaderboard-border: rgba(255, 193, 7, 0.24);
+}
+
+body.light-theme.problems-page {
+    --problems-bg:
+        radial-gradient(circle at top left, rgba(255, 196, 61, 0.12), transparent 28%),
+        linear-gradient(180deg, #f7f9fd 0%, #eef3fa 100%);
+    --problems-panel: rgba(255, 255, 255, 0.88);
+    --problems-panel-strong: #ffffff;
+    --problems-border: rgba(15, 23, 42, 0.08);
+    --problems-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    --problems-text: #172033;
+    --problems-muted: #5f6d84;
+    --problems-chip-hover: rgba(16, 94, 220, 0.06);
+    --problems-chip-active: rgba(16, 94, 220, 0.1);
+    --problems-leaderboard-bg: linear-gradient(135deg, #fff7d6 0%, #ffeeb0 100%);
+    --problems-leaderboard-text: #7b5600;
+    --problems-leaderboard-border: rgba(173, 118, 0, 0.2);
+}
+
 .problems-layout {
     display: grid;
     grid-template-columns: 300px 1fr;
@@ -13,6 +47,7 @@ body.problems-page {
     overflow-y: auto !important;
     height: auto !important;
     min-height: 100vh;
+    background: var(--problems-bg);
 }
 
 .problems-page .container {
@@ -22,19 +57,14 @@ body.problems-page {
 
 /* Sidebar Styling */
 .problems-sidebar {
-    background-color: var(--card-bg, #fff);
-    border-radius: 12px;
+    background-color: var(--problems-panel);
+    border-radius: 20px;
     padding: 30px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--problems-shadow);
     position: sticky;
     top: 20px;
-    border: 1px solid var(--border-color, #eee);
-}
-
-body.dark-theme .problems-sidebar {
-    background-color: #1a1a1a;
-    border-color: #2d2d2d;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--problems-border);
+    backdrop-filter: blur(14px);
 }
 
 .sidebar-header {
@@ -43,26 +73,22 @@ body.dark-theme .problems-sidebar {
     align-items: center;
     margin-bottom: 30px;
     padding-bottom: 15px;
-    border-bottom: 2px solid var(--border-color, #f0f0f0);
-}
-
-body.dark-theme .sidebar-header {
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--problems-border);
 }
 
 .sidebar-header h3 {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--text-color, #333);
+    color: var(--problems-text);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
 .btn-reset {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(148, 163, 184, 0.14);
     border: none;
-    color: #666;
+    color: var(--problems-muted);
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
@@ -86,7 +112,7 @@ body.dark-theme .sidebar-header {
 .filter-section h4 {
     margin: 0 0 15px 0;
     font-size: 0.85rem;
-    color: var(--text-muted, #888);
+    color: var(--problems-muted);
     text-transform: uppercase;
     letter-spacing: 1.5px;
     font-weight: 700;
@@ -123,7 +149,7 @@ body.dark-theme .sidebar-header {
     border: 1px solid transparent;
     font-size: 0.95rem;
     transition: all 0.2s;
-    color: var(--text-color, #444);
+    color: var(--problems-text);
     width: 100%;
 }
 
@@ -131,22 +157,18 @@ body.dark-theme .sidebar-header {
     content: '';
     width: 18px;
     height: 18px;
-    border: 2px solid var(--border-color, #ccc);
+    border: 2px solid var(--problems-border);
     border-radius: 4px;
     transition: all 0.2s;
     flex-shrink: 0;
 }
 
-body.dark-theme .filter-chip span {
-    color: #ccc;
-}
-
 .filter-chip:hover span {
-    background-color: rgba(0, 86, 179, 0.05);
+    background-color: var(--problems-chip-hover);
 }
 
 .filter-chip input:checked+span {
-    background-color: rgba(0, 86, 179, 0.1);
+    background-color: var(--problems-chip-active);
     color: var(--primary-color, #0056b3);
     font-weight: 600;
 }
@@ -167,28 +189,40 @@ body.dark-theme .filter-chip span {
 
 .problems-header {
     margin-bottom: 30px;
+    padding: 24px 28px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top left, rgba(255, 193, 7, 0.16), transparent 28%),
+        linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.35));
+    border: 1px solid var(--problems-border);
+    box-shadow: var(--problems-shadow);
+    backdrop-filter: blur(14px);
 }
 
 .problems-header h1 {
     font-size: 2.5rem;
     margin-bottom: 12px;
-    color: var(--text-primary, #333);
+    color: var(--problems-text);
     font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .problems-header p {
-    color: var(--text-secondary, #666);
+    color: var(--problems-muted);
     font-size: 1.2rem;
     max-width: 600px;
+    font-weight: 500;
+    line-height: 1.6;
 }
 
-/* Light mode overrides for header since the defaults are dark */
-body.light-theme .problems-header h1 {
-    color: #1f2328;
+body.dark-theme .problems-header p {
+    color: #c0cada;
 }
 
-body.light-theme .problems-header p {
-    color: #444d56;
+body.dark-theme .problems-header {
+    background:
+        radial-gradient(circle at top left, rgba(255, 193, 7, 0.14), transparent 28%),
+        linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
 }
 
 .problems-list {
@@ -203,12 +237,14 @@ body.light-theme .problems-header p {
     gap: 20px;
     align-items: center;
     padding: 24px;
-    background-color: var(--card-bg, #fff);
-    border-radius: 12px;
-    border: 1px solid var(--border-color, #eee);
+    background-color: var(--problems-panel);
+    border-radius: 20px;
+    border: 1px solid var(--problems-border);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    box-shadow: var(--problems-shadow);
+    backdrop-filter: blur(14px);
 }
 
 .problem-card::before {
@@ -224,7 +260,7 @@ body.light-theme .problems-header p {
 
 .problem-card:hover {
     transform: translateX(5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 22px 40px rgba(15, 23, 42, 0.12);
     border-color: var(--primary-color, #0056b3);
 }
 
@@ -250,7 +286,7 @@ body.light-theme .problems-header p {
 }
 
 .problem-snippet {
-    color: var(--text-muted, #666);
+    color: var(--problems-muted);
     font-size: 0.95rem;
     margin-bottom: 16px;
     line-height: 1.5;
@@ -264,7 +300,7 @@ body.light-theme .problems-header p {
 }
 
 .topic-tag {
-    background: rgba(0, 86, 179, 0.08);
+    background: rgba(0, 86, 179, 0.1);
     color: var(--primary-color, #0056b3);
     padding: 4px 10px;
     border-radius: 6px;
@@ -273,7 +309,7 @@ body.light-theme .problems-header p {
 }
 
 body.dark-theme .topic-tag {
-    background: rgba(0, 86, 179, 0.2);
+    background: rgba(96, 165, 250, 0.18);
 }
 
 .difficulty-badge {
@@ -302,7 +338,7 @@ body.dark-theme .topic-tag {
 
 .solver-count {
     font-size: 0.8rem;
-    color: #888;
+    color: var(--problems-muted);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -314,6 +350,14 @@ body.dark-theme .topic-tag {
     font-weight: 600;
 }
 
+.problem-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+}
+
 .btn-solve {
     padding: 12px 24px;
     background-color: var(--primary-color, #0056b3);
@@ -323,6 +367,7 @@ body.dark-theme .topic-tag {
     transition: all 0.2s;
     text-align: center;
     white-space: nowrap;
+    box-shadow: 0 12px 24px rgba(0, 86, 179, 0.18);
 }
 
 .btn-solve:hover {
@@ -337,6 +382,33 @@ body.dark-theme .topic-tag {
 
 .btn-solve.done:hover {
     background-color: #218838;
+}
+
+.btn-leaderboard {
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--problems-leaderboard-border);
+    color: var(--problems-leaderboard-text);
+    background: var(--problems-leaderboard-bg);
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
+    transition: all 0.2s;
+    box-shadow: 0 12px 24px rgba(255, 193, 7, 0.12);
+}
+
+.btn-leaderboard:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 193, 7, 0.48);
+    box-shadow: 0 16px 28px rgba(255, 193, 7, 0.18);
+}
+
+body.light-theme .btn-leaderboard {
+    color: #7b5600;
+}
+
+body.light-theme .btn-solve {
+    color: #ffffff;
 }
 
 /* Mobile Responsiveness */
@@ -356,6 +428,12 @@ body.dark-theme .topic-tag {
         grid-template-columns: 1fr;
     }
 
+    .problem-actions {
+        display: grid;
+        gap: 10px;
+    }
+
+    .btn-leaderboard,
     .btn-solve {
         width: 100%;
     }

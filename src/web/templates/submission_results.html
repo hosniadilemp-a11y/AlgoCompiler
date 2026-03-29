@@ -66,6 +66,34 @@
             padding: 20px;
         }
 
+        .metrics-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color, #333);
+        }
+
+        .metric-card {
+            background: var(--bg-color, #111);
+            border: 1px solid var(--border-color, #333);
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+        .metric-card .label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #888;
+            margin-bottom: 6px;
+        }
+
+        .metric-card .value {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
         .test-case {
             background-color: var(--bg-color, #111);
             border: 1px solid var(--border-color, #333);
@@ -156,12 +184,15 @@
                     <p>Récupération de vos résultats.</p>
                 </div>
 
+                <div class="metrics-summary" id="metrics-summary" style="display:none;"></div>
+
                 <div class="test-cases-list" id="test-list">
                     <!-- Populated by JS -->
                 </div>
 
                 <div class="action-bar">
                     <a href="#" id="retry-btn" class="btn secondary"><i class="fas fa-redo"></i> Réessayer</a>
+                    <a href="#" id="problem-leaderboard-btn" class="btn secondary" style="display:none;"><i class="fas fa-trophy"></i> Leaderboard</a>
                     <a href="/problems" class="btn primary"><i class="fas fa-list"></i> Voir d'autres défis</a>
                 </div>
             </div>
@@ -250,6 +281,8 @@
             const header = document.getElementById('main-header');
             const list = document.getElementById('test-list');
             const retryBtn = document.getElementById('retry-btn');
+            const metricsSummary = document.getElementById('metrics-summary');
+            const leaderboardBtn = document.getElementById('problem-leaderboard-btn');
 
             if (!resultDataRaw) {
                 header.className = 'results-header error';
@@ -276,6 +309,10 @@
             if (data.problem_id) {
                 retryBtn.href = `/challenge/${data.problem_id}`;
             }
+            if (data.leaderboard_url) {
+                leaderboardBtn.href = data.leaderboard_url;
+                leaderboardBtn.style.display = 'inline-flex';
+            }
 
             // Make the header reflect success
             if (data.all_passed) {
@@ -289,6 +326,46 @@
                 header.className = 'results-header error';
                 header.innerHTML = `<h1><i class="fas fa-times-circle"></i> Tests Échoués</h1><p>Seulement ${passedCount}/${totalCount} tests ont réussi. Vérifiez votre logique.</p>`;
             }
+
+            const summary = data.metrics_summary || {};
+            const resultItems = Array.isArray(data.results) ? data.results : [];
+            const fallbackExec = resultItems.length
+                ? resultItems.reduce((acc, item) => acc + Number(item.execution_time_ms || 0), 0) / resultItems.length
+                : null;
+            const fallbackMemory = resultItems.length
+                ? resultItems.reduce((acc, item) => acc + Number(item.memory_usage_kb || 0), 0) / resultItems.length
+                : null;
+            const solveTimeValue = Number.isFinite(Number(summary.time_taken_seconds))
+                ? Number(summary.time_taken_seconds)
+                : (Number.isFinite(Number(data.time_taken_seconds)) ? Number(data.time_taken_seconds) : null);
+            const avgExecValue = summary.avg_execution_time_ms != null
+                ? Number(summary.avg_execution_time_ms)
+                : (data.avg_execution_time_ms != null ? Number(data.avg_execution_time_ms) : fallbackExec);
+            const avgMemoryValue = summary.avg_memory_kb != null
+                ? Number(summary.avg_memory_kb)
+                : (data.avg_memory_kb != null ? Number(data.avg_memory_kb) : fallbackMemory);
+            const solveTime = solveTimeValue != null ? `${solveTimeValue}s` : '—';
+            const avgExec = avgExecValue != null ? `${avgExecValue.toFixed(3)} ms` : '—';
+            const avgMemory = avgMemoryValue != null ? `${avgMemoryValue.toFixed(2)} KB` : '—';
+            metricsSummary.style.display = 'grid';
+            metricsSummary.innerHTML = `
+                <div class="metric-card">
+                    <div class="label">Temps de résolution</div>
+                    <div class="value">${solveTime}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Temps d'exécution moyen</div>
+                    <div class="value">${avgExec}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Mémoire moyenne</div>
+                    <div class="value">${avgMemory}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Tests réussis</div>
+                    <div class="value">${summary.test_cases_passed ?? passedCount}/${summary.test_cases_total ?? totalCount}</div>
+                </div>
+            `;
 
             // Render details
             list.innerHTML = data.results.map((r, i) => {
@@ -324,6 +401,10 @@
                                 </div>
                                 <div>
                                     ${actualHtml}
+                                </div>
+                                <div>
+                                    <div class="io-label">Performance</div>
+                                    <div class="io-box">Temps: ${Number(r.execution_time_ms || 0).toFixed(3)} ms\nMémoire: ${Number(r.memory_usage_kb || 0).toFixed(0)} KB</div>
                                 </div>
                             </div>
                         </div>

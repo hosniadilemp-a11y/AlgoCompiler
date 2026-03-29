@@ -3,6 +3,7 @@ from datetime import datetime
 from flask_login import UserMixin
 
 db = SQLAlchemy()
+attempt_session_pk_type = db.BigInteger().with_variant(db.Integer, 'sqlite')
 
 class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -48,6 +49,12 @@ class Problem(db.Model):
     
     # Relationship to test cases
     test_cases = db.relationship('TestCase', backref='problem', lazy=True, cascade="all, delete-orphan")
+    challenge_attempt_sessions = db.relationship(
+        'ChallengeAttemptSession',
+        backref='problem',
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
 class TestCase(db.Model):
     __tablename__ = 'test_cases'
@@ -142,6 +149,26 @@ class QuizAttempt(db.Model):
     details = db.Column(db.Text, nullable=True) # JSON string of answers
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+class ChallengeAttemptSession(db.Model):
+    __tablename__ = 'challenge_attempt_sessions'
+
+    id = db.Column(attempt_session_pk_type, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    problem_id = db.Column(db.Integer, db.ForeignKey('problems.id'), nullable=False, index=True)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    completed_at = db.Column(db.DateTime, nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship(
+        'User',
+        backref=db.backref('challenge_attempt_sessions', lazy=True, cascade="all, delete-orphan")
+    )
+    submissions = db.relationship(
+        'ChallengeSubmission',
+        back_populates='attempt_session',
+        lazy=True
+    )
+
 class ChallengeSubmission(db.Model):
     __tablename__ = 'challenge_submissions'
     
@@ -152,7 +179,23 @@ class ChallengeSubmission(db.Model):
     code = db.Column(db.Text, nullable=True)
     passed = db.Column(db.Boolean, default=False) # True if all test cases passed
     time_taken_seconds = db.Column(db.Integer, default=0)
+    test_cases_total = db.Column(db.Integer, nullable=False, default=0)
+    test_cases_passed = db.Column(db.Integer, nullable=False, default=0)
+    avg_execution_time_ms = db.Column(db.Numeric(12, 3), nullable=True)
+    avg_memory_kb = db.Column(db.Numeric(12, 2), nullable=True)
+    test_case_metrics_json = db.Column(db.JSON, nullable=True)
+    attempt_session_id = db.Column(
+        attempt_session_pk_type,
+        db.ForeignKey('challenge_attempt_sessions.id'),
+        nullable=True,
+        index=True
+    )
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    attempt_session = db.relationship(
+        'ChallengeAttemptSession',
+        back_populates='submissions'
+    )
 
 class UserBadge(db.Model):
     __tablename__ = 'user_badges'

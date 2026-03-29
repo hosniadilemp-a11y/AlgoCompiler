@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - {{ problem.title }} - AlgoCompiler</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ ASSET_VERSION }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='course-styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --lb-bg: linear-gradient(180deg, #08111f 0%, #0c1628 100%);
+            --lb-panel: rgba(11, 19, 33, 0.92);
+            --lb-panel-strong: #0d1728;
+            --lb-border: rgba(148, 163, 184, 0.16);
+            --lb-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+            --lb-text: #eef4ff;
+            --lb-muted: #9ca9bc;
+            --lb-table-head: rgba(255, 255, 255, 0.03);
+            --lb-row-hover: rgba(255, 255, 255, 0.035);
+            --lb-score-bg: rgba(59, 130, 246, 0.18);
+            --lb-score-text: #8ac4ff;
+            --lb-rank-bg: rgba(255, 193, 7, 0.14);
+            --lb-control-bg: rgba(255, 255, 255, 0.04);
+        }
+
+        body.light-theme {
+            --lb-bg: linear-gradient(180deg, #f5f7fb 0%, #eef2f8 100%);
+            --lb-panel: rgba(255, 255, 255, 0.9);
+            --lb-panel-strong: #ffffff;
+            --lb-border: rgba(15, 23, 42, 0.08);
+            --lb-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+            --lb-text: #172033;
+            --lb-muted: #5e6b82;
+            --lb-table-head: #f3f5fa;
+            --lb-row-hover: rgba(17, 24, 39, 0.03);
+            --lb-score-bg: rgba(27, 120, 242, 0.12);
+            --lb-score-text: #1358c8;
+            --lb-rank-bg: rgba(255, 193, 7, 0.16);
+            --lb-control-bg: #ffffff;
+        }
+
+        body.course-standalone-body {
+            background: var(--lb-bg);
+            color: var(--lb-text);
+        }
+
+        .problem-leaderboard-shell {
+            max-width: 1280px;
+            margin: 40px auto;
+            padding: 0 20px 40px;
+        }
+
+        .leaderboard-hero {
+            display: grid;
+            gap: 18px;
+            grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+            margin-bottom: 24px;
+        }
+
+        .hero-card,
+        .panel-card {
+            background: var(--lb-panel);
+            border: 1px solid var(--lb-border);
+            border-radius: 18px;
+            box-shadow: var(--lb-shadow);
+            backdrop-filter: blur(14px);
+        }
+
+        .hero-main {
+            padding: 28px;
+            background:
+                radial-gradient(circle at top left, rgba(255, 193, 7, 0.18), transparent 38%),
+                linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+        }
+
+        .hero-main h1 {
+            margin: 0 0 10px;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            line-height: 1.05;
+        }
+
+        .hero-main p {
+            margin: 0;
+            color: var(--lb-muted);
+            font-size: 1rem;
+        }
+
+        .hero-actions {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .hero-side {
+            padding: 24px;
+            display: grid;
+            gap: 14px;
+            align-content: start;
+        }
+
+        .summary-stat {
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: var(--lb-panel-strong);
+            border: 1px solid var(--lb-border);
+        }
+
+        .summary-stat .label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--lb-muted);
+            margin-bottom: 4px;
+        }
+
+        .summary-stat .value {
+            font-size: 1.35rem;
+            font-weight: 700;
+        }
+
+        .controls-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+
+        .controls-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls-group select {
+            min-width: 180px;
+            border-radius: 10px;
+            border: 1px solid var(--lb-border);
+            background: var(--lb-control-bg);
+            color: var(--lb-text);
+            padding: 10px 12px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .podium-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .podium-card {
+            padding: 22px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .podium-card.rank-1 {
+            background:
+                radial-gradient(circle at top, rgba(255, 193, 7, 0.28), transparent 45%),
+                var(--lb-panel-strong);
+        }
+
+        .podium-card.rank-2 {
+            background:
+                radial-gradient(circle at top, rgba(148, 163, 184, 0.22), transparent 45%),
+                var(--lb-panel-strong);
+        }
+
+        .podium-card.rank-3 {
+            background:
+                radial-gradient(circle at top, rgba(205, 127, 50, 0.22), transparent 45%),
+                var(--lb-panel-strong);
+        }
+
+        .podium-rank {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lb-muted);
+            margin-bottom: 10px;
+        }
+
+        .podium-name {
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .podium-score {
+            font-size: 2.1rem;
+            font-weight: 800;
+            margin-bottom: 14px;
+        }
+
+        .podium-meta,
+        .metric-inline {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            color: var(--lb-muted);
+            font-size: 0.9rem;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            padding: 8px 14px 0;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 16px 14px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .leaderboard-table th {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--lb-muted);
+            background: var(--lb-table-head);
+            border-top: 1px solid var(--lb-border);
+            border-bottom: 1px solid var(--lb-border);
+        }
+
+        .leaderboard-table th:first-child {
+            border-left: 1px solid var(--lb-border);
+            border-radius: 14px 0 0 14px;
+        }
+
+        .leaderboard-table th:last-child {
+            border-right: 1px solid var(--lb-border);
+            border-radius: 0 14px 14px 0;
+        }
+
+        .leaderboard-table tbody tr {
+            background: var(--lb-panel-strong);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        .leaderboard-table tbody tr:hover {
+            background: var(--lb-row-hover);
+        }
+
+        .rank-badge {
+            min-width: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 800;
+            background: var(--lb-rank-bg);
+        }
+
+        .score-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .score-pill {
+            background: var(--lb-score-bg);
+            color: var(--lb-score-text);
+        }
+
+        .pagination-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 20px;
+            flex-wrap: wrap;
+        }
+
+        .score-explainer {
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .score-explainer summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 20px;
+            font-weight: 800;
+            color: var(--lb-text);
+        }
+
+        .score-explainer summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .score-explainer summary::after {
+            content: "\f078";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            color: var(--lb-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .score-explainer[open] summary::after {
+            transform: rotate(180deg);
+        }
+
+        .score-explainer-body {
+            padding: 0 20px 20px;
+            color: var(--lb-muted);
+            line-height: 1.65;
+        }
+
+        .score-explainer-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 18px;
+            margin-top: 4px;
+        }
+
+        .score-explainer-card {
+            padding: 18px;
+            border-radius: 16px;
+            background: var(--lb-panel-strong);
+            border: 1px solid var(--lb-border);
+        }
+
+        .score-explainer-card h4 {
+            margin: 0 0 10px;
+            color: var(--lb-text);
+            font-size: 1rem;
+        }
+
+        .score-explainer-body p {
+            margin: 0 0 12px;
+        }
+
+        .score-explainer-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .score-explainer-code {
+            display: inline-block;
+            margin: 4px 0;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: var(--lb-table-head);
+            border: 1px solid var(--lb-border);
+            color: var(--lb-text);
+            font-family: monospace;
+            font-size: 0.92rem;
+        }
+
+        .score-explainer-list {
+            margin: 10px 0 0;
+            padding-left: 18px;
+        }
+
+        .score-explainer-list li {
+            margin-bottom: 8px;
+        }
+
+        .score-explainer-note {
+            margin-top: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(255, 193, 7, 0.08);
+            border: 1px solid rgba(255, 193, 7, 0.18);
+            color: var(--lb-text);
+        }
+
+        .score-steps {
+            display: grid;
+            gap: 12px;
+        }
+
+        .score-step {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: var(--lb-table-head);
+            border: 1px solid var(--lb-border);
+        }
+
+        .score-step strong {
+            color: var(--lb-text);
+        }
+
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--lb-muted);
+        }
+
+        .user-name {
+            font-weight: 800;
+            color: var(--lb-text);
+            margin-bottom: 4px;
+        }
+
+        .user-subtitle {
+            color: var(--lb-muted);
+            font-size: 0.88rem;
+        }
+
+        .score-cell {
+            min-width: 132px;
+        }
+
+        .score-pill[title] {
+            cursor: help;
+        }
+
+        .metric-cell {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .leaderboard-table tbody td:first-child {
+            border-left: 1px solid var(--lb-border);
+            border-radius: 14px 0 0 14px;
+        }
+
+        .leaderboard-table tbody td:last-child {
+            border-right: 1px solid var(--lb-border);
+            border-radius: 0 14px 14px 0;
+        }
+
+        .leaderboard-table tbody td {
+            border-top: 1px solid var(--lb-border);
+            border-bottom: 1px solid var(--lb-border);
+        }
+
+        @media (max-width: 960px) {
+            .leaderboard-hero,
+            .podium-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .score-explainer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-wrap {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="course-standalone-body">
+    {% set header_custom_controls = "" %}
+    {% include 'partials/navbar.html' %}
+
+    <div style="flex:1; overflow-y:auto;">
+        <div class="problem-leaderboard-shell">
+            <section class="leaderboard-hero">
+                <div class="hero-card hero-main">
+                    <div class="score-pill"><i class="fas fa-trophy"></i> Leaderboard du problème</div>
+                    <h1>{{ problem.title }}</h1>
+                    <p>Classement basé sur la résolution, le temps d'exécution et la mémoire moyenne.</p>
+                    <div class="hero-actions">
+                        <a href="/challenge/{{ problem.id }}" class="btn secondary"><i class="fas fa-code"></i> Ouvrir le défi</a>
+                        <a href="/problems" class="btn secondary"><i class="fas fa-arrow-left"></i> Retour aux défis</a>
+                    </div>
+                </div>
+                <div class="hero-card hero-side">
+                    <div class="summary-stat">
+                        <div class="label">Difficulté</div>
+                        <div class="value">{{ problem.difficulty }}</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="label">Classement</div>
+                        <div class="value" id="summary-total-solvers">0 solveurs</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="label">Filtre actif</div>
+                        <div class="value" id="summary-filter">Tous les comptes</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel-card controls-bar">
+                <div class="controls-group">
+                    <select id="year-filter">
+                        <option value="">Tous les comptes</option>
+                    </select>
+                    <select id="sort-select">
+                        <option value="final_score">Trier par score</option>
+                        <option value="time_taken_seconds">Trier par temps de résolution</option>
+                        <option value="avg_execution_time_ms">Trier par exécution moyenne</option>
+                        <option value="avg_memory_kb">Trier par mémoire moyenne</option>
+                    </select>
+                    <select id="order-select">
+                        <option value="desc">Ordre décroissant</option>
+                        <option value="asc">Ordre croissant</option>
+                    </select>
+                </div>
+                <div class="controls-group">
+                    <span id="page-info" style="color: var(--text-secondary, #9ca3af);">Page 1 / 1</span>
+                </div>
+            </section>
+
+            <details class="panel-card score-explainer">
+                <summary>Comment le score est calculé ?</summary>
+                <div class="score-explainer-body">
+                    <p>Le classement est construit pour rester <strong>compétitif</strong> mais aussi <strong>équitable</strong> quand peu de personnes ont encore résolu le problème. Le score final va de <strong>0 à 40</strong>.</p>
+                    <div class="score-explainer-grid">
+                        <div class="score-explainer-card">
+                            <h4>1. Les 4 composantes du score</h4>
+                            <ul class="score-explainer-list">
+                                <li><strong>Tests :</strong> 10 points si le problème est entièrement résolu.</li>
+                                <li><strong>Temps de résolution :</strong> plus vous résolvez vite, plus la note est haute.</li>
+                                <li><strong>Temps d'exécution moyen :</strong> plus votre solution s'exécute vite, plus la note monte.</li>
+                                <li><strong>Mémoire moyenne :</strong> moins votre solution consomme, plus la note est élevée.</li>
+                            </ul>
+                            <p class="score-explainer-note"><strong>Important :</strong> seules les soumissions qui ont réussi tous les tests entrent dans ce leaderboard.</p>
+                        </div>
+                        <div class="score-explainer-card">
+                            <h4>2. La formule utilisée</h4>
+                            <div class="score-steps">
+                                <div class="score-step">
+                                    <strong>Étape A :</strong> on calcule une note brute entre 2 et 10 selon votre position entre le meilleur et le moins bon solveur.
+                                    <div class="score-explainer-code">note brute = 2 + 8 × position relative</div>
+                                </div>
+                                <div class="score-step">
+                                    <strong>Étape B :</strong> on mesure le nombre de participants pour éviter des écarts trop sévères quand le leaderboard est petit.
+                                    <div class="score-explainer-code">confiance = min(1, (participants - 1) / 4)</div>
+                                </div>
+                                <div class="score-step">
+                                    <strong>Étape C :</strong> on rapproche la note brute vers un centre neutre à 6 quand il y a peu de participants.
+                                    <div class="score-explainer-code">note finale = 6 + confiance × (note brute - 6)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="score-explainer-grid" style="margin-top: 18px;">
+                        <div class="score-explainer-card">
+                            <h4>3. Pourquoi le meilleur utilisateur peut avoir seulement 7 ou 8 ?</h4>
+                            <p>Quand il n'y a que <strong>2 participants</strong>, la confiance vaut <strong>0.25</strong>. Le système évite donc de donner immédiatement <strong>10</strong> au premier et une note très basse au second. Le meilleur tourne autour de <strong>7</strong> et l'autre reste proche de <strong>5</strong>.</p>
+                            <p>Quand il y a <strong>3 participants</strong>, la confiance vaut <strong>0.50</strong>. Le meilleur se rapproche alors de <strong>8</strong>, le milieu d'environ <strong>6</strong> et le dernier d'environ <strong>4</strong>.</p>
+                        </div>
+                        <div class="score-explainer-card">
+                            <h4>4. Cas particuliers</h4>
+                            <ul class="score-explainer-list">
+                                <li>Si tous les solveurs ont exactement la même valeur pour une métrique, tout le monde reçoit <strong>10</strong> pour cette métrique.</li>
+                                <li>Si une ancienne soumission n'a pas encore de données d'exécution ou de mémoire, elle reçoit une valeur minimale de <strong>2</strong> pour cette métrique.</li>
+                                <li>Le score affiché quand vous survolez la pastille bleue détaille toujours les 4 composantes utilisées.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <section class="podium-grid" id="podium-grid"></section>
+
+            <section class="panel-card">
+                <div class="table-wrap">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rang</th>
+                                <th>Utilisateur</th>
+                                <th>Niveau</th>
+                                <th>Temps de résolution</th>
+                                <th>Exécution moyenne</th>
+                                <th>Mémoire moyenne</th>
+                                <th>Score final</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <tr>
+                                <td colspan="7" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Chargement du leaderboard...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-row">
+                    <button id="prev-btn" class="btn secondary" disabled><i class="fas fa-chevron-left"></i> Précédent</button>
+                    <span id="pagination-summary" style="color: var(--text-secondary, #9ca3af);">0 résultat</span>
+                    <button id="next-btn" class="btn secondary" disabled>Suivant <i class="fas fa-chevron-right"></i></button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
+    <script>
+        const problemId = Number({{ problem.id|tojson }});
+        const state = {
+            page: 1,
+            pageSize: 10,
+            sort: 'final_score',
+            order: 'desc',
+            year: ''
+        };
+
+        function formatMetric(value, unit, digits = 3) {
+            if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+            return `${Number(value).toFixed(digits)} ${unit}`;
+        }
+
+        function formatSeconds(value) {
+            if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+            return `${Number(value).toFixed(0)}s`;
+        }
+
+        function renderYearOptions(years) {
+            const select = document.getElementById('year-filter');
+            const current = state.year;
+            select.innerHTML = '<option value="">Tous les comptes</option>' + years.map(year => (
+                `<option value="${year}">${year}</option>`
+            )).join('');
+            select.value = current;
+        }
+
+        function renderPodium(topUsers) {
+            const podium = document.getElementById('podium-grid');
+            if (!topUsers.length) {
+                podium.innerHTML = '';
+                return;
+            }
+
+            podium.innerHTML = topUsers.map(user => `
+                <article class="panel-card podium-card rank-${user.rank}">
+                    <div class="podium-rank">Top ${user.rank}</div>
+                    <div class="podium-name">${user.name}</div>
+                    <div class="podium-score">${Number(user.final_score).toFixed(3)} / 40</div>
+                    <div class="podium-meta">
+                        <span>${user.level.icon} ${user.level.name}</span>
+                        <span>Compte ${user.joined_year || '—'}</span>
+                    </div>
+                    <div class="metric-inline" style="margin-top: 14px;">
+                        <span><i class="fas fa-stopwatch"></i> ${formatSeconds(user.time_taken_seconds)}</span>
+                        <span><i class="fas fa-gauge-high"></i> ${formatMetric(user.avg_execution_time_ms, 'ms')}</span>
+                        <span><i class="fas fa-memory"></i> ${formatMetric(user.avg_memory_kb, 'KB', 2)}</span>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function renderRows(rows) {
+            const tbody = document.getElementById('leaderboard-body');
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun solveur ne correspond à ce filtre.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(row => `
+                <tr>
+                    <td><span class="rank-badge">#${row.rank}</span></td>
+                    <td>
+                        <div class="user-name">${row.name}</div>
+                        <div class="user-subtitle">Compte ${row.joined_year || '—'}</div>
+                    </td>
+                    <td>${row.level.icon} ${row.level.name}</td>
+                    <td class="metric-cell">${formatSeconds(row.time_taken_seconds)}</td>
+                    <td class="metric-cell">${formatMetric(row.avg_execution_time_ms, 'ms')}</td>
+                    <td class="metric-cell">${formatMetric(row.avg_memory_kb, 'KB', 2)}</td>
+                    <td class="score-cell">
+                        <div class="score-pill" title="Tests: ${Number(row.tests_score).toFixed(3)} | Résolution: ${Number(row.solve_time_score).toFixed(3)} | Exécution: ${Number(row.execution_score).toFixed(3)} | Mémoire: ${Number(row.memory_score).toFixed(3)} | Ajusté selon le nombre de participants">${Number(row.final_score).toFixed(3)} / 40</div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function fetchLeaderboard() {
+            const params = new URLSearchParams({
+                page: String(state.page),
+                page_size: String(state.pageSize),
+                sort: state.sort,
+                order: state.order
+            });
+            if (state.year) params.set('year', state.year);
+
+            const response = await fetch(`/api/problems/${problemId}/leaderboard?${params.toString()}`);
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Erreur de chargement');
+            return data;
+        }
+
+        async function refreshLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Mise à jour du classement...</td></tr>';
+
+            try {
+                const data = await fetchLeaderboard();
+                renderYearOptions(data.available_years || []);
+                renderPodium(data.top_users || []);
+                renderRows(data.leaderboard || []);
+
+                document.getElementById('summary-total-solvers').textContent = `${data.pagination.total_items} solveur${data.pagination.total_items > 1 ? 's' : ''}`;
+                document.getElementById('summary-filter').textContent = data.filters.year ? `Comptes créés en ${data.filters.year}` : 'Tous les comptes';
+                document.getElementById('page-info').textContent = `Page ${data.pagination.page} / ${data.pagination.total_pages}`;
+                document.getElementById('pagination-summary').textContent = `${data.pagination.total_items} résultat${data.pagination.total_items > 1 ? 's' : ''}`;
+
+                const prevBtn = document.getElementById('prev-btn');
+                const nextBtn = document.getElementById('next-btn');
+                prevBtn.disabled = data.pagination.page <= 1;
+                nextBtn.disabled = data.pagination.page >= data.pagination.total_pages;
+            } catch (error) {
+                renderPodium([]);
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${error.message}</td></tr>`;
+            }
+        }
+
+        document.getElementById('year-filter').addEventListener('change', (event) => {
+            state.year = event.target.value;
+            state.page = 1;
+            refreshLeaderboard();
+        });
+
+        document.getElementById('sort-select').addEventListener('change', (event) => {
+            state.sort = event.target.value;
+            if (state.sort === 'final_score') {
+                state.order = 'desc';
+                document.getElementById('order-select').value = 'desc';
+            } else if (!['asc', 'desc'].includes(state.order)) {
+                state.order = 'asc';
+            }
+            state.page = 1;
+            refreshLeaderboard();
+        });
+
+        document.getElementById('order-select').addEventListener('change', (event) => {
+            state.order = event.target.value;
+            state.page = 1;
+            refreshLeaderboard();
+        });
+
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            if (state.page > 1) {
+                state.page -= 1;
+                refreshLeaderboard();
+            }
+        });
+
+        document.getElementById('next-btn').addEventListener('click', () => {
+            state.page += 1;
+            refreshLeaderboard();
+        });
+
+        refreshLeaderboard();
+    </script>
+</body>
+
+</html>
