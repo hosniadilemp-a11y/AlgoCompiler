@@ -4,7 +4,7 @@
 docs/CoursAlgo
 examples/Tests
 tests/*.py
-
+docs
 # --- Python cache ---
 __pycache__/
 *.py[cod]

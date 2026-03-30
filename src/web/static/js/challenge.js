@@ -182,16 +182,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function setupProblemNavigation() {
         try {
-            const res = await fetch('/api/problems');
+            const res = await fetch('/api/problems/navigation');
             const data = await res.json();
-            if (!data.success || !Array.isArray(data.problems)) {
+            if (!data.success || !Array.isArray(data.problem_ids)) {
                 setChallengeNavState(prevChallengeBtn, null);
                 setChallengeNavState(nextChallengeBtn, null);
                 return;
             }
 
-            const ids = data.problems
-                .map(p => Number(p.id))
+            const ids = data.problem_ids
+                .map(id => Number(id))
                 .filter(Number.isFinite)
                 .sort((a, b) => a - b);
 
@@ -404,6 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Invalidate cached level so header refreshes
                     localStorage.removeItem('algo_user_level_cache');
                 }
+                localStorage.removeItem('algo_user_level_cache');
                 // Save to session cache and redirect
                 if (data.all_passed) {
                     sessionStorage.setItem('algo_confetti', '1');

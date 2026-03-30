@@ -4,7 +4,9 @@ import secrets
 import logging
 import datetime
 import time
+import threading
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from dotenv import load_dotenv
 from urllib.parse import urlparse, urljoin
@@ -65,6 +67,17 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 PROBLEM_LEADERBOARD_CACHE_TTL_SECONDS = 60
 problem_leaderboard_cache = {}
+PROBLEM_DETAIL_CACHE_TTL_SECONDS = 300
+problem_detail_cache = {}
+problem_navigation_cache = {'expires_at': 0, 'problem_ids': []}
+problem_cache_lock = threading.Lock()
+USER_LEVEL_CACHE_TTL_SECONDS = 300
+user_level_cache = {}
+user_level_refresh_futures = {}
+user_level_cache_lock = threading.Lock()
+background_task_executor = ThreadPoolExecutor(
+    max_workers=max(2, int(os.environ.get('BACKGROUND_TASK_WORKERS', '2')))
+)
 
 APP_BUILD_ID = (
     os.environ.get('APP_BUILD_ID')
@@ -73,6 +86,10 @@ APP_BUILD_ID = (
     or 'dev'
 )
 ASSET_VERSION = os.environ.get('STATIC_ASSET_VERSION') or APP_BUILD_ID[:12]
+
+
+def is_truthy(value):
+    return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
 def _is_safe_path(base_dir, requested_path):
@@ -168,6 +185,14 @@ def cleanup_db_session(exc):
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 database_url = os.environ.get('DATABASE_URL')
+direct_database_url = (
+    os.environ.get('SUPABASE_DIRECT_URL')
+    or os.environ.get('DIRECT_DATABASE_URL')
+)
+app_env = (os.environ.get('APP_ENV') or os.environ.get('FLASK_ENV') or '').strip().lower()
+is_local_dev = app_env not in {'production', 'prod'}
+if direct_database_url and database_url and 'supabase.com:6543' in database_url and is_local_dev:
+    database_url = direct_database_url
 use_psycopg3 = False
 if database_url:
     # Attempt to detect which driver to use
@@ -199,7 +224,10 @@ engine_options = {
 if use_psycopg3:
     # Avoid prepared statement conflicts with PgBouncer / pooled connections
     # prepare_threshold=None disables server-side statements in psycopg3
-    engine_options['connect_args'] = {'prepare_threshold': None}
+    engine_options['connect_args'] = {
+        'prepare_threshold': None,
+        'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT_SECONDS', '5'))
+    }
 
 if database_url and 'pooler' in database_url:
     # Supabase pooler (PgBouncer) works best without client-side pooling
@@ -216,8 +244,13 @@ else:
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
 
 # Production session security
+session_cookie_secure = os.environ.get('SESSION_COOKIE_SECURE')
+if session_cookie_secure is not None:
+    app.config['SESSION_COOKIE_SECURE'] = is_truthy(session_cookie_secure)
+elif database_url and not database_url.startswith('sqlite'):
+    app.config['SESSION_COOKIE_SECURE'] = not is_local_dev
+
 if database_url and not database_url.startswith('sqlite'):
-    app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     from datetime import timedelta
@@ -231,9 +264,17 @@ try:
     print(">>> [DEBUG] INITIALIZING DB...", flush=True)
     db.init_app(app)
     with app.app_context():
-        print(">>> [DEBUG] ENSURING TABLES EXIST (db.create_all)...", flush=True)
-        db.create_all()
-        print(">>> [DEBUG] DB TABLES CHECKED/CREATED OK", flush=True)
+        should_auto_create_schema = (
+            is_truthy(os.environ.get('AUTO_CREATE_DB_SCHEMA'))
+            if os.environ.get('AUTO_CREATE_DB_SCHEMA') is not None
+            else not (database_url and not database_url.startswith('sqlite'))
+        )
+        if should_auto_create_schema:
+            print(">>> [DEBUG] ENSURING TABLES EXIST (db.create_all)...", flush=True)
+            db.create_all()
+            print(">>> [DEBUG] DB TABLES CHECKED/CREATED OK", flush=True)
+        else:
+            print(">>> [DEBUG] SKIPPING db.create_all() FOR MANAGED REMOTE DATABASE", flush=True)
 
         try:
             from web.auth import migrate_security_answers_to_hashes
@@ -370,7 +411,16 @@ def get_course_chapter(identifier):
 @app.route('/progress')
 @login_required
 def progress_page():
-    return render_template('progress.html')
+    initial_progress = None
+    try:
+        progress_response = get_user_progress()
+        if isinstance(progress_response, tuple):
+            progress_response = progress_response[0]
+        if hasattr(progress_response, 'get_json'):
+            initial_progress = progress_response.get_json(silent=True)
+    except Exception:
+        initial_progress = None
+    return render_template('progress.html', initial_progress=initial_progress)
 
 @app.route('/problems')
 def problems_page():
@@ -455,6 +505,151 @@ def invalidate_problem_leaderboard_cache(problem_id=None):
         problem_leaderboard_cache.clear()
         return
     problem_leaderboard_cache.pop(int(problem_id), None)
+
+
+def invalidate_problem_detail_cache(problem_id=None):
+    with problem_cache_lock:
+        if problem_id is None:
+            problem_detail_cache.clear()
+            problem_navigation_cache['expires_at'] = 0
+            problem_navigation_cache['problem_ids'] = []
+            return
+
+        problem_detail_cache.pop(int(problem_id), None)
+        problem_navigation_cache['expires_at'] = 0
+        problem_navigation_cache['problem_ids'] = []
+
+
+def get_cached_problem_payload(problem_id):
+    now_ts = time.time()
+    cache_key = int(problem_id)
+    with problem_cache_lock:
+        cached_entry = problem_detail_cache.get(cache_key)
+        if cached_entry and cached_entry['expires_at'] > now_ts:
+            return cached_entry['payload']
+
+    problem = (
+        Problem.query
+        .options(joinedload(Problem.test_cases))
+        .filter(Problem.id == cache_key)
+        .first()
+    )
+    if not problem:
+        return None
+
+    payload = {
+        'id': problem.id,
+        'title': problem.title,
+        'description': problem.description,
+        'topic': problem.topic,
+        'difficulty': problem.difficulty,
+        'template_code': problem.template_code,
+        'is_published': bool(problem.is_published),
+        'test_cases': [
+            {
+                'id': tc.id,
+                'input': tc.input_data,
+                'expected_output': tc.expected_output
+            }
+            for tc in problem.test_cases if tc.is_public
+        ]
+    }
+    with problem_cache_lock:
+        problem_detail_cache[cache_key] = {
+            'expires_at': now_ts + PROBLEM_DETAIL_CACHE_TTL_SECONDS,
+            'payload': payload
+        }
+    return payload
+
+
+def get_cached_navigation_problem_ids():
+    now_ts = time.time()
+    with problem_cache_lock:
+        if problem_navigation_cache['expires_at'] > now_ts:
+            return list(problem_navigation_cache['problem_ids'])
+
+    problem_ids = [
+        row[0]
+        for row in db.session.query(Problem.id)
+        .filter(Problem.is_published.is_(True))
+        .order_by(Problem.id.asc())
+        .all()
+    ]
+    with problem_cache_lock:
+        problem_navigation_cache['expires_at'] = now_ts + PROBLEM_DETAIL_CACHE_TTL_SECONDS
+        problem_navigation_cache['problem_ids'] = list(problem_ids)
+    return problem_ids
+
+
+def invalidate_user_level_cache(user_id=None):
+    with user_level_cache_lock:
+        if user_id is None:
+            user_level_cache.clear()
+            user_level_refresh_futures.clear()
+            return
+        user_level_cache.pop(int(user_id), None)
+        user_level_refresh_futures.pop(int(user_id), None)
+
+
+def build_user_level_snapshot(user_id):
+    xp_total, _, level_dict, xp_to_next = compute_xp_and_level(user_id)
+    return {
+        'xp_total': xp_total,
+        'level': level_dict,
+        'xp_to_next': xp_to_next,
+        'computed_at': utcnow().isoformat()
+    }
+
+
+def get_cached_user_level_snapshot(user_id, force_refresh=False):
+    user_id = int(user_id)
+    now_ts = time.time()
+    with user_level_cache_lock:
+        cached_entry = user_level_cache.get(user_id)
+        if cached_entry and not force_refresh and cached_entry['expires_at'] > now_ts:
+            return cached_entry['payload']
+
+    payload = build_user_level_snapshot(user_id)
+    with user_level_cache_lock:
+        user_level_cache[user_id] = {
+            'expires_at': now_ts + USER_LEVEL_CACHE_TTL_SECONDS,
+            'payload': payload
+        }
+    return payload
+
+
+def refresh_user_level_snapshot(user_id):
+    user_id = int(user_id)
+    try:
+        with app.app_context():
+            payload = build_user_level_snapshot(user_id)
+    except Exception as exc:
+        print(f">>> [WARN] USER LEVEL REFRESH FAILED FOR {user_id}: {exc}", flush=True)
+        raise
+    finally:
+        with user_level_cache_lock:
+            future = user_level_refresh_futures.get(user_id)
+            if future is not None and future.done():
+                user_level_refresh_futures.pop(user_id, None)
+
+    with user_level_cache_lock:
+        user_level_cache[user_id] = {
+            'expires_at': time.time() + USER_LEVEL_CACHE_TTL_SECONDS,
+            'payload': payload
+        }
+        user_level_refresh_futures.pop(user_id, None)
+    return payload
+
+
+def schedule_user_level_refresh(user_id):
+    user_id = int(user_id)
+    with user_level_cache_lock:
+        future = user_level_refresh_futures.get(user_id)
+        if future and not future.done():
+            return future
+        future = background_task_executor.submit(refresh_user_level_snapshot, user_id)
+        user_level_refresh_futures[user_id] = future
+        return future
 
 def get_problem_leaderboard_base(problem_id):
     now_ts = time.time()
@@ -571,6 +766,94 @@ def compute_participation_aware_score(value, values, missing_score=0.0, baseline
     confidence = min(1.0, max(0.0, (participant_count - 1) / 4.0))
     adjusted_score = baseline_score + confidence * (raw_score - baseline_score)
     return round(max(missing_score, min(10.0, adjusted_score)), 3)
+
+def compute_problem_placement_counts(passed_submissions):
+    best_submissions_by_problem = defaultdict(dict)
+    for sub in passed_submissions:
+        selected_for_problem = best_submissions_by_problem[sub.problem_id]
+        avg_exec = (
+            decimal_to_float(sub.avg_execution_time_ms)
+            if decimal_to_float(sub.avg_execution_time_ms) is not None
+            else average_metric_from_json(sub.test_case_metrics_json, 'execution_time_ms')
+        )
+        avg_memory = (
+            decimal_to_float(sub.avg_memory_kb)
+            if decimal_to_float(sub.avg_memory_kb) is not None
+            else average_metric_from_json(sub.test_case_metrics_json, 'memory_usage_kb')
+        )
+        candidate = {
+            'user_id': sub.user_id,
+            'time_taken_seconds': int(sub.time_taken_seconds or 0),
+            'avg_execution_time_ms': avg_exec,
+            'avg_memory_kb': avg_memory,
+            'timestamp': sub.timestamp,
+            '_selection_key': (
+                safe_metric_sort_value(avg_exec),
+                safe_metric_sort_value(avg_memory),
+                int(sub.time_taken_seconds or 0),
+                sub.timestamp or datetime.datetime.max,
+                sub.id
+            )
+        }
+        existing = selected_for_problem.get(sub.user_id)
+        if existing is None or candidate['_selection_key'] < existing['_selection_key']:
+            selected_for_problem[sub.user_id] = candidate
+
+    placement_counts = defaultdict(lambda: {'top1': 0, 'top3': 0, 'top10': 0})
+    for problem_rows in best_submissions_by_problem.values():
+        rows = list(problem_rows.values())
+        solve_values = [row.get('time_taken_seconds') for row in rows if row.get('time_taken_seconds') is not None]
+        exec_values = [row.get('avg_execution_time_ms') for row in rows if row.get('avg_execution_time_ms') is not None]
+        memory_values = [row.get('avg_memory_kb') for row in rows if row.get('avg_memory_kb') is not None]
+
+        ranked_rows = []
+        for row in rows:
+            tests_score = 10.0
+            solve_time_score = compute_participation_aware_score(row.get('time_taken_seconds'), solve_values)
+            execution_score = compute_participation_aware_score(
+                row.get('avg_execution_time_ms'),
+                exec_values,
+                missing_score=2.0
+            )
+            memory_score = compute_participation_aware_score(
+                row.get('avg_memory_kb'),
+                memory_values,
+                missing_score=2.0
+            )
+            final_score = round(
+                tests_score + solve_time_score + execution_score + memory_score,
+                3
+            )
+            ranked_rows.append({
+                'user_id': row['user_id'],
+                'final_score': final_score,
+                'time_taken_seconds': int(row.get('time_taken_seconds') or 0),
+                'avg_execution_time_ms': row.get('avg_execution_time_ms'),
+                'avg_memory_kb': row.get('avg_memory_kb'),
+                'timestamp': row.get('timestamp') or datetime.datetime.max
+            })
+
+        ranked_rows.sort(
+            key=lambda row: (
+                -row['final_score'],
+                row['time_taken_seconds'],
+                safe_metric_sort_value(row.get('avg_execution_time_ms')),
+                safe_metric_sort_value(row.get('avg_memory_kb')),
+                row['timestamp'],
+                row['user_id']
+            )
+        )
+
+        for rank, row in enumerate(ranked_rows, start=1):
+            counters = placement_counts[row['user_id']]
+            if rank == 1:
+                counters['top1'] += 1
+            if rank <= 3:
+                counters['top3'] += 1
+            if rank <= 10:
+                counters['top10'] += 1
+
+    return placement_counts
 
 def build_problem_leaderboard_rows(problem_id, year=None):
     base_payload = get_problem_leaderboard_base(problem_id)
@@ -954,6 +1237,16 @@ def save_quiz_progress():
             # Capture level after save
             new_xp, _, new_level, new_xp_to_next = compute_xp_and_level(current_user.id)
             level_up = new_level['num'] > old_level['num']
+            with user_level_cache_lock:
+                user_level_cache[current_user.id] = {
+                    'expires_at': time.time() + USER_LEVEL_CACHE_TTL_SECONDS,
+                    'payload': {
+                        'xp_total': new_xp,
+                        'level': new_level,
+                        'xp_to_next': new_xp_to_next,
+                        'computed_at': utcnow().isoformat()
+                    }
+                }
 
             return jsonify({
                 'success': True,
@@ -970,11 +1263,7 @@ def save_quiz_progress():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-import threading
-
 import queue
-import time
-import json
 import uuid
 
 _ORIGINAL_STDOUT = sys.stdout
@@ -1622,29 +1911,23 @@ def get_problems():
 
 @app.route('/api/problems/<int:problem_id>', methods=['GET'])
 def get_problem(problem_id):
-    problem = db.session.get(Problem, problem_id)
-    if not problem:
+    problem_payload = get_cached_problem_payload(problem_id)
+    if not problem_payload:
         return jsonify({'success': False, 'error': 'Problem not found'}), 404
-    if not problem.is_published:
+    if not problem_payload.get('is_published'):
         return jsonify({'success': False, 'error': 'Problem not published'}), 403
-    # Return only public test cases to frontend
-    public_cases = [tc for tc in problem.test_cases if tc.is_public]
-    
+
     return jsonify({
         'success': True,
-        'problem': {
-            'id': problem.id,
-            'title': problem.title,
-            'description': problem.description,
-            'topic': problem.topic,
-            'difficulty': problem.difficulty,
-            'template_code': problem.template_code,
-            'test_cases': [{
-                'id': tc.id,
-                'input': tc.input_data,
-                'expected_output': tc.expected_output
-            } for tc in public_cases]
-        }
+        'problem': {k: v for k, v in problem_payload.items() if k != 'is_published'}
+    })
+
+
+@app.route('/api/problems/navigation', methods=['GET'])
+def get_problem_navigation():
+    return jsonify({
+        'success': True,
+        'problem_ids': get_cached_navigation_problem_ids()
     })
 
 @app.route('/problems/<int:problem_id>/leaderboard')
@@ -1873,12 +2156,9 @@ def submit_code():
     }
 
     # Save submission if user is logged in and it's a full submission
-    level_up_info = None
+    level_refresh_scheduled = False
     if current_user.is_authenticated and execute_all:
         score_percent = passed_count / total_count * 100 if total_count else 0
-
-        # Capture level before save
-        old_xp, _, old_level, _ = compute_xp_and_level(current_user.id)
 
         submission = ChallengeSubmission(
             user_id=current_user.id,
@@ -1900,17 +2180,9 @@ def submit_code():
         db.session.add(submission)
         db.session.commit()
         invalidate_problem_leaderboard_cache(problem.id)
-
-        # Capture level after save
-        new_xp, _, new_level, new_xp_to_next = compute_xp_and_level(current_user.id)
-        if new_level['num'] > old_level['num']:
-            level_up_info = {
-                'level_up': True,
-                'new_level': new_level,
-                'xp_earned': new_xp - old_xp,
-                'xp_total': new_xp,
-                'xp_to_next': new_xp_to_next
-            }
+        invalidate_user_level_cache(current_user.id)
+        schedule_user_level_refresh(current_user.id)
+        level_refresh_scheduled = True
 
     return jsonify({
         'success': True,
@@ -1922,7 +2194,7 @@ def submit_code():
         'metrics_summary': metrics_summary,
         'leaderboard_url': url_for('problem_leaderboard_page', problem_id=problem.id),
         'problem_title': problem.title,
-        **(level_up_info or {})
+        'level_refresh_scheduled': level_refresh_scheduled
     })
 
 
@@ -2089,90 +2361,7 @@ def get_bulk_users_stats():
 
     # 2b. Compute per-problem placements in memory so the global leaderboard
     # can expose Top 1 / Top 3 / Top 10 without issuing one query per problem.
-    best_submissions_by_problem = defaultdict(dict)
-    for sub in submissions:
-        selected_for_problem = best_submissions_by_problem[sub.problem_id]
-        avg_exec = (
-            decimal_to_float(sub.avg_execution_time_ms)
-            if decimal_to_float(sub.avg_execution_time_ms) is not None
-            else average_metric_from_json(sub.test_case_metrics_json, 'execution_time_ms')
-        )
-        avg_memory = (
-            decimal_to_float(sub.avg_memory_kb)
-            if decimal_to_float(sub.avg_memory_kb) is not None
-            else average_metric_from_json(sub.test_case_metrics_json, 'memory_usage_kb')
-        )
-        candidate = {
-            'user_id': sub.user_id,
-            'time_taken_seconds': int(sub.time_taken_seconds or 0),
-            'avg_execution_time_ms': avg_exec,
-            'avg_memory_kb': avg_memory,
-            'timestamp': sub.timestamp,
-            '_selection_key': (
-                safe_metric_sort_value(avg_exec),
-                safe_metric_sort_value(avg_memory),
-                int(sub.time_taken_seconds or 0),
-                sub.timestamp or datetime.datetime.max,
-                sub.id
-            )
-        }
-        existing = selected_for_problem.get(sub.user_id)
-        if existing is None or candidate['_selection_key'] < existing['_selection_key']:
-            selected_for_problem[sub.user_id] = candidate
-
-    placement_counts = defaultdict(lambda: {'top1': 0, 'top3': 0, 'top10': 0})
-    for problem_rows in best_submissions_by_problem.values():
-        rows = list(problem_rows.values())
-        solve_values = [row.get('time_taken_seconds') for row in rows if row.get('time_taken_seconds') is not None]
-        exec_values = [row.get('avg_execution_time_ms') for row in rows if row.get('avg_execution_time_ms') is not None]
-        memory_values = [row.get('avg_memory_kb') for row in rows if row.get('avg_memory_kb') is not None]
-
-        ranked_rows = []
-        for row in rows:
-            tests_score = 10.0
-            solve_time_score = compute_participation_aware_score(row.get('time_taken_seconds'), solve_values)
-            execution_score = compute_participation_aware_score(
-                row.get('avg_execution_time_ms'),
-                exec_values,
-                missing_score=2.0
-            )
-            memory_score = compute_participation_aware_score(
-                row.get('avg_memory_kb'),
-                memory_values,
-                missing_score=2.0
-            )
-            final_score = round(
-                tests_score + solve_time_score + execution_score + memory_score,
-                3
-            )
-            ranked_rows.append({
-                'user_id': row['user_id'],
-                'final_score': final_score,
-                'time_taken_seconds': int(row.get('time_taken_seconds') or 0),
-                'avg_execution_time_ms': row.get('avg_execution_time_ms'),
-                'avg_memory_kb': row.get('avg_memory_kb'),
-                'timestamp': row.get('timestamp') or datetime.datetime.max
-            })
-
-        ranked_rows.sort(
-            key=lambda row: (
-                -row['final_score'],
-                row['time_taken_seconds'],
-                safe_metric_sort_value(row.get('avg_execution_time_ms')),
-                safe_metric_sort_value(row.get('avg_memory_kb')),
-                row['timestamp'],
-                row['user_id']
-            )
-        )
-
-        for rank, row in enumerate(ranked_rows, start=1):
-            counters = placement_counts[row['user_id']]
-            if rank == 1:
-                counters['top1'] += 1
-            if rank <= 3:
-                counters['top3'] += 1
-            if rank <= 10:
-                counters['top10'] += 1
+    placement_counts = compute_problem_placement_counts(submissions)
 
     # 3. Compute for each user
     results = {}
@@ -2251,6 +2440,54 @@ def get_bulk_users_stats():
 
     return results
 
+def compute_user_leaderboard_bucket(stats_by_user, user_id):
+    if not stats_by_user or user_id not in stats_by_user:
+        return {
+            'rank': None,
+            'total_users': 0,
+            'top_percent': 100.0,
+            'bucket_percent': 100,
+            'bucket_label': 'Top 100%'
+        }
+
+    ranked_users = sorted(
+        stats_by_user.items(),
+        key=lambda item: (
+            -item[1].get('score', 0),
+            -item[1].get('challenges', 0),
+            -item[1].get('quizzes', 0),
+            str(item[1].get('name', '')).lower(),
+            item[0]
+        )
+    )
+
+    total_users = len(ranked_users)
+    user_rank = next((index for index, (uid, _) in enumerate(ranked_users, start=1) if uid == user_id), None)
+    if user_rank is None:
+        return {
+            'rank': None,
+            'total_users': total_users,
+            'top_percent': 100.0,
+            'bucket_percent': 100,
+            'bucket_label': 'Top 100%'
+        }
+
+    if total_users <= 1:
+        top_percent = 1.0
+    else:
+        top_percent = round((user_rank / total_users) * 100, 1)
+
+    thresholds = [1, 5, 10, 20, 50, 70]
+    bucket_percent = next((threshold for threshold in thresholds if top_percent <= threshold), 100)
+
+    return {
+        'rank': user_rank,
+        'total_users': total_users,
+        'top_percent': top_percent,
+        'bucket_percent': bucket_percent,
+        'bucket_label': f'Top {bucket_percent}%'
+    }
+
 @app.route('/api/user/progress', methods=['GET'])
 def get_user_progress():
     if not current_user.is_authenticated:
@@ -2313,7 +2550,21 @@ def get_user_progress():
     unique_perfect_chapters = sum(1 for cid in frontend_chapter_stats if frontend_chapter_stats[cid].get('all_correct'))
     
     total_challenges_attempted = len(set(sub.problem_id for sub in submissions))
+    total_available_challenges = Problem.query.filter_by(is_published=True).count()
+    if total_available_challenges == 0:
+        total_available_challenges = Problem.query.count()
     passed_challenges = sum(1 for pid in challenge_stats if challenge_stats[pid]['passed'])
+    global_user_stats = get_bulk_users_stats()
+    current_global_stats = global_user_stats.get(current_user.id, {})
+    current_user_placements = {
+        'top1': current_global_stats.get('top1', 0),
+        'top3': current_global_stats.get('top3', 0),
+        'top10': current_global_stats.get('top10', 0)
+    }
+    top1_percentage = round((current_user_placements['top1'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
+    top3_percentage = round((current_user_placements['top3'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
+    top10_percentage = round((current_user_placements['top10'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
+    leaderboard_bucket = compute_user_leaderboard_bucket(global_user_stats, current_user.id)
 
     # Normalize challenge topics for badge logic / stats
     def normalize_topic(value):
@@ -2552,7 +2803,15 @@ def get_user_progress():
             'challenge_stats': challenge_stats,
             'total_quizzes_taken': total_quizzes,
             'total_challenges_attempted': total_challenges_attempted,
+            'total_available_challenges': total_available_challenges,
             'challenges_completed': passed_challenges,
+            'top1_finishes': current_user_placements['top1'],
+            'top1_percentage': top1_percentage,
+            'top3_finishes': current_user_placements['top3'],
+            'top3_percentage': top3_percentage,
+            'top10_finishes': current_user_placements['top10'],
+            'top10_percentage': top10_percentage,
+            'leaderboard_bucket': leaderboard_bucket,
             'active_days': active_days,
             'courses_completed': courses_completed,
             'hard_challenges_completed': hard_problems_passed,
@@ -2571,6 +2830,21 @@ def get_user_progress():
                 'quiz_evolution_per_chapter': quiz_evolution_per_chapter
             }
         }
+    })
+
+
+@app.route('/api/user/level', methods=['GET'])
+def get_user_level():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
+    snapshot = get_cached_user_level_snapshot(current_user.id)
+    return jsonify({
+        'success': True,
+        'xp_total': snapshot['xp_total'],
+        'level': snapshot['level'],
+        'xp_to_next': snapshot['xp_to_next'],
+        'computed_at': snapshot['computed_at']
     })
 
 @app.route('/leaderboard')

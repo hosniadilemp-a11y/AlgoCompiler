@@ -1,7 +1,7 @@
 /**
  * level_pill.js
  * Injects a glowing level badge pill next to the username button in the header.
- * Uses localStorage (5 min cache) to avoid hammering /api/user/progress on every page.
+ * Uses localStorage (5 min cache) to avoid hammering the backend on every page.
  */
 (function () {
     const CACHE_KEY = 'algo_user_level_cache';
@@ -66,11 +66,11 @@
 
         // Fetch fresh
         try {
-            const res = await fetch('/api/user/progress');
+            const res = await fetch('/api/user/level');
             if (!res.ok) return;
             const data = await res.json();
-            if (data.success && data.progress && data.progress.level) {
-                const level = data.progress.level;
+            if (data.success && data.level) {
+                const level = data.level;
                 localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), level }));
                 injectPill(level);
             }
