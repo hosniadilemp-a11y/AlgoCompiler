@@ -157,6 +157,9 @@
                 <p>Découvrez les meilleurs contributeurs et experts en algorithmique.</p>
             </div>
 
+            <div id="leaderboard-status-note" style="display:none; margin: 0 0 18px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(74,110,224,0.25); background: rgba(74,110,224,0.08); color: var(--text-secondary);">
+            </div>
+
             <div class="leaderboard-table-container">
                 <table class="leaderboard-table">
                     <thead>
@@ -200,6 +203,75 @@
         let fullLeaderboard = [];
         let currentPage = 1;
         const pageSize = 10;
+        const LEADERBOARD_TIMEOUT_MS = 12000;
+
+        function setLeaderboardStatusNote(message = '', tone = 'info') {
+            const note = document.getElementById('leaderboard-status-note');
+            if (!note) return;
+            if (!message) {
+                note.style.display = 'none';
+                note.textContent = '';
+                return;
+            }
+
+            const stylesByTone = {
+                info: {
+                    border: '1px solid rgba(74,110,224,0.25)',
+                    background: 'rgba(74,110,224,0.08)',
+                    color: 'var(--text-secondary)'
+                },
+                warn: {
+                    border: '1px solid rgba(210,153,34,0.35)',
+                    background: 'rgba(210,153,34,0.08)',
+                    color: '#d29922'
+                }
+            };
+            const styles = stylesByTone[tone] || stylesByTone.info;
+            note.style.display = 'block';
+            note.style.border = styles.border;
+            note.style.background = styles.background;
+            note.style.color = styles.color;
+            note.textContent = message;
+        }
+
+        async function fetchLeaderboardPayload() {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), LEADERBOARD_TIMEOUT_MS);
+            try {
+                const res = await fetch('/api/leaderboard', { signal: controller.signal });
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                return await res.json();
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        async function loadLeaderboard(body, attempt = 0) {
+            const data = await fetchLeaderboardPayload();
+            if (data.loading) {
+                setLeaderboardStatusNote('Le classement complet est en préparation. Nouvel essai automatique...', 'info');
+                body.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Le classement est en cours de préparation. Nouvel essai...</td></tr>';
+                if (attempt < 3) {
+                    setTimeout(() => loadLeaderboard(body, attempt + 1), 2500);
+                }
+                return;
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Erreur lors du chargement du classement.');
+            }
+
+            fullLeaderboard = data.leaderboard || [];
+            if (data.partial) {
+                setLeaderboardStatusNote('Affichage d’une version simplifiée du classement pendant la préparation des statistiques avancées.', 'warn');
+            } else {
+                setLeaderboardStatusNote('');
+            }
+            updatePaginationUI();
+            renderLeaderboard();
+        }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const body = document.getElementById('leaderboard-body');
@@ -207,15 +279,13 @@
             const nextBtn = document.getElementById('next-btn');
 
             try {
-                const res = await fetch('/api/leaderboard');
-                const data = await res.json();
-                if (data.success) {
-                    fullLeaderboard = data.leaderboard;
-                    updatePaginationUI();
-                    renderLeaderboard();
-                }
+                await loadLeaderboard(body);
             } catch (err) {
-                body.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Erreur lors du chargement.</td></tr>';
+                setLeaderboardStatusNote('Le classement n’a pas pu être chargé complètement.', 'warn');
+                const message = err.name === 'AbortError'
+                    ? 'Le chargement du classement a pris trop de temps.'
+                    : 'Erreur lors du chargement du classement.';
+                body.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">${message}</td></tr>`;
             }
 
             prevBtn.addEventListener('click', () => {

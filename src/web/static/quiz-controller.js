@@ -6,6 +6,9 @@ class QuizController {
         this.score = 0;
         this.conceptAnalysis = {};
         this.userAnswers = [];
+        this.quizLoadTimeoutMs = 12000;
+        this.quizSaveTimeoutMs = 12000;
+        this.quizSessionToken = 0;
 
         this.modal = null;
         this.initDOM();
@@ -41,7 +44,36 @@ class QuizController {
         this.modal.querySelector('#quiz-finish-btn').addEventListener('click', () => this.showResults());
     }
 
+    async fetchJson(url, options = {}, timeoutMs = this.quizLoadTimeoutMs) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            if (!response.ok) {
+                const error = new Error(`HTTP ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+            return await response.json();
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                const timeoutError = new Error('Request timed out');
+                timeoutError.code = 'timeout';
+                throw timeoutError;
+            }
+            throw error;
+        } finally {
+            window.clearTimeout(timeoutId);
+        }
+    }
+
+    isTimeoutError(error) {
+        return error && (error.code === 'timeout' || error.name === 'AbortError');
+    }
+
     async startQuiz(chapterIdentifier, chapterTitle) {
+        const sessionToken = ++this.quizSessionToken;
         this.chapterIdentifier = chapterIdentifier;
         this.chapterTitle = chapterTitle;
         this.currentQuestionIndex = 0;
@@ -71,8 +103,8 @@ class QuizController {
         this.modal.classList.add('active');
 
         try {
-            const response = await fetch(`/api/quiz/${chapterIdentifier}`);
-            const data = await response.json();
+            const data = await this.fetchJson(`/api/quiz/${chapterIdentifier}`, {}, this.quizLoadTimeoutMs);
+            if (sessionToken !== this.quizSessionToken) return;
 
             if (data.error) throw new Error(data.error);
 
@@ -97,7 +129,11 @@ class QuizController {
             this.renderQuestion();
 
         } catch (error) {
-            body.innerHTML = `<div class="quiz-error">Erreur de chargement: ${error.message}</div>`;
+            if (sessionToken !== this.quizSessionToken) return;
+            const message = this.isTimeoutError(error)
+                ? 'Le quiz met trop de temps à se charger. Réessayez dans quelques secondes.'
+                : `Erreur de chargement: ${error.message}`;
+            body.innerHTML = `<div class="quiz-error">${message}</div>`;
         }
     }
 
@@ -321,74 +357,11 @@ class QuizController {
     }
 
     async showResults() {
+        const sessionToken = this.quizSessionToken;
         const questionResults = {};
         this.quizData.forEach((q, idx) => {
             questionResults[q.id] = this.userAnswers[idx] ? this.userAnswers[idx].isCorrect : false;
         });
-
-        // Save progress to backend
-        let isUserAuthenticated = false;
-        let percentile = null;
-        try {
-            const res = await fetch('/api/quiz/save_progress', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chapter_identifier: this.chapterIdentifier,
-                    score: this.score,
-                    total: this.quizData.length,
-                    details: {
-                        conceptAnalysis: this.conceptAnalysis,
-                        questionResults: questionResults
-                    }
-                })
-            });
-            const backData = await res.json();
-            isUserAuthenticated = backData.saved; // True if saved for authenticated user
-            percentile = backData.percentile;
-
-            // Reload course user progress 
-            if (this.course && isUserAuthenticated) {
-                await this.course.fetchUserProgress();
-                this.course.renderOutline();
-            }
-
-            // Check for newly earned badges immediately
-            if (typeof window.checkNewBadges === 'function') {
-                window.checkNewBadges();
-            }
-
-            // LEVEL UP CHECK
-            if (backData.level_up && backData.level && typeof Swal !== 'undefined') {
-                const lvl = backData.level;
-                const xpEarned = backData.xp_earned > 0 ? ` (+${backData.xp_earned} XP)` : '';
-
-                await Swal.fire({
-                    title: '🎉 Nouveau Niveau !',
-                    html: `<div style="font-size:3rem; margin-bottom:10px;">${lvl.icon}</div>
-                           <div style="font-size:1.3rem; font-weight:800; color:${lvl.color};">${lvl.name}</div>
-                           <div style="margin-top:10px; color:#c9d1d9; font-size:0.9rem;">Vous avez gagné${xpEarned} et atteint le niveau <strong style="color:${lvl.color}">${lvl.name}</strong> !<br>Félicitations !</div>`,
-                    background: '#161b22',
-                    color: '#c9d1d9',
-                    confirmButtonColor: lvl.color,
-                    confirmButtonText: 'Super ! 🚀',
-                    allowOutsideClick: false,
-                    showClass: { popup: 'animate__animated animate__bounceIn' }
-                });
-                // Invalidate cached level so header refreshes
-                localStorage.removeItem('algo_user_level_cache');
-            }
-        } catch (e) {
-            console.error("Failed to save progress", e);
-        }
-
-        const body = this.modal.querySelector('#quiz-body');
-        const progressText = this.modal.querySelector('.quiz-progress-text');
-        if (progressText) progressText.textContent = "Résultats";
-        const progressFill = this.modal.querySelector('#quiz-progress-fill');
-        if (progressFill) progressFill.style.width = '100%';
-        const footer = this.modal.querySelector('.quiz-footer');
-        if (footer) footer.style.display = 'none';
 
         const percentage = Math.round((this.score / this.quizData.length) * 100);
         let message = '';
@@ -405,8 +378,34 @@ class QuizController {
             colorClass = 'res-needs-work';
         }
 
-        // Generate Analysis HTML
-        let analysisHtml = Object.keys(this.conceptAnalysis).map(concept => {
+        const progressText = this.modal.querySelector('.quiz-progress-text');
+        if (progressText) progressText.textContent = "Résultats";
+        const progressFill = this.modal.querySelector('#quiz-progress-fill');
+        if (progressFill) progressFill.style.width = '100%';
+        const footer = this.modal.querySelector('.quiz-footer');
+        if (footer) footer.style.display = 'none';
+
+        this.renderResultsView({
+            message,
+            colorClass,
+            percentile: null,
+            showAuthPrompt: false,
+            syncState: 'saving',
+            syncMessage: 'Résultats prêts. Synchronisation en cours...'
+        });
+
+        this.persistQuizProgress(questionResults, {
+            message,
+            colorClass
+        }, sessionToken);
+    }
+
+    renderResultsView({ message, colorClass, percentile = null, showAuthPrompt = false, syncState = 'saved', syncMessage = '' }) {
+        const body = this.modal.querySelector('#quiz-body');
+        if (!body) return;
+        const safeChapterTitle = String(this.chapterTitle || '').replace(/'/g, "\\'");
+
+        const analysisHtml = Object.keys(this.conceptAnalysis).map(concept => {
             const stat = this.conceptAnalysis[concept];
             const perc = Math.round((stat.correct / stat.total) * 100);
             return `
@@ -424,6 +423,17 @@ class QuizController {
             ? `<div class="quiz-percentile-msg" style="background:rgba(241,196,15,0.1); border:1px solid #f1c40f; padding:12px; border-radius:8px; margin:15px 0; color:#f1c40f; text-align:center;"><i class="fas fa-trophy"></i> Vous avez fait mieux que <strong>${Math.round(percentile)}%</strong> des autres étudiants !</div>`
             : '';
 
+        let syncBannerHtml = '';
+        if (syncState === 'saving') {
+            syncBannerHtml = `<div class="quiz-percentile-msg" style="background:rgba(74,110,224,0.12); border:1px solid rgba(74,110,224,0.45); padding:12px; border-radius:8px; margin:15px 0; color:#8fb3ff; text-align:center;"><i class="fas fa-rotate fa-spin"></i> ${this.escapeHtml(syncMessage || 'Synchronisation en cours...')}</div>`;
+        } else if (syncState === 'saved') {
+            syncBannerHtml = `<div class="quiz-percentile-msg" style="background:rgba(46,164,78,0.12); border:1px solid rgba(46,164,78,0.45); padding:12px; border-radius:8px; margin:15px 0; color:#7ee787; text-align:center;"><i class="fas fa-check-circle"></i> ${this.escapeHtml(syncMessage || 'Progression sauvegardée.')}</div>`;
+        } else if (syncState === 'guest') {
+            syncBannerHtml = `<div class="quiz-percentile-msg" style="background:rgba(74,110,224,0.12); border:1px solid rgba(74,110,224,0.45); padding:12px; border-radius:8px; margin:15px 0; color:#8fb3ff; text-align:center;"><i class="fas fa-user-circle"></i> ${this.escapeHtml(syncMessage || 'Connectez-vous pour conserver vos résultats.')}</div>`;
+        } else if (syncState === 'error') {
+            syncBannerHtml = `<div class="quiz-percentile-msg" style="background:rgba(210,153,34,0.12); border:1px solid rgba(210,153,34,0.45); padding:12px; border-radius:8px; margin:15px 0; color:#f2cc60; text-align:center;"><i class="fas fa-triangle-exclamation"></i> ${this.escapeHtml(syncMessage || 'Les résultats sont affichés, mais la synchronisation a échoué.')}</div>`;
+        }
+
         body.innerHTML = `
             <div class="quiz-results-container">
                 <div class="quiz-score-circle ${colorClass}">
@@ -431,6 +441,7 @@ class QuizController {
                     <span class="score-max">/ ${this.quizData.length}</span>
                 </div>
                 <h2 class="quiz-res-msg">${message}</h2>
+                ${syncBannerHtml}
                 ${percentileHtml}
                 
                 <div class="quiz-analysis-box">
@@ -438,21 +449,98 @@ class QuizController {
                     ${analysisHtml}
                 </div>
                 
-                <div id="quiz-auth-prompt" style="display: none; background: rgba(74, 110, 224, 0.1); border: 1px solid #4a6ee0; border-radius: 8px; padding: 15px; margin-top: 20px; text-align: center;">
+                <div id="quiz-auth-prompt" style="display: ${showAuthPrompt ? 'block' : 'none'}; background: rgba(74, 110, 224, 0.1); border: 1px solid #4a6ee0; border-radius: 8px; padding: 15px; margin-top: 20px; text-align: center;">
                     <p style="margin-bottom: 10px; color: var(--text-color);">Rejoignez-nous pour sauvegarder vos progrès !</p>
                     <a href="/login" class="quiz-btn primary" style="text-decoration: none; display: inline-block; margin-right: 10px;">Se connecter</a>
                     <a href="/signup" class="quiz-btn outline" style="text-decoration: none; display: inline-block;">Créer un compte</a>
                 </div>
 
                 <div class="quiz-res-actions">
-                    <button class="quiz-btn outline" onclick="window.quizController.startQuiz('${this.chapterIdentifier}', '${this.chapterTitle}')"><i class="fas fa-redo"></i> Refaire le test</button>
+                    <button class="quiz-btn outline" onclick="window.quizController.startQuiz('${this.chapterIdentifier}', '${safeChapterTitle}')"><i class="fas fa-redo"></i> Refaire le test</button>
                     <button class="quiz-btn primary" onclick="window.quizController.closeQuiz()"><i class="fas fa-book"></i> Retourner au cours</button>
                 </div>
             </div>
         `;
+    }
 
-        if (!isUserAuthenticated) {
-            this.modal.querySelector('#quiz-auth-prompt').style.display = 'block';
+    async persistQuizProgress(questionResults, resultsContext, sessionToken) {
+        let isUserAuthenticated = false;
+        let percentile = null;
+
+        try {
+            const backData = await this.fetchJson('/api/quiz/save_progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chapter_identifier: this.chapterIdentifier,
+                    score: this.score,
+                    total: this.quizData.length,
+                    details: {
+                        conceptAnalysis: this.conceptAnalysis,
+                        questionResults: questionResults
+                    }
+                })
+            }, this.quizSaveTimeoutMs);
+
+            if (sessionToken !== this.quizSessionToken) return;
+
+            isUserAuthenticated = Boolean(backData.saved);
+            percentile = backData.percentile;
+
+            if (this.course && isUserAuthenticated) {
+                await this.course.fetchUserProgress();
+                this.course.renderOutline();
+            }
+
+            if (isUserAuthenticated) {
+                localStorage.removeItem('algo_user_level_cache');
+            }
+
+            if (typeof window.checkNewBadges === 'function' && isUserAuthenticated) {
+                window.checkNewBadges();
+            }
+
+            if (backData.level_up && backData.level && typeof Swal !== 'undefined') {
+                const lvl = backData.level;
+                const xpEarned = backData.xp_earned > 0 ? ` (+${backData.xp_earned} XP)` : '';
+
+                await Swal.fire({
+                    title: '🎉 Nouveau Niveau !',
+                    html: `<div style="font-size:3rem; margin-bottom:10px;">${lvl.icon}</div>
+                           <div style="font-size:1.3rem; font-weight:800; color:${lvl.color};">${lvl.name}</div>
+                           <div style="margin-top:10px; color:#c9d1d9; font-size:0.9rem;">Vous avez gagné${xpEarned} et atteint le niveau <strong style="color:${lvl.color}">${lvl.name}</strong> !<br>Félicitations !</div>`,
+                    background: '#161b22',
+                    color: '#c9d1d9',
+                    confirmButtonColor: lvl.color,
+                    confirmButtonText: 'Super ! 🚀',
+                    allowOutsideClick: false,
+                    showClass: { popup: 'animate__animated animate__bounceIn' }
+                });
+            }
+
+            if (sessionToken !== this.quizSessionToken) return;
+
+            this.renderResultsView({
+                ...resultsContext,
+                percentile,
+                showAuthPrompt: !isUserAuthenticated,
+                syncState: isUserAuthenticated ? 'saved' : 'guest',
+                syncMessage: isUserAuthenticated
+                    ? 'Progression sauvegardée.'
+                    : 'Connectez-vous pour conserver vos résultats.'
+            });
+        } catch (error) {
+            if (sessionToken !== this.quizSessionToken) return;
+            console.error("Failed to save progress", error);
+            this.renderResultsView({
+                ...resultsContext,
+                percentile,
+                showAuthPrompt: false,
+                syncState: 'error',
+                syncMessage: this.isTimeoutError(error)
+                    ? 'Les résultats sont affichés, mais la synchronisation prend trop de temps.'
+                    : 'Les résultats sont affichés, mais la sauvegarde n’a pas pu être confirmée.'
+            });
         }
     }
 

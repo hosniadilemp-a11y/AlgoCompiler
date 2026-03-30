@@ -215,6 +215,39 @@ body.light-theme .course-sidebar {
     /* Ensures the flex item can shrink to allow scrolling */
 }
 
+.course-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 180px;
+    padding: 24px;
+    border: 1px dashed var(--course-line);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(74, 110, 224, 0.08), rgba(110, 214, 138, 0.04));
+    color: var(--course-muted);
+    text-align: center;
+    font-weight: 600;
+}
+
+.course-state i {
+    font-size: 1.15rem;
+    color: var(--course-accent);
+}
+
+.course-state-sidebar {
+    min-height: 96px;
+    margin: 8px 0;
+    padding: 18px 16px;
+    font-size: 0.95rem;
+}
+
+.course-state-error {
+    background: linear-gradient(180deg, rgba(248, 81, 73, 0.08), rgba(210, 153, 34, 0.06));
+    border-color: rgba(248, 81, 73, 0.25);
+    color: var(--course-ink);
+}
+
 .course-h1 {
     color: var(--course-accent);
     margin-top: 0;

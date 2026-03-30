@@ -3,7 +3,7 @@ services:
     name: algocompiler
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 src.web.app:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 src.web.app:app
     envVars:
       - key: PYTHONPATH
         value: src

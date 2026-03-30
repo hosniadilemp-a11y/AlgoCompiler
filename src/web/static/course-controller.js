@@ -1,15 +1,23 @@
 class CourseController {
     constructor() {
         this.courseData = null;
+        this.userProgress = {};
         this.currentChapterIndex = 0;
         this.contentVersion = '26';
         this.isStandalonePage = !!document.getElementById('course-outline');
+        this.requestTimeoutMs = 12000;
+        this.progressTimeoutMs = 5000;
+        this.chapterCache = new Map();
+        this.chapterRenderToken = 0;
 
         this.sidebar = document.getElementById('course-outline');
         this.contentArea = document.getElementById('course-content');
         this.prevBtn = document.getElementById('course-prev-btn');
         this.nextBtn = document.getElementById('course-next-btn');
         this.paginationLabel = document.getElementById('course-pagination');
+
+        this.setOutlineStatus('Chargement du sommaire...', true);
+        this.setContentLoadingState('Chargement du cours...');
 
         // Initialize Quiz System
         if (typeof QuizController !== 'undefined') {
@@ -20,33 +28,116 @@ class CourseController {
         this.init();
     }
 
+    async fetchJson(url, options = {}, timeoutMs = this.requestTimeoutMs) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            if (!response.ok) {
+                const error = new Error(`HTTP ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+            return await response.json();
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                const timeoutError = new Error('Request timed out');
+                timeoutError.code = 'timeout';
+                throw timeoutError;
+            }
+            throw error;
+        } finally {
+            window.clearTimeout(timeoutId);
+        }
+    }
+
+    isTimeoutError(error) {
+        return error && (error.code === 'timeout' || error.name === 'AbortError');
+    }
+
+    setOutlineStatus(message, isLoading = false) {
+        if (!this.sidebar) return;
+        const iconClass = isLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-triangle-exclamation';
+        this.sidebar.innerHTML = `
+            <div class="course-state course-state-sidebar">
+                <i class="${iconClass}"></i>
+                <span>${this.escapeHtml(message)}</span>
+            </div>
+        `;
+    }
+
+    setContentLoadingState(message) {
+        if (!this.contentArea) return;
+        this.contentArea.innerHTML = `
+            <div class="course-state course-state-loading">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                <div>${this.escapeHtml(message)}</div>
+            </div>
+        `;
+    }
+
+    setContentErrorState(message) {
+        if (!this.contentArea) return;
+        this.contentArea.innerHTML = `
+            <div class="course-state course-state-error">
+                <i class="fas fa-triangle-exclamation"></i>
+                <div>${this.escapeHtml(message)}</div>
+            </div>
+        `;
+    }
+
+    clampCurrentChapterIndex() {
+        const totalChapters = Array.isArray(this.courseData?.chapters) ? this.courseData.chapters.length : 0;
+        if (totalChapters === 0) {
+            this.currentChapterIndex = 0;
+            return;
+        }
+
+        const parsedIndex = Number.parseInt(this.currentChapterIndex, 10);
+        const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
+        this.currentChapterIndex = Math.min(Math.max(safeIndex, 0), totalChapters - 1);
+    }
+
     async init() {
         try {
-            const response = await fetch(`/api/course?v=${this.contentVersion}`);
-            this.courseData = await response.json();
-            await this.fetchUserProgress();
+            this.courseData = await this.fetchJson(`/api/course?v=${this.contentVersion}`);
+            if (!Array.isArray(this.courseData?.chapters) || this.courseData.chapters.length === 0) {
+                this.setOutlineStatus('Aucun chapitre publié pour le moment.');
+                this.setContentErrorState('Le cours n’est pas encore disponible.');
+                return;
+            }
+
             this.loadState();
-            await this.renderOutline();
+            this.clampCurrentChapterIndex();
+            this.renderOutline();
             this.bindEvents();
+
+            this.fetchUserProgress()
+                .then(() => this.renderOutline())
+                .catch((error) => {
+                    console.error('Failed to refresh course progress:', error);
+                });
+
             if (this.isStandalonePage) {
-                this.renderCurrentChapter();
+                await this.renderCurrentChapter();
             }
         } catch (error) {
             console.error("Failed to initialize course controller:", error);
+            this.setOutlineStatus('Impossible de charger le sommaire.');
+            this.setContentErrorState('Le cours est temporairement indisponible. Réessayez dans quelques instants.');
         }
     }
 
     async fetchUserProgress() {
         this.userProgress = {};
         try {
-            const res = await fetch('/api/user/progress');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.success) {
-                    this.userProgress = data.progress.chapter_stats || {};
-                }
+            const data = await this.fetchJson('/api/user/progress/summary', {}, this.progressTimeoutMs);
+            if (data.success) {
+                this.userProgress = data.progress.chapter_stats || {};
             }
         } catch (e) {
+            if (e.status === 401) return;
             console.error("Failed to fetch user progress", e);
         }
     }
@@ -76,6 +167,10 @@ class CourseController {
 
     async renderOutline() {
         if (!this.sidebar) return;
+        if (!Array.isArray(this.courseData?.chapters) || this.courseData.chapters.length === 0) {
+            this.setOutlineStatus('Aucun chapitre disponible.');
+            return;
+        }
         this.sidebar.innerHTML = '';
 
         let earnedWeight = 0;
@@ -158,14 +253,36 @@ class CourseController {
 
     async renderCurrentChapter() {
         if (!this.contentArea || !this.courseData) return;
+        this.clampCurrentChapterIndex();
 
         const chapterInfo = this.courseData.chapters[this.currentChapterIndex];
-        const sep = chapterInfo.file.includes('?') ? '&' : '?';
-        const response = await fetch(`${chapterInfo.file}${sep}v=${this.contentVersion}`);
-        const chapter = await response.json();
+        if (!chapterInfo) {
+            this.setContentErrorState('Chapitre introuvable.');
+            this.updateNavButtons();
+            return;
+        }
+
+        const renderToken = ++this.chapterRenderToken;
+        this.setContentLoadingState(`Chargement de "${chapterInfo.title}"...`);
+
+        let chapter;
+        try {
+            chapter = await this.loadChapter(chapterInfo);
+        } catch (error) {
+            if (renderToken !== this.chapterRenderToken) return;
+            console.error('Failed to render chapter:', error);
+            const message = this.isTimeoutError(error)
+                ? 'Le chapitre met trop de temps à se charger. Réessayez dans quelques secondes.'
+                : 'Impossible de charger ce chapitre pour le moment.';
+            this.setContentErrorState(message);
+            this.updateNavButtons();
+            return;
+        }
+
+        if (renderToken !== this.chapterRenderToken) return;
 
         this.contentArea.innerHTML = `
-            <h1 class="course-h1">${chapter.title}</h1>
+            <h1 class="course-h1">${this.escapeHtml(chapter.title)}</h1>
         `;
 
         if (chapter.sections) {
@@ -222,6 +339,7 @@ class CourseController {
 
         this.bindSectionEvents();
         await this.validateRunnableSnippets();
+        this.prefetchAdjacentChapters();
 
         // Restore scroll position
         const savedScroll = localStorage.getItem('algocompiler.scrollTop');
@@ -233,6 +351,37 @@ class CourseController {
         }
 
         this.updateNavButtons();
+    }
+
+    async loadChapter(chapterInfo) {
+        const cacheKey = `${chapterInfo.id}:${this.contentVersion}`;
+        if (this.chapterCache.has(cacheKey)) {
+            return this.chapterCache.get(cacheKey);
+        }
+
+        const sep = chapterInfo.file.includes('?') ? '&' : '?';
+        const chapter = await this.fetchJson(`${chapterInfo.file}${sep}v=${this.contentVersion}`);
+        this.chapterCache.set(cacheKey, chapter);
+        return chapter;
+    }
+
+    prefetchAdjacentChapters() {
+        if (!Array.isArray(this.courseData?.chapters)) return;
+
+        const indexesToPrefetch = [
+            this.currentChapterIndex - 1,
+            this.currentChapterIndex + 1
+        ];
+
+        indexesToPrefetch.forEach((index) => {
+            const chapterInfo = this.courseData.chapters[index];
+            if (!chapterInfo) return;
+            const cacheKey = `${chapterInfo.id}:${this.contentVersion}`;
+            if (this.chapterCache.has(cacheKey)) return;
+            this.loadChapter(chapterInfo).catch(() => {
+                // Prefetch failures should stay silent; the normal render path handles messaging.
+            });
+        });
     }
 
     updateNavButtons() {
@@ -301,11 +450,15 @@ class CourseController {
     }
 
     async validateSnippet(button, code, isSolutionButton) {
+        let timeoutId = null;
         try {
+            const controller = new AbortController();
+            timeoutId = window.setTimeout(() => controller.abort(), 8000);
             const response = await fetch('/api/validate_algo', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
+                body: JSON.stringify({ code }),
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -322,6 +475,10 @@ class CourseController {
         } catch (error) {
             if (isSolutionButton) return;
             button.remove();
+        } finally {
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
+            }
         }
     }
 
@@ -362,6 +519,7 @@ class CourseController {
     }
 
     saveState() {
+        if (!this.contentArea) return;
         localStorage.setItem('algocompiler.currentChapter', this.currentChapterIndex);
         localStorage.setItem('algocompiler.scrollTop', this.contentArea.scrollTop);
     }
@@ -369,7 +527,8 @@ class CourseController {
     loadState() {
         const saved = localStorage.getItem('algocompiler.currentChapter');
         if (saved !== null) {
-            this.currentChapterIndex = parseInt(saved, 10);
+            const parsedIndex = parseInt(saved, 10);
+            this.currentChapterIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
         }
     }
 

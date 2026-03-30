@@ -71,13 +71,41 @@ PROBLEM_DETAIL_CACHE_TTL_SECONDS = 300
 problem_detail_cache = {}
 problem_navigation_cache = {'expires_at': 0, 'problem_ids': []}
 problem_cache_lock = threading.Lock()
+COURSE_CONTENT_CACHE_TTL_SECONDS = int(os.environ.get('COURSE_CONTENT_CACHE_TTL_SECONDS', '300'))
+course_outline_cache = {'expires_at': 0, 'payload': None}
+course_chapter_cache = {}
+course_cache_lock = threading.Lock()
+QUIZ_BANK_CACHE_TTL_SECONDS = int(os.environ.get('QUIZ_BANK_CACHE_TTL_SECONDS', '300'))
+quiz_question_bank_cache = {}
+quiz_cache_lock = threading.Lock()
 USER_LEVEL_CACHE_TTL_SECONDS = 300
 user_level_cache = {}
 user_level_refresh_futures = {}
 user_level_cache_lock = threading.Lock()
+GLOBAL_USER_STATS_CACHE_TTL_SECONDS = int(os.environ.get('GLOBAL_USER_STATS_CACHE_TTL_SECONDS', '120'))
+global_user_stats_cache = {'expires_at': 0, 'payload': None}
+global_user_stats_refresh_future = None
+global_user_stats_refresh_state = {
+    'status': 'idle',
+    'started_at': None,
+    'finished_at': None,
+    'last_error': None
+}
+global_user_stats_cache_lock = threading.Lock()
+USER_PROGRESS_CACHE_TTL_SECONDS = int(os.environ.get('USER_PROGRESS_CACHE_TTL_SECONDS', '90'))
+user_progress_cache = {}
+user_progress_cache_lock = threading.Lock()
+USER_PROGRESS_ADVANCED_CACHE_TTL_SECONDS = int(os.environ.get('USER_PROGRESS_ADVANCED_CACHE_TTL_SECONDS', '180'))
+user_progress_advanced_cache = {}
+user_progress_advanced_cache_lock = threading.Lock()
+USER_BADGES_CACHE_TTL_SECONDS = int(os.environ.get('USER_BADGES_CACHE_TTL_SECONDS', '120'))
+user_badges_cache = {}
+user_badges_cache_lock = threading.Lock()
 background_task_executor = ThreadPoolExecutor(
     max_workers=max(2, int(os.environ.get('BACKGROUND_TASK_WORKERS', '2')))
 )
+SLOW_REQUEST_THRESHOLD_MS = float(os.environ.get('SLOW_REQUEST_THRESHOLD_MS', '1500'))
+REQUEST_TIMING_HEADER = 'X-Request-Duration-Ms'
 
 APP_BUILD_ID = (
     os.environ.get('APP_BUILD_ID')
@@ -90,6 +118,21 @@ ASSET_VERSION = os.environ.get('STATIC_ASSET_VERSION') or APP_BUILD_ID[:12]
 
 def is_truthy(value):
     return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def current_request_duration_ms():
+    started_at = getattr(request, '_perf_started_at', None)
+    if started_at is None:
+        return None
+    return round((time.perf_counter() - started_at) * 1000, 3)
+
+
+def log_perf_event(label, **fields):
+    serialized_fields = ' '.join(
+        f'{key}={json.dumps(value, ensure_ascii=False)}'
+        for key, value in fields.items()
+    )
+    print(f">>> [PERF] {label} {serialized_fields}".strip(), flush=True)
 
 
 def _is_safe_path(base_dir, requested_path):
@@ -174,6 +217,11 @@ def protect_against_csrf():
     return None
 
 
+@app.before_request
+def start_request_timing():
+    request._perf_started_at = time.perf_counter()
+
+
 @app.teardown_request
 def cleanup_db_session(exc):
     if exc is not None:
@@ -189,10 +237,29 @@ direct_database_url = (
     os.environ.get('SUPABASE_DIRECT_URL')
     or os.environ.get('DIRECT_DATABASE_URL')
 )
+session_pooler_url = (
+    os.environ.get('SUPABASE_SESSION_POOLER_URL')
+    or os.environ.get('SESSION_DATABASE_URL')
+)
 app_env = (os.environ.get('APP_ENV') or os.environ.get('FLASK_ENV') or '').strip().lower()
 is_local_dev = app_env not in {'production', 'prod'}
 if direct_database_url and database_url and 'supabase.com:6543' in database_url and is_local_dev:
     database_url = direct_database_url
+elif session_pooler_url and database_url and 'pooler.supabase.com:6543' in database_url:
+    database_url = session_pooler_url
+
+is_transaction_pooler = bool(database_url and 'pooler.supabase.com:6543' in database_url)
+is_session_pooler = bool(
+    database_url
+    and 'pooler.supabase.com:5432' in database_url
+)
+
+if is_transaction_pooler and not is_local_dev:
+    print(
+        ">>> [WARN] Using Supabase transaction pooler (:6543) on a persistent web app. "
+        "Prefer a session pooler URL (:5432) when available.",
+        flush=True
+    )
 use_psycopg3 = False
 if database_url:
     # Attempt to detect which driver to use
@@ -229,8 +296,8 @@ if use_psycopg3:
         'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT_SECONDS', '5'))
     }
 
-if database_url and 'pooler' in database_url:
-    # Supabase pooler (PgBouncer) works best without client-side pooling
+if is_transaction_pooler:
+    # Supabase transaction pooler (PgBouncer transaction mode) works best without client-side pooling
     engine_options['poolclass'] = NullPool
 else:
     engine_options['pool_size'] = 10
@@ -276,23 +343,38 @@ try:
         else:
             print(">>> [DEBUG] SKIPPING db.create_all() FOR MANAGED REMOTE DATABASE", flush=True)
 
-        try:
-            from web.auth import migrate_security_answers_to_hashes
-            migrated_security_answers = migrate_security_answers_to_hashes()
-            if migrated_security_answers:
-                print(f">>> [DEBUG] SECURITY ANSWERS HASHED: {migrated_security_answers}", flush=True)
-        except Exception as migrate_err:
-            print(f">>> [DEBUG] SECURITY ANSWER MIGRATION FAILED (NON-FATAL): {migrate_err}", flush=True)
-        
-        # Auto-seed if empty
-        if Question.query.count() == 0 and not os.environ.get('SKIP_SEED'):
-            print(">>> [DEBUG] DB EMPTY. SEEDING FROM JSON...", flush=True)
+        should_run_startup_security_migration = (
+            is_truthy(os.environ.get('STARTUP_SECURITY_MIGRATION'))
+            if os.environ.get('STARTUP_SECURITY_MIGRATION') is not None
+            else should_auto_create_schema
+        )
+        if should_run_startup_security_migration:
             try:
-                from web.seed_from_json import seed_from_json
-                seed_from_json()
-                print(">>> [DEBUG] SEEDING COMPLETED", flush=True)
-            except Exception as seed_err:
-                print(f">>> [DEBUG] SEEDING FAILED (NON-FATAL): {seed_err}", flush=True)
+                from web.auth import migrate_security_answers_to_hashes
+                migrated_security_answers = migrate_security_answers_to_hashes()
+                if migrated_security_answers:
+                    print(f">>> [DEBUG] SECURITY ANSWERS HASHED: {migrated_security_answers}", flush=True)
+            except Exception as migrate_err:
+                print(f">>> [DEBUG] SECURITY ANSWER MIGRATION FAILED (NON-FATAL): {migrate_err}", flush=True)
+        else:
+            print(">>> [DEBUG] SKIPPING STARTUP SECURITY MIGRATION FOR MANAGED REMOTE DATABASE", flush=True)
+
+        should_auto_seed_on_empty = (
+            is_truthy(os.environ.get('AUTO_SEED_ON_EMPTY'))
+            if os.environ.get('AUTO_SEED_ON_EMPTY') is not None
+            else should_auto_create_schema
+        )
+        if should_auto_seed_on_empty and not os.environ.get('SKIP_SEED'):
+            if Question.query.count() == 0:
+                print(">>> [DEBUG] DB EMPTY. SEEDING FROM JSON...", flush=True)
+                try:
+                    from web.seed_from_json import seed_from_json
+                    seed_from_json()
+                    print(">>> [DEBUG] SEEDING COMPLETED", flush=True)
+                except Exception as seed_err:
+                    print(f">>> [DEBUG] SEEDING FAILED (NON-FATAL): {seed_err}", flush=True)
+        else:
+            print(">>> [DEBUG] SKIPPING AUTO-SEED CHECK FOR MANAGED REMOTE DATABASE", flush=True)
 except Exception as e:
     print(f">>> [CRITICAL] DB SETUP FAILED: {e}", flush=True)
     import traceback
@@ -380,44 +462,25 @@ def demo_course_file(filename):
 
 @app.route('/api/course', methods=['GET'])
 def get_course():
-    chapters = CourseChapter.query.filter_by(is_published=True).order_by(CourseChapter.order_index.asc(), CourseChapter.id.asc()).all()
-    items = []
-    for c in chapters:
-        items.append({
-            'id': c.identifier,
-            'title': c.title,
-            'icon': c.icon,
-            'file': f"/api/course/chapters/{c.identifier}",
-            'sections': []
-        })
-    return jsonify({'chapters': items})
+    return jsonify(get_cached_course_outline_payload())
 
 
 @app.route('/api/course/chapters/<string:identifier>', methods=['GET'])
 def get_course_chapter(identifier):
-    chapter = CourseChapter.query.filter_by(identifier=identifier, is_published=True).first()
-    if not chapter:
+    payload = get_cached_course_chapter_payload(identifier)
+    if not payload:
         return jsonify({'error': 'Not found'}), 404
-    sections = CourseSection.query.filter_by(chapter_id=chapter.id).order_by(CourseSection.order_index.asc(), CourseSection.id.asc()).all()
-    return jsonify({
-        'id': chapter.identifier,
-        'title': chapter.title,
-        'sections': [
-            {'title': s.title, 'content': s.content, 'code': s.code}
-            for s in sections
-        ]
-    })
+    return jsonify(payload)
 
 @app.route('/progress')
 @login_required
 def progress_page():
     initial_progress = None
     try:
-        progress_response = get_user_progress()
-        if isinstance(progress_response, tuple):
-            progress_response = progress_response[0]
-        if hasattr(progress_response, 'get_json'):
-            initial_progress = progress_response.get_json(silent=True)
+        initial_progress = {
+            'success': True,
+            'progress': get_cached_user_progress_summary_payload(current_user.id)
+        }
     except Exception:
         initial_progress = None
     return render_template('progress.html', initial_progress=initial_progress)
@@ -520,6 +583,142 @@ def invalidate_problem_detail_cache(problem_id=None):
         problem_navigation_cache['problem_ids'] = []
 
 
+def invalidate_course_content_cache(identifier=None):
+    with course_cache_lock:
+        course_outline_cache['expires_at'] = 0
+        course_outline_cache['payload'] = None
+        if identifier is None:
+            course_chapter_cache.clear()
+            return
+        course_chapter_cache.pop(str(identifier), None)
+
+
+def get_cached_course_outline_payload():
+    now_ts = time.time()
+    with course_cache_lock:
+        cached_payload = course_outline_cache.get('payload')
+        if cached_payload is not None and course_outline_cache['expires_at'] > now_ts:
+            return cached_payload
+
+    chapters = (
+        CourseChapter.query
+        .filter_by(is_published=True)
+        .order_by(CourseChapter.order_index.asc(), CourseChapter.id.asc())
+        .all()
+    )
+    payload = {
+        'chapters': [
+            {
+                'id': chapter.identifier,
+                'title': chapter.title,
+                'icon': chapter.icon,
+                'file': f"/api/course/chapters/{chapter.identifier}",
+                'sections': []
+            }
+            for chapter in chapters
+        ]
+    }
+
+    with course_cache_lock:
+        course_outline_cache['expires_at'] = now_ts + COURSE_CONTENT_CACHE_TTL_SECONDS
+        course_outline_cache['payload'] = payload
+    return payload
+
+
+def get_cached_course_chapter_payload(identifier):
+    cache_key = str(identifier)
+    now_ts = time.time()
+    with course_cache_lock:
+        cached_entry = course_chapter_cache.get(cache_key)
+        if cached_entry and cached_entry['expires_at'] > now_ts:
+            return cached_entry['payload']
+
+    chapter = (
+        CourseChapter.query
+        .options(joinedload(CourseChapter.sections))
+        .filter_by(identifier=cache_key, is_published=True)
+        .first()
+    )
+    if not chapter:
+        return None
+
+    payload = {
+        'id': chapter.identifier,
+        'title': chapter.title,
+        'sections': [
+            {
+                'title': section.title,
+                'content': section.content,
+                'code': section.code
+            }
+            for section in chapter.sections
+        ]
+    }
+
+    with course_cache_lock:
+        course_chapter_cache[cache_key] = {
+            'expires_at': now_ts + COURSE_CONTENT_CACHE_TTL_SECONDS,
+            'payload': payload
+        }
+    return payload
+
+
+def invalidate_quiz_bank_cache(chapter_identifier=None):
+    with quiz_cache_lock:
+        if chapter_identifier is None:
+            quiz_question_bank_cache.clear()
+            return
+        quiz_question_bank_cache.pop(str(chapter_identifier), None)
+
+
+def get_cached_quiz_question_bank(chapter_identifier):
+    cache_key = str(chapter_identifier)
+    now_ts = time.time()
+    with quiz_cache_lock:
+        cached_entry = quiz_question_bank_cache.get(cache_key)
+        if cached_entry and cached_entry['expires_at'] > now_ts:
+            return cached_entry['payload']
+
+    chapter = (
+        Chapter.query
+        .options(joinedload(Chapter.questions).joinedload(Question.choices))
+        .filter_by(identifier=cache_key)
+        .first()
+    )
+    if not chapter:
+        return None
+
+    payload = {
+        'chapter_id': chapter.id,
+        'questions': [
+            {
+                'id': question.id,
+                'type': question.type,
+                'difficulty': question.difficulty,
+                'concept': question.concept,
+                'text': question.text,
+                'explanation': question.explanation,
+                'choices': [
+                    {
+                        'id': choice.id,
+                        'text': choice.text,
+                        'is_correct': bool(choice.is_correct)
+                    }
+                    for choice in question.choices
+                ]
+            }
+            for question in chapter.questions
+        ]
+    }
+
+    with quiz_cache_lock:
+        quiz_question_bank_cache[cache_key] = {
+            'expires_at': now_ts + QUIZ_BANK_CACHE_TTL_SECONDS,
+            'payload': payload
+        }
+    return payload
+
+
 def get_cached_problem_payload(problem_id):
     now_ts = time.time()
     cache_key = int(problem_id)
@@ -589,6 +788,81 @@ def invalidate_user_level_cache(user_id=None):
             return
         user_level_cache.pop(int(user_id), None)
         user_level_refresh_futures.pop(int(user_id), None)
+
+
+def invalidate_global_user_stats_cache():
+    with global_user_stats_cache_lock:
+        global_user_stats_cache['expires_at'] = 0
+        global_user_stats_cache['payload'] = None
+
+
+def invalidate_user_progress_summary_cache(user_id=None):
+    with user_progress_cache_lock:
+        if user_id is None:
+            user_progress_cache.clear()
+            return
+        user_progress_cache.pop(int(user_id), None)
+
+
+def invalidate_user_progress_advanced_cache(user_id=None):
+    with user_progress_advanced_cache_lock:
+        if user_id is None:
+            user_progress_advanced_cache.clear()
+            return
+        user_progress_advanced_cache.pop(int(user_id), None)
+
+
+def invalidate_user_badges_cache(user_id=None):
+    with user_badges_cache_lock:
+        if user_id is None:
+            user_badges_cache.clear()
+            return
+        user_badges_cache.pop(int(user_id), None)
+
+
+def invalidate_user_progress_cache(user_id=None):
+    invalidate_user_progress_summary_cache(user_id)
+    invalidate_user_progress_advanced_cache(user_id)
+    invalidate_user_badges_cache(user_id)
+
+
+def get_cached_user_payload(cache, lock, ttl_seconds, user_id, builder):
+    user_id = int(user_id)
+    now_ts = time.time()
+    with lock:
+        cached_entry = cache.get(user_id)
+        if cached_entry and cached_entry['expires_at'] > now_ts:
+            return cached_entry['payload']
+
+    payload = builder(user_id)
+    with lock:
+        cache[user_id] = {
+            'expires_at': now_ts + ttl_seconds,
+            'payload': payload
+        }
+    return payload
+
+
+def get_default_level_badge():
+    return {
+        'num': 1,
+        'name': 'Débutant',
+        'icon': '🌟',
+        'color': '#6c757d',
+        'glow': 'rgba(108,117,125,0.5)'
+    }
+
+
+def get_cached_bulk_user_level(user_id):
+    user_id = int(user_id)
+    now_ts = time.time()
+    with global_user_stats_cache_lock:
+        cached_payload = global_user_stats_cache.get('payload')
+        if cached_payload is not None and global_user_stats_cache['expires_at'] > now_ts:
+            level = (cached_payload.get(user_id) or {}).get('level')
+            if level:
+                return level
+    return get_default_level_badge()
 
 
 def build_user_level_snapshot(user_id):
@@ -664,7 +938,6 @@ def get_problem_leaderboard_base(problem_id):
     if not problem:
         return None
 
-    stats_by_user = get_bulk_users_stats()
     submissions = (
         ChallengeSubmission.query
         .options(joinedload(ChallengeSubmission.user))
@@ -685,13 +958,7 @@ def get_problem_leaderboard_base(problem_id):
         if joined_year is not None:
             available_years.add(joined_year)
 
-        current_level = stats_by_user.get(submission.user_id, {}).get('level') or {
-            'num': 1,
-            'name': 'Débutant',
-            'icon': '🌟',
-            'color': '#6c757d',
-            'glow': 'rgba(108,117,125,0.5)'
-        }
+        current_level = get_cached_bulk_user_level(submission.user_id)
 
         row = {
             'submission_id': submission.id,
@@ -771,28 +1038,31 @@ def compute_problem_placement_counts(passed_submissions):
     best_submissions_by_problem = defaultdict(dict)
     for sub in passed_submissions:
         selected_for_problem = best_submissions_by_problem[sub.problem_id]
+        avg_exec_raw = getattr(sub, 'avg_execution_time_ms', None)
+        avg_memory_raw = getattr(sub, 'avg_memory_kb', None)
+        metrics_json = getattr(sub, 'test_case_metrics_json', None)
         avg_exec = (
-            decimal_to_float(sub.avg_execution_time_ms)
-            if decimal_to_float(sub.avg_execution_time_ms) is not None
-            else average_metric_from_json(sub.test_case_metrics_json, 'execution_time_ms')
+            decimal_to_float(avg_exec_raw)
+            if decimal_to_float(avg_exec_raw) is not None
+            else average_metric_from_json(metrics_json, 'execution_time_ms')
         )
         avg_memory = (
-            decimal_to_float(sub.avg_memory_kb)
-            if decimal_to_float(sub.avg_memory_kb) is not None
-            else average_metric_from_json(sub.test_case_metrics_json, 'memory_usage_kb')
+            decimal_to_float(avg_memory_raw)
+            if decimal_to_float(avg_memory_raw) is not None
+            else average_metric_from_json(metrics_json, 'memory_usage_kb')
         )
         candidate = {
             'user_id': sub.user_id,
-            'time_taken_seconds': int(sub.time_taken_seconds or 0),
+            'time_taken_seconds': int(getattr(sub, 'time_taken_seconds', 0) or 0),
             'avg_execution_time_ms': avg_exec,
             'avg_memory_kb': avg_memory,
-            'timestamp': sub.timestamp,
+            'timestamp': getattr(sub, 'timestamp', None),
             '_selection_key': (
                 safe_metric_sort_value(avg_exec),
                 safe_metric_sort_value(avg_memory),
-                int(sub.time_taken_seconds or 0),
-                sub.timestamp or datetime.datetime.max,
-                sub.id
+                int(getattr(sub, 'time_taken_seconds', 0) or 0),
+                getattr(sub, 'timestamp', None) or datetime.datetime.max,
+                getattr(sub, 'id', 0)
             )
         }
         existing = selected_for_problem.get(sub.user_id)
@@ -971,6 +1241,25 @@ def add_header(r):
     r.headers["Expires"] = "0"
     r.headers['Cache-Control'] = 'public, max-age=0'
     r.headers['X-App-Build'] = APP_BUILD_ID
+    request_duration_ms = current_request_duration_ms()
+    if request_duration_ms is not None:
+        r.headers[REQUEST_TIMING_HEADER] = f"{request_duration_ms:.3f}"
+        interesting_prefixes = (
+            '/api/submissions',
+            '/api/user/progress',
+            '/api/problems',
+            '/api/challenge',
+            '/challenge/'
+        )
+        is_interesting = any(request.path.startswith(prefix) for prefix in interesting_prefixes)
+        if request_duration_ms >= SLOW_REQUEST_THRESHOLD_MS or (is_interesting and request_duration_ms >= 250):
+            log_perf_event(
+                'request',
+                method=request.method,
+                path=request.path,
+                status=getattr(r, 'status_code', None),
+                duration_ms=request_duration_ms
+            )
     return r
 
 @app.route('/examples')
@@ -1137,15 +1426,22 @@ import random
 @app.route('/api/quiz/<chapter_identifier>')
 def get_quiz(chapter_identifier):
     try:
-        chapter = Chapter.query.filter_by(identifier=chapter_identifier).first()
-        if not chapter:
+        quiz_question_bank = get_cached_quiz_question_bank(chapter_identifier)
+        if not quiz_question_bank:
             return jsonify({'error': 'Chapter not found in database'}), 404
 
         # Requirements: 6 Easy, 8 Medium, 6 Hard (Total 20)
         # If not enough, get as many as possible
-        easy_q = Question.query.filter_by(chapter_id=chapter.id, difficulty='Easy').all()
-        medium_q = Question.query.filter_by(chapter_id=chapter.id, difficulty='Medium').all()
-        hard_q = Question.query.filter_by(chapter_id=chapter.id, difficulty='Hard').all()
+        easy_q = []
+        medium_q = []
+        hard_q = []
+        for question in quiz_question_bank['questions']:
+            if question['difficulty'] == 'Easy':
+                easy_q.append(question)
+            elif question['difficulty'] == 'Medium':
+                medium_q.append(question)
+            elif question['difficulty'] == 'Hard':
+                hard_q.append(question)
 
         selected_questions = (
             random.sample(easy_q, min(6, len(easy_q))) +
@@ -1156,24 +1452,25 @@ def get_quiz(chapter_identifier):
 
         quiz_data = []
         for q in selected_questions:
-            choices = Choice.query.filter_by(question_id=q.id).all()
-            
             # Get the correct choice and up to 3 random incorrect choices
-            correct_choice = next((c for c in choices if c.is_correct), None)
-            incorrect_choices = [c for c in choices if not c.is_correct]
+            correct_choice = next((choice for choice in q['choices'] if choice['is_correct']), None)
+            incorrect_choices = [choice for choice in q['choices'] if not choice['is_correct']]
             selected_incorrect = random.sample(incorrect_choices, min(3, len(incorrect_choices)))
-            
-            final_choices = [correct_choice] + selected_incorrect if correct_choice else selected_incorrect
+
+            final_choices = []
+            if correct_choice:
+                final_choices.append(dict(correct_choice))
+            final_choices.extend(dict(choice) for choice in selected_incorrect)
             random.shuffle(final_choices)
 
             quiz_data.append({
-                'id': q.id,
-                'type': q.type,
-                'difficulty': q.difficulty,
-                'concept': q.concept,
-                'text': q.text,
-                'explanation': q.explanation,
-                'choices': [{'id': c.id, 'text': c.text, 'is_correct': c.is_correct} for c in final_choices]
+                'id': q['id'],
+                'type': q['type'],
+                'difficulty': q['difficulty'],
+                'concept': q['concept'],
+                'text': q['text'],
+                'explanation': q['explanation'],
+                'choices': final_choices
             })
 
         return jsonify({'questions': quiz_data})
@@ -1191,21 +1488,19 @@ def save_quiz_progress():
         total = data.get('total')
         details = data.get('details', '{}') 
 
-        chapter = Chapter.query.filter_by(identifier=chapter_identifier).first()
-        if not chapter:
+        quiz_question_bank = get_cached_quiz_question_bank(chapter_identifier)
+        if not quiz_question_bank:
             return jsonify({'error': 'Chapter not found'}), 404
+        chapter_id = quiz_question_bank['chapter_id']
 
         if current_user.is_authenticated:
             # Check interpretation
             all_correct = (score == total)
             none_correct = (score == 0)
 
-            # Capture level before save
-            old_xp, _, old_level, _ = compute_xp_and_level(current_user.id)
-
             attempt = QuizAttempt(
                 user_id=current_user.id,
-                chapter_id=chapter.id,
+                chapter_id=chapter_id,
                 score=score,
                 total_questions=total,
                 all_correct=all_correct,
@@ -1214,13 +1509,18 @@ def save_quiz_progress():
             )
             db.session.add(attempt)
             db.session.commit()
+            invalidate_global_user_stats_cache()
+            invalidate_user_progress_cache(current_user.id)
+            invalidate_user_level_cache(current_user.id)
+            schedule_global_user_stats_refresh()
+            schedule_user_level_refresh(current_user.id)
 
             # Percentile calculation
             # Calculate how many unique users have a score lower than this one
             all_scores = db.session.query(
                 func.max(QuizAttempt.score)
             ).filter(
-                QuizAttempt.chapter_id == chapter.id
+                QuizAttempt.chapter_id == chapter_id
             ).group_by(QuizAttempt.user_id).all()
             
             all_scores_list = [s[0] for s in all_scores if s[0] is not None]
@@ -1234,29 +1534,11 @@ def save_quiz_progress():
             elif total_participants == 1:
                 percentile = 100
 
-            # Capture level after save
-            new_xp, _, new_level, new_xp_to_next = compute_xp_and_level(current_user.id)
-            level_up = new_level['num'] > old_level['num']
-            with user_level_cache_lock:
-                user_level_cache[current_user.id] = {
-                    'expires_at': time.time() + USER_LEVEL_CACHE_TTL_SECONDS,
-                    'payload': {
-                        'xp_total': new_xp,
-                        'level': new_level,
-                        'xp_to_next': new_xp_to_next,
-                        'computed_at': utcnow().isoformat()
-                    }
-                }
-
             return jsonify({
                 'success': True,
                 'saved': True,
                 'percentile': round(percentile, 1),
-                'xp_earned': new_xp - old_xp,
-                'xp_total': new_xp,
-                'level': new_level,
-                'level_up': level_up,
-                'xp_to_next': new_xp_to_next
+                'level_refresh_pending': True
             })
 
         return jsonify({'success': True, 'saved': False})
@@ -1932,11 +2214,11 @@ def get_problem_navigation():
 
 @app.route('/problems/<int:problem_id>/leaderboard')
 def problem_leaderboard_page(problem_id):
-    problem = db.session.get(Problem, problem_id)
-    if not problem:
-        return render_template('errors.html'), 404
-    if not problem.is_published:
-        return render_template('errors.html'), 403
+    problem = {
+        'id': problem_id,
+        'title': f'Problème #{problem_id}',
+        'difficulty': 'Chargement...'
+    }
     return render_template('problem_leaderboard.html', problem=problem)
 
 @app.route('/api/problems/<int:problem_id>/leaderboard', methods=['GET'])
@@ -2068,18 +2350,24 @@ def submit_custom_code():
 
 @app.route('/api/submissions', methods=['POST'])
 def submit_code():
+    submit_started_at = time.perf_counter()
+    submit_timings = {}
     data = request.get_json()
     problem_id = data.get('problem_id')
     code = data.get('code')
     execute_all = data.get('execute_all', False)
     requested_time_taken_seconds = data.get('time_taken_seconds', 0)
-    
+
+    stage_started_at = time.perf_counter()
     problem = db.session.get(Problem, problem_id)
+    submit_timings['problem_lookup_ms'] = round((time.perf_counter() - stage_started_at) * 1000, 3)
     if not problem:
         return jsonify({'success': False, 'error': 'Problem not found'}), 404
-    
+
     # 1. Compile Algo code to Python
+    stage_started_at = time.perf_counter()
     result = compile_algo(code)
+    submit_timings['compile_ms'] = round((time.perf_counter() - stage_started_at) * 1000, 3)
     
     # Handle tuple return (code, errors)
     if isinstance(result, tuple):
@@ -2095,20 +2383,26 @@ def submit_code():
     
     
     # 2. Select test cases
+    stage_started_at = time.perf_counter()
     if execute_all:
         test_cases = problem.test_cases
     else:
         test_cases = [tc for tc in problem.test_cases if tc.is_public]
+    submit_timings['select_tests_ms'] = round((time.perf_counter() - stage_started_at) * 1000, 3)
         
     # 3. Format test case data for sandbox
+    stage_started_at = time.perf_counter()
     tc_data = [{
         'id': tc.id,
         'input': tc.input_data,
         'expected_output': tc.expected_output
     } for tc in test_cases]
+    submit_timings['prepare_tests_ms'] = round((time.perf_counter() - stage_started_at) * 1000, 3)
     
     # 4. Execute in sandbox
+    stage_started_at = time.perf_counter()
     raw_results = execute_code(python_code, tc_data)
+    submit_timings['execute_ms'] = round((time.perf_counter() - stage_started_at) * 1000, 3)
 
     # Merge original tc_data with execution results
     results = []
@@ -2160,6 +2454,7 @@ def submit_code():
     if current_user.is_authenticated and execute_all:
         score_percent = passed_count / total_count * 100 if total_count else 0
 
+        stage_started_at = time.perf_counter()
         submission = ChallengeSubmission(
             user_id=current_user.id,
             problem_id=problem.id,
@@ -2180,9 +2475,25 @@ def submit_code():
         db.session.add(submission)
         db.session.commit()
         invalidate_problem_leaderboard_cache(problem.id)
+        invalidate_global_user_stats_cache()
+        invalidate_user_progress_cache(current_user.id)
         invalidate_user_level_cache(current_user.id)
+        schedule_global_user_stats_refresh()
         schedule_user_level_refresh(current_user.id)
         level_refresh_scheduled = True
+        submit_timings['persist_submission_ms'] = round((time.perf_counter() - stage_started_at) * 1000, 3)
+    else:
+        submit_timings['persist_submission_ms'] = 0.0
+
+    submit_timings['total_ms'] = round((time.perf_counter() - submit_started_at) * 1000, 3)
+    log_perf_event(
+        'submit_code',
+        problem_id=problem_id,
+        execute_all=bool(execute_all),
+        authenticated=bool(current_user.is_authenticated),
+        test_count=len(tc_data),
+        timings=submit_timings
+    )
 
     return jsonify({
         'success': True,
@@ -2330,18 +2641,51 @@ def compute_xp_and_level(user_id):
     }
     return xp, breakdown, level_dict, xp_to_next
 
-def get_bulk_users_stats():
-    """Return a dictionary mapping user_id to their stats (xp, level, counts) computed in bulk."""
-    all_users = User.query.all()
+def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
+    now_ts = time.time()
+    all_users = db.session.query(User.id, User.name, User.created_at).all()
     if not all_users:
+        if write_cache:
+            with global_user_stats_cache_lock:
+                global_user_stats_cache['expires_at'] = now_ts + GLOBAL_USER_STATS_CACHE_TTL_SECONDS
+                global_user_stats_cache['payload'] = {}
         return {}
 
     # 1. Bulk Fetch all data
-    quiz_attempts = QuizAttempt.query.all()
-    submissions = ChallengeSubmission.query.filter_by(passed=True).all()
-    user_badges = UserBadge.query.all()
-    chapters = {c.id: c.identifier for c in Chapter.query.all()}
-    problems = {p.id: p.difficulty for p in Problem.query.all()}
+    quiz_attempts = db.session.query(
+        QuizAttempt.user_id,
+        QuizAttempt.chapter_id,
+        QuizAttempt.score,
+        QuizAttempt.total_questions
+    ).all()
+    if include_placements:
+        submissions = db.session.query(
+            ChallengeSubmission.id,
+            ChallengeSubmission.user_id,
+            ChallengeSubmission.problem_id,
+            ChallengeSubmission.time_taken_seconds,
+            ChallengeSubmission.avg_execution_time_ms,
+            ChallengeSubmission.avg_memory_kb,
+            ChallengeSubmission.timestamp
+        ).filter(
+            ChallengeSubmission.passed.is_(True)
+        ).all()
+    else:
+        submissions = db.session.query(
+            ChallengeSubmission.user_id,
+            ChallengeSubmission.problem_id
+        ).filter(
+            ChallengeSubmission.passed.is_(True)
+        ).all()
+    user_badges = db.session.query(UserBadge.user_id).all()
+    chapters = {
+        row.id: row.identifier
+        for row in db.session.query(Chapter.id, Chapter.identifier).all()
+    }
+    problems = {
+        row.id: row.difficulty
+        for row in db.session.query(Problem.id, Problem.difficulty).all()
+    }
 
     # 2. Group data by user_id
     qa_by_user = {}
@@ -2361,7 +2705,10 @@ def get_bulk_users_stats():
 
     # 2b. Compute per-problem placements in memory so the global leaderboard
     # can expose Top 1 / Top 3 / Top 10 without issuing one query per problem.
-    placement_counts = compute_problem_placement_counts(submissions)
+    if include_placements:
+        placement_counts = compute_problem_placement_counts(submissions)
+    else:
+        placement_counts = defaultdict(lambda: {'top1': 0, 'top3': 0, 'top10': 0})
 
     # 3. Compute for each user
     results = {}
@@ -2438,7 +2785,72 @@ def get_bulk_users_stats():
             'top10': placement_counts[uid]['top10']
         }
 
+    if write_cache:
+        with global_user_stats_cache_lock:
+            global_user_stats_cache['expires_at'] = now_ts + GLOBAL_USER_STATS_CACHE_TTL_SECONDS
+            global_user_stats_cache['payload'] = results
     return results
+
+
+def refresh_global_user_stats_cache():
+    global global_user_stats_refresh_future
+    started_at = utcnow().isoformat()
+    with global_user_stats_cache_lock:
+        global_user_stats_refresh_state['status'] = 'running'
+        global_user_stats_refresh_state['started_at'] = started_at
+        global_user_stats_refresh_state['last_error'] = None
+    try:
+        with app.app_context():
+            compute_bulk_users_stats_payload()
+    except Exception as exc:
+        log_perf_event('global_user_stats_refresh_failed', error=str(exc))
+        with global_user_stats_cache_lock:
+            global_user_stats_refresh_state['status'] = 'failed'
+            global_user_stats_refresh_state['finished_at'] = utcnow().isoformat()
+            global_user_stats_refresh_state['last_error'] = str(exc)
+    finally:
+        with global_user_stats_cache_lock:
+            if global_user_stats_refresh_state['status'] != 'failed':
+                global_user_stats_refresh_state['status'] = 'idle'
+                global_user_stats_refresh_state['finished_at'] = utcnow().isoformat()
+            global_user_stats_refresh_future = None
+
+
+def schedule_global_user_stats_refresh():
+    global global_user_stats_refresh_future
+    with global_user_stats_cache_lock:
+        future = global_user_stats_refresh_future
+        if future and not future.done():
+            return future
+        future = background_task_executor.submit(refresh_global_user_stats_cache)
+        global_user_stats_refresh_future = future
+        return future
+
+
+def build_lightweight_leaderboard_payload():
+    return compute_bulk_users_stats_payload(include_placements=False, write_cache=False)
+
+
+def get_bulk_users_stats(allow_stale=False, refresh_async=False):
+    """Return cached per-user stats used by progress and leaderboard views."""
+    now_ts = time.time()
+    with global_user_stats_cache_lock:
+        cached_payload = global_user_stats_cache.get('payload')
+        cache_is_fresh = cached_payload is not None and global_user_stats_cache['expires_at'] > now_ts
+
+    if cache_is_fresh:
+        return cached_payload
+
+    if allow_stale and cached_payload is not None:
+        if refresh_async:
+            schedule_global_user_stats_refresh()
+        return cached_payload
+
+    if refresh_async:
+        schedule_global_user_stats_refresh()
+        return cached_payload
+
+    return compute_bulk_users_stats_payload()
 
 def compute_user_leaderboard_bucket(stats_by_user, user_id):
     if not stats_by_user or user_id not in stats_by_user:
@@ -2488,74 +2900,122 @@ def compute_user_leaderboard_bucket(stats_by_user, user_id):
         'bucket_label': f'Top {bucket_percent}%'
     }
 
-@app.route('/api/user/progress', methods=['GET'])
-def get_user_progress():
-    if not current_user.is_authenticated:
-        return jsonify({'success': False, 'error': 'Not logged in'}), 401
-    
-    # Aggregate data
-    quiz_attempts = QuizAttempt.query.filter_by(user_id=current_user.id).order_by(QuizAttempt.timestamp.desc()).all()
-    submissions = ChallengeSubmission.query.filter_by(user_id=current_user.id).order_by(ChallengeSubmission.timestamp.desc()).all()
-    
+def get_badge_definitions():
+    return {
+        "streak_3": {"name": "Séquence 3 Jours", "desc": "Actif pendant 3 jours distincts", "icon": "fas fa-fire", "category": "streak"},
+        "streak_7": {"name": "Séquence 7 Jours", "desc": "Actif pendant 7 jours distincts", "icon": "fas fa-fire-alt", "category": "streak"},
+        "streak_14": {"name": "Séquence 14 Jours", "desc": "Actif pendant 14 jours distincts", "icon": "fas fa-burn", "category": "streak"},
+        "streak_30": {"name": "Séquence Mensuelle", "desc": "Actif pendant 30 jours", "icon": "fas fa-calendar-check", "category": "streak"},
+        "course_1": {"name": "Premier Pas", "desc": "1 cours terminé", "icon": "fas fa-book-open", "category": "course"},
+        "course_3": {"name": "Étudiant Assidu", "desc": "3 cours terminés", "icon": "fas fa-book-reader", "category": "course"},
+        "course_7": {"name": "Érudit", "desc": "7 cours terminés", "icon": "fas fa-graduation-cap", "category": "course"},
+        "course_10_master": {"name": "Algo Master", "desc": "10 cours terminés", "icon": "fas fa-university", "category": "course"},
+        "chall_1": {"name": "Développeur", "desc": "1 défi terminé", "icon": "fas fa-keyboard", "category": "challenges"},
+        "chall_5": {"name": "Codeur", "desc": "5 défis terminés", "icon": "fas fa-laptop-code", "category": "challenges"},
+        "chall_10_beg": {"name": "Débutant", "desc": "10 défis terminés", "icon": "fas fa-medal", "category": "challenges"},
+        "chall_20_int": {"name": "Intermédiaire", "desc": "20 défis terminés", "icon": "fas fa-award", "category": "challenges"},
+        "chall_50_adv": {"name": "Avancé", "desc": "50 défis terminés", "icon": "fas fa-trophy", "category": "challenges"},
+        "chall_100_mast": {"name": "Maître des Défis", "desc": "100 défis terminés", "icon": "fas fa-crown", "category": "challenges"},
+        "hacker_bronze": {"name": "Hacker Bronze", "desc": "Tous cours, avg > 70%, 10 défis dont 2 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
+        "hacker_gold": {"name": "Hacker Or", "desc": "Tous cours, avg > 80%, 15 défis dont 3 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
+        "hacker_platinum": {"name": "Hacker Platine", "desc": "Tous cours, avg > 90%, 20 défis dont 4 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
+        "hacker_diamond": {"name": "Hacker Diamant", "desc": "Tous cours, avg > 92%, 30 défis dont 6 difficiles", "icon": "fas fa-user-astronaut", "category": "mastery"},
+        "hacker_master": {"name": "Maître Hacker", "desc": "Tous cours, avg > 95%, 40 défis dont 8 difficiles", "icon": "fas fa-user-secret", "category": "mastery"},
+        "hacker_grandmaster": {"name": "Grand Maître Hacker", "desc": "Tous cours, avg > 99%, 50 défis dont 10 difficiles", "icon": "fas fa-user-secret", "category": "mastery"},
+        "maitre_tableaux": {"name": "Maitre des Tableaux", "desc": "20 problèmes sur Arrays", "icon": "fas fa-table", "category": "maitre"},
+        "maitre_chaines": {"name": "Maitre des Chaines", "desc": "20 problèmes sur Strings", "icon": "fas fa-font", "category": "maitre"},
+        "maitre_enregistrements": {"name": "Maitre des Enregistrements", "desc": "20 problèmes d'Enregistrements", "icon": "fas fa-address-card", "category": "maitre"},
+        "maitre_listes": {"name": "Maitre des Listes Chainees", "desc": "20 problèmes sur LinkedList", "icon": "fas fa-link", "category": "maitre"},
+        "maitre_files": {"name": "Maitre des Files", "desc": "20 problèmes sur Files", "icon": "fas fa-layer-group", "category": "maitre"},
+        "maitre_piles": {"name": "Maitre des Piles", "desc": "20 problèmes sur Piles", "icon": "fas fa-bars", "category": "maitre"},
+    }
+
+
+def build_chapter_stats_map(quiz_attempts):
     chapter_stats = {}
     for qa in quiz_attempts:
         chap_id = qa.chapter_id
         is_completed = (qa.score / qa.total_questions) >= 0.8 if qa.total_questions > 0 else False
         score_perc = (qa.score / qa.total_questions * 100) if qa.total_questions > 0 else 0
-        
         if chap_id not in chapter_stats:
             chapter_stats[chap_id] = {
-                'all_correct': is_completed, 
-                'taken': True, 
-                'score': qa.score, 
+                'all_correct': is_completed,
+                'taken': True,
+                'score': qa.score,
                 'total': qa.total_questions,
                 'attempts_count': 1,
                 'total_perc': score_perc
             }
-        else:
-            chapter_stats[chap_id]['attempts_count'] += 1
-            chapter_stats[chap_id]['total_perc'] += score_perc
-            if is_completed:
-                chapter_stats[chap_id]['all_correct'] = True
-            if qa.score > chapter_stats[chap_id]['score']:
-                chapter_stats[chap_id]['score'] = qa.score
-                chapter_stats[chap_id]['total'] = qa.total_questions
+            continue
 
-    # Finalize average calculation
-    for chap_id in chapter_stats:
-        stats = chapter_stats[chap_id]
+        chapter_stats[chap_id]['attempts_count'] += 1
+        chapter_stats[chap_id]['total_perc'] += score_perc
+        if is_completed:
+            chapter_stats[chap_id]['all_correct'] = True
+        if qa.score > chapter_stats[chap_id]['score']:
+            chapter_stats[chap_id]['score'] = qa.score
+            chapter_stats[chap_id]['total'] = qa.total_questions
+
+    for chap_id, stats in chapter_stats.items():
         stats['avg_score'] = round(stats['total_perc'] / stats['attempts_count'], 1)
-            
-    # Map chapter IDs to their identifiers to send back to frontend
-    chapters = Chapter.query.all()
-    chapter_map = {c.id: c.identifier for c in chapters}
-    
-    frontend_chapter_stats = {}
-    for cid, stats in chapter_stats.items():
-        if cid in chapter_map:
-            frontend_chapter_stats[chapter_map[cid]] = stats
+    return chapter_stats
 
+
+def build_frontend_chapter_stats(chapter_stats, chapters):
+    chapter_map = {chapter.id: chapter.identifier for chapter in chapters}
+    frontend_chapter_stats = {}
+    for chapter_id, stats in chapter_stats.items():
+        identifier = chapter_map.get(chapter_id)
+        if identifier:
+            frontend_chapter_stats[identifier] = stats
+    return frontend_chapter_stats, chapter_map
+
+
+def build_challenge_stats_map(submissions):
     challenge_stats = {}
     for sub in submissions:
-        pid = sub.problem_id
-        if pid not in challenge_stats:
-            challenge_stats[pid] = {'passed': False, 'best_score': 0}
+        problem_stats = challenge_stats.setdefault(sub.problem_id, {'passed': False, 'best_score': 0})
         if sub.passed:
-            challenge_stats[pid]['passed'] = True
-        if sub.score > challenge_stats[pid]['best_score']:
-             challenge_stats[pid]['best_score'] = sub.score
+            problem_stats['passed'] = True
+        if sub.score > problem_stats['best_score']:
+            problem_stats['best_score'] = sub.score
+    return challenge_stats
+
+
+def normalize_problem_topic(value):
+    topic = str(value or '').strip().lower()
+    if 'pile' in topic or 'stack' in topic:
+        return 'Piles'
+    if 'liste' in topic or 'chain' in topic or 'linked' in topic:
+        return 'Listes_Chainees'
+    if 'file' in topic or 'queue' in topic:
+        return 'Files'
+    if 'array' in topic or 'tableau' in topic:
+        return 'Arrays'
+    if 'string' in topic or 'chaine' in topic:
+        return 'Strings'
+    if 'enregistr' in topic or 'record' in topic:
+        return 'Enregistrements'
+    return str(value or '').strip()
+
+
+def build_user_progress_summary_payload(user_id):
+    quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).order_by(QuizAttempt.timestamp.desc()).all()
+    submissions = ChallengeSubmission.query.filter_by(user_id=user_id).order_by(ChallengeSubmission.timestamp.desc()).all()
+
+    chapter_stats = build_chapter_stats_map(quiz_attempts)
+    frontend_chapter_stats, _ = build_frontend_chapter_stats(chapter_stats, Chapter.query.all())
+    challenge_stats = build_challenge_stats_map(submissions)
 
     total_quizzes = len(quiz_attempts)
-    perfect_quizzes = sum(1 for q in quiz_attempts if q.all_correct)
-    unique_perfect_chapters = sum(1 for cid in frontend_chapter_stats if frontend_chapter_stats[cid].get('all_correct'))
-    
     total_challenges_attempted = len(set(sub.problem_id for sub in submissions))
     total_available_challenges = Problem.query.filter_by(is_published=True).count()
     if total_available_challenges == 0:
         total_available_challenges = Problem.query.count()
-    passed_challenges = sum(1 for pid in challenge_stats if challenge_stats[pid]['passed'])
+    passed_challenges = sum(1 for stats in challenge_stats.values() if stats['passed'])
+
     global_user_stats = get_bulk_users_stats()
-    current_global_stats = global_user_stats.get(current_user.id, {})
+    current_global_stats = global_user_stats.get(user_id, {})
     current_user_placements = {
         'top1': current_global_stats.get('top1', 0),
         'top3': current_global_stats.get('top3', 0),
@@ -2564,106 +3024,73 @@ def get_user_progress():
     top1_percentage = round((current_user_placements['top1'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
     top3_percentage = round((current_user_placements['top3'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
     top10_percentage = round((current_user_placements['top10'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
-    leaderboard_bucket = compute_user_leaderboard_bucket(global_user_stats, current_user.id)
+    leaderboard_bucket = compute_user_leaderboard_bucket(global_user_stats, user_id)
 
-    # Normalize challenge topics for badge logic / stats
-    def normalize_topic(value):
-        t = str(value or '').strip().lower()
-        if 'pile' in t or 'stack' in t:
-            return 'Piles'
-        if 'liste' in t or 'chain' in t or 'linked' in t:
-            return 'Listes_Chainees'
-        if 'file' in t or 'queue' in t:
-            return 'Files'
-        if 'array' in t or 'tableau' in t:
-            return 'Arrays'
-        if 'string' in t or 'chaine' in t:
-            return 'Strings'
-        if 'enregistr' in t or 'record' in t:
-            return 'Enregistrements'
-        return str(value or '').strip()
+    xp_total, xp_breakdown, level_dict, xp_to_next = compute_xp_and_level(user_id)
+    with user_level_cache_lock:
+        user_level_cache[user_id] = {
+            'expires_at': time.time() + USER_LEVEL_CACHE_TTL_SECONDS,
+            'payload': {
+                'xp_total': xp_total,
+                'level': level_dict,
+                'xp_to_next': xp_to_next,
+                'computed_at': utcnow().isoformat()
+            }
+        }
 
-    passed_problem_rows = ChallengeSubmission.query.join(Problem).filter(
-        ChallengeSubmission.user_id == current_user.id,
-        ChallengeSubmission.passed == True
-    ).with_entities(Problem.id, Problem.topic).distinct().all()
-    topic_counts_norm = {}
-    for _, topic in passed_problem_rows:
-        canon = normalize_topic(topic)
-        topic_counts_norm[canon] = topic_counts_norm.get(canon, 0) + 1
-    
-    # --- NEW ADVANCED STATISTICS (Phase 6) ---
-    # 1. Challenge Distributions
-    challenge_topic_dist = {}
-    challenge_diff_dist = {'Easy': 0, 'Medium': 0, 'Hard': 0}
-    
-    # We only count UNIQUE passed problems for distribution
-    passed_pids = [pid for pid, s in challenge_stats.items() if s['passed']]
-    if passed_pids:
-        passed_problems = Problem.query.filter(Problem.id.in_(passed_pids)).all()
-        for p in passed_problems:
-            challenge_topic_dist[p.topic] = challenge_topic_dist.get(p.topic, 0) + 1
-            challenge_diff_dist[p.difficulty] = challenge_diff_dist.get(p.difficulty, 0) + 1
+    return {
+        'chapter_stats': frontend_chapter_stats,
+        'challenge_stats': challenge_stats,
+        'total_quizzes_taken': total_quizzes,
+        'total_challenges_attempted': total_challenges_attempted,
+        'total_available_challenges': total_available_challenges,
+        'challenges_completed': passed_challenges,
+        'top1_finishes': current_user_placements['top1'],
+        'top1_percentage': top1_percentage,
+        'top3_finishes': current_user_placements['top3'],
+        'top3_percentage': top3_percentage,
+        'top10_finishes': current_user_placements['top10'],
+        'top10_percentage': top10_percentage,
+        'leaderboard_bucket': leaderboard_bucket,
+        'xp_total': xp_total,
+        'xp_breakdown': xp_breakdown,
+        'level': level_dict,
+        'xp_to_next': xp_to_next
+    }
 
-    # 2. Temporal Quiz Data (Daily Averages)
-    daily_stats = {}
-    for qa in quiz_attempts:
-        day = qa.timestamp.date().isoformat()
-        if day not in daily_stats:
-            daily_stats[day] = {'total_score': 0, 'count': 0}
-        daily_stats[day]['total_score'] += (qa.score / qa.total_questions) * 100
-        daily_stats[day]['count'] += 1
-    
-    daily_avg_quiz_score = [
-        {'day': d, 'avg': round(s['total_score'] / s['count'], 1)} 
-        for d, s in sorted(daily_stats.items())
-    ]
 
-    # 3. Per-Chapter Score Evolution
-    # Format: { 'chap_identifier': [ {timestamp, score_perc} ] }
-    quiz_evolution_per_chapter = {}
-    # Process in chronological order for the chart
-    for qa in sorted(quiz_attempts, key=lambda x: x.timestamp):
-        ident = chapter_map.get(qa.chapter_id)
-        if not ident: continue
-        if ident not in quiz_evolution_per_chapter:
-            quiz_evolution_per_chapter[ident] = []
-        quiz_evolution_per_chapter[ident].append({
-            'ts': qa.timestamp.isoformat(),
-            'score': round((qa.score / qa.total_questions) * 100, 1)
-        })
+def build_user_badges_payload(user_id):
+    quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).order_by(QuizAttempt.timestamp.desc()).all()
+    submissions = ChallengeSubmission.query.filter_by(user_id=user_id).order_by(ChallengeSubmission.timestamp.desc()).all()
 
-    # --- END ADVANCED STATISTICS ---
+    chapter_stats = build_chapter_stats_map(quiz_attempts)
+    frontend_chapter_stats, _ = build_frontend_chapter_stats(chapter_stats, Chapter.query.all())
+    challenge_stats = build_challenge_stats_map(submissions)
+    challenges_completed = sum(1 for stats in challenge_stats.values() if stats['passed'])
+    courses_completed = sum(1 for stats in frontend_chapter_stats.values() if stats.get('all_correct'))
 
-    # --- NEW BADGES LOGIC based on Badges.txt ---
-    # Streaks calculation (simplified for now to days active based on timestamps)
-    # Course completion stats
-    courses_completed = sum(1 for cid in frontend_chapter_stats if frontend_chapter_stats[cid].get('all_correct'))
-    
-    # Challenge Stats
-    challenges_completed = passed_challenges
-    
-    # Mastery / Hacker Stats
-    # Assuming "hard" challenges are those marked difficulty='Hard'
     hard_problems_passed = ChallengeSubmission.query.join(Problem).filter(
-        ChallengeSubmission.user_id == current_user.id,
+        ChallengeSubmission.user_id == user_id,
         ChallengeSubmission.passed == True,
         Problem.difficulty == 'Hard'
     ).with_entities(Problem.id).distinct().count()
 
-    total_course_score = sum(stats['score']/stats['total'] for stats in chapter_stats.values()) if chapter_stats else 0
+    total_course_score = sum(stats['score'] / stats['total'] for stats in chapter_stats.values()) if chapter_stats else 0
     num_courses_taken = len(chapter_stats) if chapter_stats else 1
     avg_course_score = (total_course_score / num_courses_taken) * 100
-    
-    # Calculate badges to award
-    badges_to_award = []
-    
-    # 1. Streaks (Require complex date parsing - simplified placeholder for demo or basic activity)
-    # We will award 3 day streak if they have submissions/quizzes on 3 distinct days
-    import datetime
-    distinct_active_days = set([d.timestamp.date() for d in submissions] + [d.timestamp.date() for d in quiz_attempts])
+    distinct_active_days = {entry.timestamp.date() for entry in submissions} | {entry.timestamp.date() for entry in quiz_attempts}
     active_days = len(distinct_active_days)
-    
+
+    passed_problem_rows = ChallengeSubmission.query.join(Problem).filter(
+        ChallengeSubmission.user_id == user_id,
+        ChallengeSubmission.passed == True
+    ).with_entities(Problem.id, Problem.topic).distinct().all()
+    topic_counts_norm = {}
+    for _, topic in passed_problem_rows:
+        normalized_topic = normalize_problem_topic(topic)
+        topic_counts_norm[normalized_topic] = topic_counts_norm.get(normalized_topic, 0) + 1
+
+    badges_to_award = []
     if active_days >= 3: badges_to_award.append("streak_3")
     if active_days >= 7: badges_to_award.append("streak_7")
     if active_days >= 14: badges_to_award.append("streak_14")
@@ -2672,22 +3099,17 @@ def get_user_progress():
     if active_days >= 90: badges_to_award.append("streak_90")
     if active_days >= 180: badges_to_award.append("streak_180")
     if active_days >= 365: badges_to_award.append("streak_365")
-    
-    # 2. Courses
     if courses_completed >= 1: badges_to_award.append("course_1")
     if courses_completed >= 3: badges_to_award.append("course_3")
     if courses_completed >= 7: badges_to_award.append("course_7")
     if courses_completed >= 10: badges_to_award.append("course_10_master")
-    
-    # 3. Challenges 
     if challenges_completed >= 1: badges_to_award.append("chall_1")
     if challenges_completed >= 5: badges_to_award.append("chall_5")
     if challenges_completed >= 10: badges_to_award.append("chall_10_beg")
     if challenges_completed >= 20: badges_to_award.append("chall_20_int")
     if challenges_completed >= 50: badges_to_award.append("chall_50_adv")
     if challenges_completed >= 100: badges_to_award.append("chall_100_mast")
-        
-    # 4. Mastery Hacker
+
     all_courses_finished = courses_completed >= 10
     if all_courses_finished and avg_course_score > 70 and challenges_completed >= 10 and hard_problems_passed >= 2:
         badges_to_award.append("hacker_bronze")
@@ -2701,135 +3123,219 @@ def get_user_progress():
         badges_to_award.append("hacker_master")
     if all_courses_finished and avg_course_score > 99 and challenges_completed >= 50 and hard_problems_passed >= 10:
         badges_to_award.append("hacker_grandmaster")
-        
-    # 5. Maitre Badges (Assuming specific topic problem counts)
-    def chapter_prob_passed(topic):
-        return topic_counts_norm.get(topic, 0)
-        
-    if chapter_prob_passed("Arrays") >= 20: badges_to_award.append("maitre_tableaux")
-    if chapter_prob_passed("Strings") >= 20: badges_to_award.append("maitre_chaines")
-    if chapter_prob_passed("Enregistrements") >= 20: badges_to_award.append("maitre_enregistrements")
-    if chapter_prob_passed("Listes_Chainees") >= 20: badges_to_award.append("maitre_listes")
-    if chapter_prob_passed("Files") >= 20: badges_to_award.append("maitre_files")
-    if chapter_prob_passed("Piles") >= 20: badges_to_award.append("maitre_piles")
 
-    # Query existing badges to see what's new
-    existing_badges = {ub.badge_id: ub for ub in UserBadge.query.filter_by(user_id=current_user.id).all()}
-    
+    if topic_counts_norm.get("Arrays", 0) >= 20: badges_to_award.append("maitre_tableaux")
+    if topic_counts_norm.get("Strings", 0) >= 20: badges_to_award.append("maitre_chaines")
+    if topic_counts_norm.get("Enregistrements", 0) >= 20: badges_to_award.append("maitre_enregistrements")
+    if topic_counts_norm.get("Listes_Chainees", 0) >= 20: badges_to_award.append("maitre_listes")
+    if topic_counts_norm.get("Files", 0) >= 20: badges_to_award.append("maitre_files")
+    if topic_counts_norm.get("Piles", 0) >= 20: badges_to_award.append("maitre_piles")
+
+    existing_badges = {badge.badge_id: badge for badge in UserBadge.query.filter_by(user_id=user_id).all()}
     new_badges_awarded = []
-    for bid in badges_to_award:
-        if bid not in existing_badges:
-            ub = UserBadge(user_id=current_user.id, badge_id=bid, seen=False)
-            db.session.add(ub)
-            new_badges_awarded.append(bid)
-            existing_badges[bid] = ub
-            
+    for badge_id in badges_to_award:
+        if badge_id in existing_badges:
+            continue
+        badge = UserBadge(user_id=user_id, badge_id=badge_id, seen=False)
+        db.session.add(badge)
+        new_badges_awarded.append(badge_id)
+        existing_badges[badge_id] = badge
+
     if new_badges_awarded:
         db.session.commit()
+        invalidate_global_user_stats_cache()
+        invalidate_user_level_cache(user_id)
+        invalidate_user_progress_summary_cache(user_id)
+        schedule_global_user_stats_refresh()
 
-    # Define metadata for frontend delivery
-    badge_defs = {
-        "streak_3": {"name": "Séquence 3 Jours", "desc": "Actif pendant 3 jours distincts", "icon": "fas fa-fire", "category": "streak"},
-        "streak_7": {"name": "Séquence 7 Jours", "desc": "Actif pendant 7 jours distincts", "icon": "fas fa-fire-alt", "category": "streak"},
-        "streak_14": {"name": "Séquence 14 Jours", "desc": "Actif pendant 14 jours distincts", "icon": "fas fa-burn", "category": "streak"},
-        "streak_30": {"name": "Séquence Mensuelle", "desc": "Actif pendant 30 jours", "icon": "fas fa-calendar-check", "category": "streak"},
-        
-        "course_1": {"name": "Premier Pas", "desc": "1 cours terminé", "icon": "fas fa-book-open", "category": "course"},
-        "course_3": {"name": "Étudiant Assidu", "desc": "3 cours terminés", "icon": "fas fa-book-reader", "category": "course"},
-        "course_7": {"name": "Érudit", "desc": "7 cours terminés", "icon": "fas fa-graduation-cap", "category": "course"},
-        "course_10_master": {"name": "Algo Master", "desc": "10 cours terminés", "icon": "fas fa-university", "category": "course"},
-        
-        "chall_1": {"name": "Développeur", "desc": "1 défi terminé", "icon": "fas fa-keyboard", "category": "challenges"},
-        "chall_5": {"name": "Codeur", "desc": "5 défis terminés", "icon": "fas fa-laptop-code", "category": "challenges"},
-        "chall_10_beg": {"name": "Débutant", "desc": "10 défis terminés", "icon": "fas fa-medal", "category": "challenges"},
-        "chall_20_int": {"name": "Intermédiaire", "desc": "20 défis terminés", "icon": "fas fa-award", "category": "challenges"},
-        "chall_50_adv": {"name": "Avancé", "desc": "50 défis terminés", "icon": "fas fa-trophy", "category": "challenges"},
-        "chall_100_mast": {"name": "Maître des Défis", "desc": "100 défis terminés", "icon": "fas fa-crown", "category": "challenges"},
-        
-        "hacker_bronze": {"name": "Hacker Bronze", "desc": "Tous cours, avg > 70%, 10 défis dont 2 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
-        "hacker_gold": {"name": "Hacker Or", "desc": "Tous cours, avg > 80%, 15 défis dont 3 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
-        "hacker_platinum": {"name": "Hacker Platine", "desc": "Tous cours, avg > 90%, 20 défis dont 4 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
-        "hacker_diamond": {"name": "Hacker Diamant", "desc": "Tous cours, avg > 92%, 30 défis dont 6 difficiles", "icon": "fas fa-user-astronaut", "category": "mastery"},
-        "hacker_master": {"name": "Maître Hacker", "desc": "Tous cours, avg > 95%, 40 défis dont 8 difficiles", "icon": "fas fa-user-secret", "category": "mastery"},
-        "hacker_grandmaster": {"name": "Grand Maître Hacker", "desc": "Tous cours, avg > 99%, 50 défis dont 10 difficiles", "icon": "fas fa-user-secret", "category": "mastery"},
-        
-        "maitre_tableaux": {"name": "Maitre des Tableaux", "desc": "20 problèmes sur Arrays", "icon": "fas fa-table", "category": "maitre"},
-        "maitre_chaines": {"name": "Maitre des Chaines", "desc": "20 problèmes sur Strings", "icon": "fas fa-font", "category": "maitre"},
-        "maitre_enregistrements": {"name": "Maitre des Enregistrements", "desc": "20 problèmes d'Enregistrements", "icon": "fas fa-address-card", "category": "maitre"},
-        "maitre_listes": {"name": "Maitre des Listes Chainees", "desc": "20 problèmes sur LinkedList", "icon": "fas fa-link", "category": "maitre"},
-        "maitre_files": {"name": "Maitre des Files", "desc": "20 problèmes sur Files", "icon": "fas fa-layer-group", "category": "maitre"},
-        "maitre_piles": {"name": "Maitre des Piles", "desc": "20 problèmes sur Piles", "icon": "fas fa-bars", "category": "maitre"},
+    badge_defs = get_badge_definitions()
+    badges_response = [{
+        "id": badge_id,
+        "identifier": badge_id,
+        "name": meta["name"],
+        "description": meta["desc"],
+        "icon": meta["icon"],
+        "category": meta["category"],
+        "earned": badge_id in existing_badges,
+        "seen": existing_badges[badge_id].seen if badge_id in existing_badges else True
+    } for badge_id, meta in badge_defs.items()]
+
+    tracked_topics = ["Arrays", "Strings", "Enregistrements", "Listes_Chainees", "Files", "Piles"]
+    topic_counts = {topic: topic_counts_norm.get(topic, 0) for topic in tracked_topics}
+
+    return {
+        'badges': badges_response,
+        'active_days': active_days,
+        'courses_completed': courses_completed,
+        'hard_challenges_completed': hard_problems_passed,
+        'avg_course_score': avg_course_score,
+        'challenges_completed': challenges_completed,
+        'topic_counts': topic_counts,
+        'summary_refresh_required': bool(new_badges_awarded),
+        'newly_awarded_badge_ids': new_badges_awarded
     }
-    
-    # Send up all definitions, marking which ones the user earned vs locked
-    badges_response = []
-    for bid, meta in badge_defs.items():
-        badges_response.append({
-            "id": bid,
-            "name": meta["name"],
-            "description": meta["desc"],
-            "icon": meta["icon"],
-            "category": meta["category"],
-            "earned": bid in existing_badges,
-            "seen": existing_badges[bid].seen if bid in existing_badges else True
+
+
+def build_user_progress_advanced_payload(user_id):
+    quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).order_by(QuizAttempt.timestamp.desc()).all()
+    submissions = ChallengeSubmission.query.filter_by(user_id=user_id).order_by(ChallengeSubmission.timestamp.desc()).all()
+    chapter_map = {chapter.id: chapter.identifier for chapter in Chapter.query.all()}
+
+    passed_problem_rows = ChallengeSubmission.query.join(Problem).filter(
+        ChallengeSubmission.user_id == user_id,
+        ChallengeSubmission.passed == True
+    ).with_entities(Problem.id, Problem.topic, Problem.difficulty).distinct().all()
+
+    challenge_topic_dist = {}
+    challenge_diff_dist = {'Easy': 0, 'Medium': 0, 'Hard': 0}
+    for _, topic, difficulty in passed_problem_rows:
+        challenge_topic_dist[topic] = challenge_topic_dist.get(topic, 0) + 1
+        if difficulty in challenge_diff_dist:
+            challenge_diff_dist[difficulty] += 1
+
+    daily_stats = {}
+    for qa in quiz_attempts:
+        day = qa.timestamp.date().isoformat()
+        day_stats = daily_stats.setdefault(day, {'total_score': 0, 'count': 0})
+        day_stats['total_score'] += (qa.score / qa.total_questions) * 100
+        day_stats['count'] += 1
+    daily_avg_quiz_score = [
+        {'day': day, 'avg': round(stats['total_score'] / stats['count'], 1)}
+        for day, stats in sorted(daily_stats.items())
+    ]
+
+    quiz_evolution_per_chapter = {}
+    for qa in sorted(quiz_attempts, key=lambda item: item.timestamp):
+        identifier = chapter_map.get(qa.chapter_id)
+        if not identifier:
+            continue
+        quiz_evolution_per_chapter.setdefault(identifier, []).append({
+            'ts': qa.timestamp.isoformat(),
+            'score': round((qa.score / qa.total_questions) * 100, 1)
         })
 
-    # Topic counts for "Maitre" badges
-    topics = ["Arrays", "Strings", "Enregistrements", "Listes_Chainees", "Files", "Piles"]
-    topic_counts = {t: chapter_prob_passed(t) for t in topics}
-
-    # Activity Heatmap Data (last 365 days)
     activity_map = {}
-    today = datetime.date.today()
-    one_year_ago = today - datetime.timedelta(days=365)
+    one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
     for sub in submissions:
-        d = sub.timestamp.date()
-        if d >= one_year_ago:
-            key = d.isoformat()
-            activity_map[key] = activity_map.get(key, 0) + 1
+        day = sub.timestamp.date()
+        if day >= one_year_ago:
+            day_key = day.isoformat()
+            activity_map[day_key] = activity_map.get(day_key, 0) + 1
     for qa in quiz_attempts:
-        d = qa.timestamp.date()
-        if d >= one_year_ago:
-            key = d.isoformat()
-            activity_map[key] = activity_map.get(key, 0) + 1
+        day = qa.timestamp.date()
+        if day >= one_year_ago:
+            day_key = day.isoformat()
+            activity_map[day_key] = activity_map.get(day_key, 0) + 1
 
-    # XP and Level computation
-    xp_total, xp_breakdown, level_dict, xp_to_next = compute_xp_and_level(current_user.id)
+    return {
+        'activity_map': activity_map,
+        'advanced_stats': {
+            'challenge_topic_dist': challenge_topic_dist,
+            'challenge_diff_dist': challenge_diff_dist,
+            'daily_avg_quiz_score': daily_avg_quiz_score,
+            'quiz_evolution_per_chapter': quiz_evolution_per_chapter
+        }
+    }
+
+
+def get_cached_user_progress_summary_payload(user_id):
+    return get_cached_user_payload(
+        user_progress_cache,
+        user_progress_cache_lock,
+        USER_PROGRESS_CACHE_TTL_SECONDS,
+        user_id,
+        build_user_progress_summary_payload
+    )
+
+
+def get_cached_user_badges_payload(user_id):
+    payload = get_cached_user_payload(
+        user_badges_cache,
+        user_badges_cache_lock,
+        USER_BADGES_CACHE_TTL_SECONDS,
+        user_id,
+        build_user_badges_payload
+    )
+    if payload.get('summary_refresh_required') or payload.get('newly_awarded_badge_ids'):
+        response_payload = dict(payload)
+        with user_badges_cache_lock:
+            cached_entry = user_badges_cache.get(int(user_id))
+            if cached_entry and cached_entry.get('payload'):
+                cached_entry['payload'] = {
+                    **cached_entry['payload'],
+                    'summary_refresh_required': False,
+                    'newly_awarded_badge_ids': []
+                }
+        return response_payload
+    return payload
+
+
+def get_cached_user_progress_advanced_payload(user_id):
+    return get_cached_user_payload(
+        user_progress_advanced_cache,
+        user_progress_advanced_cache_lock,
+        USER_PROGRESS_ADVANCED_CACHE_TTL_SECONDS,
+        user_id,
+        build_user_progress_advanced_payload
+    )
+
+
+def build_user_progress_payload(user_id):
+    badges_payload = get_cached_user_badges_payload(user_id)
+    summary_payload = get_cached_user_progress_summary_payload(user_id)
+    advanced_payload = get_cached_user_progress_advanced_payload(user_id)
+    return {
+        **summary_payload,
+        **badges_payload,
+        **advanced_payload
+    }
+
+
+def get_cached_user_progress_payload(user_id):
+    return build_user_progress_payload(user_id)
+
+
+@app.route('/api/user/progress/summary', methods=['GET'])
+def get_user_progress_summary():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
 
     return jsonify({
         'success': True,
-        'progress': {
-            'chapter_stats': frontend_chapter_stats,
-            'challenge_stats': challenge_stats,
-            'total_quizzes_taken': total_quizzes,
-            'total_challenges_attempted': total_challenges_attempted,
-            'total_available_challenges': total_available_challenges,
-            'challenges_completed': passed_challenges,
-            'top1_finishes': current_user_placements['top1'],
-            'top1_percentage': top1_percentage,
-            'top3_finishes': current_user_placements['top3'],
-            'top3_percentage': top3_percentage,
-            'top10_finishes': current_user_placements['top10'],
-            'top10_percentage': top10_percentage,
-            'leaderboard_bucket': leaderboard_bucket,
-            'active_days': active_days,
-            'courses_completed': courses_completed,
-            'hard_challenges_completed': hard_problems_passed,
-            'avg_course_score': avg_course_score,
-            'topic_counts': topic_counts,
-            'badges': badges_response,
-            'activity_map': activity_map,
-            'xp_total': xp_total,
-            'xp_breakdown': xp_breakdown,
-            'level': level_dict,
-            'xp_to_next': xp_to_next,
-            'advanced_stats': {
-                'challenge_topic_dist': challenge_topic_dist,
-                'challenge_diff_dist': challenge_diff_dist,
-                'daily_avg_quiz_score': daily_avg_quiz_score,
-                'quiz_evolution_per_chapter': quiz_evolution_per_chapter
-            }
-        }
+        'progress': get_cached_user_progress_summary_payload(current_user.id)
+    })
+
+
+@app.route('/api/user/progress/badges', methods=['GET'])
+def get_user_progress_badges():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
+    return jsonify({
+        'success': True,
+        'progress': get_cached_user_badges_payload(current_user.id)
+    })
+
+
+@app.route('/api/user/progress/advanced', methods=['GET'])
+def get_user_progress_advanced():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
+    return jsonify({
+        'success': True,
+        'progress': get_cached_user_progress_advanced_payload(current_user.id)
+    })
+
+
+@app.route('/api/user/progress', methods=['GET'])
+def get_user_progress():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
+    return jsonify({
+        'success': True,
+        'progress': get_cached_user_progress_payload(current_user.id)
     })
 
 
@@ -2855,15 +3361,53 @@ def leaderboard_page():
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
     try:
-        stats = get_bulk_users_stats()
-        leaderboard = list(stats.values())
+        stats = get_bulk_users_stats(allow_stale=True, refresh_async=True)
+        with global_user_stats_cache_lock:
+            has_cached_payload = global_user_stats_cache.get('payload') is not None
+            refresh_status = dict(global_user_stats_refresh_state)
+
+        if stats is None:
+            fallback_stats = build_lightweight_leaderboard_payload()
+            if fallback_stats:
+                leaderboard = list(fallback_stats.values())
+                leaderboard.sort(key=lambda x: x['score'], reverse=True)
+                return jsonify({
+                    'success': True,
+                    'leaderboard': leaderboard,
+                    'loading': False,
+                    'partial': True,
+                    'refresh_status': refresh_status['status']
+                })
+            has_any_user = db.session.query(User.id).limit(1).first() is not None
+            if not has_any_user:
+                return jsonify({
+                    'success': True,
+                    'leaderboard': [],
+                    'loading': False,
+                    'partial': False,
+                    'refresh_status': refresh_status['status']
+                })
+
+        if stats is None and not has_cached_payload:
+            return jsonify({
+                'success': True,
+                'leaderboard': [],
+                'loading': True,
+                'partial': False,
+                'refresh_status': refresh_status['status']
+            })
+
+        leaderboard = list((stats or {}).values())
         
         # Sort by score descending
         leaderboard.sort(key=lambda x: x['score'], reverse=True)
         
         return jsonify({
             'success': True,
-            'leaderboard': leaderboard
+            'leaderboard': leaderboard,
+            'loading': False,
+            'partial': False,
+            'refresh_status': refresh_status['status']
         })
     except Exception as e:
         import traceback
@@ -2896,6 +3440,7 @@ def mark_badges_seen():
             ).update({"seen": True}, synchronize_session=False)
             
         db.session.commit()
+        invalidate_user_badges_cache(current_user.id)
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2925,6 +3470,8 @@ def update_profile():
             pass # Ignore invalid date format
             
     db.session.commit()
+    invalidate_global_user_stats_cache()
+    schedule_global_user_stats_refresh()
     
     return jsonify({
         'success': True,

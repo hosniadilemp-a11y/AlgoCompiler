@@ -112,6 +112,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextChallengeBtn = document.getElementById('next-challenge-btn');
 
     let currentProblem = null;
+    const REQUEST_TIMEOUT_MS = {
+        navigation: 8000,
+        problemLoad: 20000,
+        submissions: 60000,
+        stdin: 30000
+    };
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } finally {
+            window.clearTimeout(timeoutId);
+        }
+    }
+
+    function describeRequestError(error, timeoutMessage) {
+        if (error && error.name === 'AbortError') {
+            return timeoutMessage;
+        }
+        return error?.message || 'Erreur de connexion';
+    }
 
     function escapeHtml(text) {
         return String(text ?? '')
@@ -182,7 +205,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function setupProblemNavigation() {
         try {
-            const res = await fetch('/api/problems/navigation');
+            const res = await fetchWithTimeout(
+                '/api/problems/navigation',
+                {},
+                REQUEST_TIMEOUT_MS.navigation
+            );
             const data = await res.json();
             if (!data.success || !Array.isArray(data.problem_ids)) {
                 setChallengeNavState(prevChallengeBtn, null);
@@ -209,7 +236,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadProblem() {
         try {
-            const res = await fetch(`/api/problems/${problemId}`);
+            const res = await fetchWithTimeout(
+                `/api/problems/${problemId}`,
+                {},
+                REQUEST_TIMEOUT_MS.problemLoad
+            );
             const data = await res.json();
 
             if (data.success) {
@@ -312,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 descEl.innerHTML = `<p class="error-msg">Erreur: ${data.error}</p>`;
             }
         } catch (e) {
-            descEl.innerHTML = `<p class="error-msg">Erreur de connexion serveur.</p>`;
+            descEl.innerHTML = `<p class="error-msg">${escapeHtml(describeRequestError(e, 'Le chargement du problème a pris trop de temps. Réessayez.'))}</p>`;
         }
     }
 
@@ -368,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch('/api/submissions', {
+            const res = await fetchWithTimeout('/api/submissions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -377,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     execute_all: executeAll,
                     time_taken_seconds: window.challengeTimerSeconds || 0
                 })
-            });
+            }, REQUEST_TIMEOUT_MS.submissions);
 
             const data = await res.json();
 
@@ -423,7 +454,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (e) {
-            renderRunError('Erreur de connexion', [e.message]);
+            renderRunError(
+                'Erreur de connexion',
+                [describeRequestError(e, 'La soumission a pris trop de temps. Le serveur est probablement occupé, réessayez dans quelques secondes.')]
+            );
         } finally {
             if (executeAll) {
                 submitBtn.innerHTML = originalRunBtnText;
@@ -511,14 +545,14 @@ document.addEventListener('DOMContentLoaded', () => {
         consoleLogs.innerHTML = '<span style="color:#888;">Exécution en cours...</span>';
 
         try {
-            const res = await fetch('/api/submissions/custom', {
+            const res = await fetchWithTimeout('/api/submissions/custom', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     code: code,
                     input: customInput
                 })
-            });
+            }, REQUEST_TIMEOUT_MS.stdin);
 
             const data = await res.json();
 
@@ -537,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (e) {
-            consoleLogs.innerHTML = `<span style="color:#ff6b6b; white-space: pre-wrap;">Erreur de connexion: ${escapeHtml(e.message)}</span>`;
+            consoleLogs.innerHTML = `<span style="color:#ff6b6b; white-space: pre-wrap;">Erreur de connexion: ${escapeHtml(describeRequestError(e, 'L’exécution stdin a pris trop de temps. Réessayez.'))}</span>`;
         }
     }
 

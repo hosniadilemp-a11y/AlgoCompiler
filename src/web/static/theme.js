@@ -128,7 +128,7 @@
     window.checkNewBadges = async function () {
         // Only run if user is authenticated (checked via endpoint internally or global flag)
         try {
-            const res = await fetch('/api/user/progress');
+            const res = await fetch('/api/user/progress/badges');
             const data = await res.json();
             if (data.success && data.progress.badges) {
                 const unread = data.progress.badges.filter(b => b.earned && !b.seen);

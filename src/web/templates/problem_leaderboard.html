@@ -473,17 +473,17 @@
             <section class="leaderboard-hero">
                 <div class="hero-card hero-main">
                     <div class="score-pill"><i class="fas fa-trophy"></i> Leaderboard du problème</div>
-                    <h1>{{ problem.title }}</h1>
+                    <h1 id="problem-title">{{ problem.title }}</h1>
                     <p>Classement basé sur la résolution, le temps d'exécution et la mémoire moyenne.</p>
                     <div class="hero-actions">
-                        <a href="/challenge/{{ problem.id }}" class="btn secondary"><i class="fas fa-code"></i> Ouvrir le défi</a>
+                        <a href="/challenge/{{ problem.id }}" id="open-problem-link" class="btn secondary"><i class="fas fa-code"></i> Ouvrir le défi</a>
                         <a href="/problems" class="btn secondary"><i class="fas fa-arrow-left"></i> Retour aux défis</a>
                     </div>
                 </div>
                 <div class="hero-card hero-side">
                     <div class="summary-stat">
                         <div class="label">Difficulté</div>
-                        <div class="value">{{ problem.difficulty }}</div>
+                        <div class="value" id="problem-difficulty">{{ problem.difficulty }}</div>
                     </div>
                     <div class="summary-stat">
                         <div class="label">Classement</div>
@@ -603,6 +603,7 @@
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
     <script>
         const problemId = Number({{ problem.id|tojson }});
+        const LEADERBOARD_TIMEOUT_MS = 12000;
         const state = {
             page: 1,
             pageSize: 10,
@@ -610,6 +611,23 @@
             order: 'desc',
             year: ''
         };
+
+        function updateProblemInfo(problem) {
+            if (!problem) return;
+            const titleEl = document.getElementById('problem-title');
+            const difficultyEl = document.getElementById('problem-difficulty');
+            const openLinkEl = document.getElementById('open-problem-link');
+            if (titleEl && problem.title) {
+                titleEl.textContent = problem.title;
+                document.title = `Leaderboard - ${problem.title} - AlgoCompiler`;
+            }
+            if (difficultyEl && problem.difficulty) {
+                difficultyEl.textContent = problem.difficulty;
+            }
+            if (openLinkEl && problem.id) {
+                openLinkEl.href = `/challenge/${problem.id}`;
+            }
+        }
 
         function formatMetric(value, unit, digits = 3) {
             if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
@@ -689,8 +707,20 @@
             });
             if (state.year) params.set('year', state.year);
 
-            const response = await fetch(`/api/problems/${problemId}/leaderboard?${params.toString()}`);
-            const data = await response.json();
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), LEADERBOARD_TIMEOUT_MS);
+            let data;
+            try {
+                const response = await fetch(`/api/problems/${problemId}/leaderboard?${params.toString()}`, {
+                    signal: controller.signal
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                data = await response.json();
+            } finally {
+                clearTimeout(timeoutId);
+            }
             if (!data.success) throw new Error(data.error || 'Erreur de chargement');
             return data;
         }
@@ -701,6 +731,7 @@
 
             try {
                 const data = await fetchLeaderboard();
+                updateProblemInfo(data.problem);
                 renderYearOptions(data.available_years || []);
                 renderPodium(data.top_users || []);
                 renderRows(data.leaderboard || []);
@@ -716,7 +747,10 @@
                 nextBtn.disabled = data.pagination.page >= data.pagination.total_pages;
             } catch (error) {
                 renderPodium([]);
-                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${error.message}</td></tr>`;
+                const message = error.name === 'AbortError'
+                    ? 'Le leaderboard a pris trop de temps à répondre.'
+                    : error.message;
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${message}</td></tr>`;
             }
         }
 

@@ -274,8 +274,13 @@
         });
 
         async function fetchLiveContestData() {
+            let timeoutId = null;
             try {
-                const res = await fetch(`/api/challenge/${window.CURRENT_PROBLEM_ID}/live`);
+                const controller = new AbortController();
+                timeoutId = window.setTimeout(() => controller.abort(), 8000);
+                const res = await fetch(`/api/challenge/${window.CURRENT_PROBLEM_ID}/live`, {
+                    signal: controller.signal
+                });
                 const data = await res.json();
 
                 const tbody = document.getElementById('live-contest-body');
@@ -315,7 +320,18 @@
                     `;
                 }).join('');
             } catch (err) {
+                const tbody = document.getElementById('live-contest-body');
+                if (tbody) {
+                    const message = err && err.name === 'AbortError'
+                        ? 'Le leaderboard live a pris trop de temps à charger.'
+                        : 'Impossible de charger le leaderboard live pour le moment.';
+                    tbody.innerHTML = `<tr><td colspan="6" style="padding:20px; text-align:center; color:#ff6b6b;">${message}</td></tr>`;
+                }
                 console.error("Error fetching live contest", err);
+            } finally {
+                if (timeoutId !== null) {
+                    window.clearTimeout(timeoutId);
+                }
             }
         }
     </script>

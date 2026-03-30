@@ -1271,432 +1271,449 @@
                 }
             }
 
-            try {
-                let data = initialProgressPayload;
-                if (!data || !data.success) {
-                    const response = await fetch('/api/user/progress');
-                    data = await response.json();
+            async function fetchProgressSection(endpoint) {
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`Request failed for ${endpoint} (${response.status})`);
+                }
+                return response.json();
+            }
+
+            function renderProgressSummary(stats) {
+                const totalChallenges = stats.total_available_challenges || 0;
+                const chapters = stats.chapter_stats || {};
+
+                let totalScore = 0;
+                let count = 0;
+                for (const chapStats of Object.values(chapters)) {
+                    if (!chapStats.taken) continue;
+                    totalScore += (chapStats.score / chapStats.total) * 100;
+                    count++;
+                }
+                const avg = count > 0 ? Math.round(totalScore / count) : 0;
+
+                const xpTotal = stats.xp_total || 0;
+                const level = stats.level || { num: 1, name: 'Débutant', color: '#6c757d', glow: 'rgba(108,117,125,0.5)', icon: '🌟', min_xp: 0, next_xp: 50 };
+                const breakdown = stats.xp_breakdown || [];
+
+                applyStatCard({
+                    cardId: 'card-quizzes',
+                    valueId: 'stat-quizzes',
+                    value: stats.total_quizzes_taken,
+                    max: 10,
+                    scaleText: 'Couleur: 0 -> 10'
+                });
+                applyStatCard({
+                    cardId: 'card-challenges',
+                    valueId: 'stat-challenges',
+                    value: stats.total_challenges_attempted,
+                    max: totalChallenges || 1,
+                    scaleText: `${stats.total_challenges_attempted || 0} / ${totalChallenges} défis`
+                });
+                applyStatCard({
+                    cardId: 'card-score',
+                    valueId: 'stat-score',
+                    value: avg,
+                    max: 100,
+                    suffix: '%',
+                    scaleText: 'Couleur: 0% -> 100%'
+                });
+                applyStatCard({
+                    cardId: 'xp-stat-card',
+                    valueId: 'stat-xp',
+                    value: xpTotal,
+                    max: 3000,
+                    suffix: ' XP',
+                    scaleText: 'Échelle: 0 -> 3000 XP',
+                    duration: 1350
+                });
+                applyStatCard({
+                    cardId: 'card-top1',
+                    valueId: 'stat-top1',
+                    value: stats.top1_percentage || 0,
+                    max: 100,
+                    suffix: '%',
+                    decimals: 1,
+                    scaleText: `${stats.top1_finishes || 0} / ${totalChallenges} problèmes`
+                });
+                applyStatCard({
+                    cardId: 'card-top3',
+                    valueId: 'stat-top3',
+                    value: stats.top3_percentage || 0,
+                    max: 100,
+                    suffix: '%',
+                    decimals: 1,
+                    scaleText: `${stats.top3_finishes || 0} / ${totalChallenges} problèmes`
+                });
+                applyStatCard({
+                    cardId: 'card-top10',
+                    valueId: 'stat-top10',
+                    value: stats.top10_percentage || 0,
+                    max: 100,
+                    suffix: '%',
+                    decimals: 1,
+                    scaleText: `${stats.top10_finishes || 0} / ${totalChallenges} problèmes`
+                });
+
+                const badgeEl = document.getElementById('level-badge');
+                badgeEl.textContent = `${level.icon} ${level.name}`;
+                badgeEl.style.color = level.color;
+                badgeEl.style.setProperty('--level-glow', level.glow);
+                applyPercentileBadge(stats.leaderboard_bucket);
+
+                const fillEl = document.getElementById('xp-bar-fill');
+                const barLabel = document.getElementById('xp-bar-label');
+                fillEl.style.background = level.color;
+                if (level.next_xp) {
+                    const pct = Math.min(100, Math.round(((xpTotal - level.min_xp) / (level.next_xp - level.min_xp)) * 100));
+                    fillEl.style.width = pct + '%';
+                    barLabel.textContent = `${xpTotal} / ${level.next_xp} XP → ${level.next_level_name}`;
+                } else {
+                    fillEl.style.width = '100%';
+                    barLabel.textContent = `${xpTotal} XP — Niveau Max 👑`;
                 }
 
-                if (data.success) {
-                    const stats = data.progress;
-                    const totalChallenges = stats.total_available_challenges || 0;
+                document.getElementById('xp-modal-total').textContent = xpTotal + ' XP';
+                const modalBadge = document.getElementById('xp-modal-level-badge');
+                modalBadge.textContent = formatXpModalLevelName(level);
+                modalBadge.style.color = level.color;
+                modalBadge.style.setProperty('--level-glow', level.glow);
 
-                    let totalScore = 0;
-                    let count = 0;
-                    const chapters = stats.chapter_stats;
-                    for (const [id, chapStats] of Object.entries(chapters)) {
-                        if (chapStats.taken) {
-                            totalScore += (chapStats.score / chapStats.total) * 100;
-                            count++;
+                const ladderItems = document.querySelectorAll('#xp-level-ladder .level-ladder-item');
+                ladderItems.forEach(item => item.classList.remove('current'));
+                if (ladderItems[level.num - 1]) {
+                    ladderItems[level.num - 1].classList.add('current');
+                    ladderItems[level.num - 1].style.borderColor = level.color;
+                    ladderItems[level.num - 1].style.background = level.glow.replace('0.5', '0.1');
+                }
+
+                const breakdownList = document.getElementById('xp-breakdown-list');
+                if (breakdown.length === 0) {
+                    breakdownList.innerHTML = `<div style="text-align:center; color:var(--text-secondary); padding:20px;">Aucune contribution pour l'instant. Complétez des quiz et des défis !</div>`;
+                } else {
+                    breakdownList.innerHTML = breakdown.map(item =>
+                        `<div class="xp-row"><span>${item.icon} ${item.label}</span><span class="xp-pill">+${item.xp} XP</span></div>`
+                    ).join('');
+                }
+
+                const chapterList = document.getElementById('chapter-list');
+                chapterList.innerHTML = '';
+                if (Object.keys(chapters).length === 0) {
+                    chapterList.innerHTML = '<li class="chapter-item"><span style="color:var(--text-secondary)">Aucun chapitre commencé. <a href="/course" style="color:#4a6ee0">Aller au cours</a></span></li>';
+                    return;
+                }
+
+                for (const [id, chapStats] of Object.entries(chapters)) {
+                    let statusHtml = '';
+                    const percent = (chapStats.score / chapStats.total) * 100;
+                    let r, g, b;
+                    if (percent < 50) {
+                        const ratio = percent / 50;
+                        r = Math.round(220 + (255 - 220) * ratio);
+                        g = Math.round(53 + (193 - 53) * ratio);
+                        b = Math.round(69 + (7 - 69) * ratio);
+                    } else {
+                        const ratio = (percent - 50) / 50;
+                        r = Math.round(255 + (40 - 255) * ratio);
+                        g = Math.round(193 + (167 - 193) * ratio);
+                        b = Math.round(7 + (69 - 7) * ratio);
+                    }
+                    const color = `rgb(${r}, ${g}, ${b})`;
+                    const bg = `rgba(${r}, ${g}, ${b}, 0.1)`;
+
+                    if (chapStats.all_correct) {
+                        statusHtml = `<span class="status-badge" style="background: ${bg}; color: ${color};"><i class="fas fa-check-circle"></i> Parfait</span>`;
+                    } else if (chapStats.score > 0) {
+                        statusHtml = `<span class="status-badge" style="background: ${bg}; color: ${color};"><i class="fas fa-exclamation-circle"></i> ${chapStats.score}/${chapStats.total}</span>`;
+                    } else {
+                        statusHtml = `<span class="status-badge" style="background: ${bg}; color: ${color};"><i class="fas fa-times-circle"></i> Échoué</span>`;
+                    }
+
+                    chapterList.innerHTML += `
+                        <li class="chapter-item">
+                            <div class="chapter-info">
+                                <div class="chapter-title">Chapitre : ${id.toUpperCase().replace(/_/g, ' ')}</div>
+                                <div class="chapter-stats-mini" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                                    <i class="fas fa-chart-bar"></i> Moyenne: <strong>${chapStats.avg_score}%</strong>
+                                    <span style="margin-left:8px;"><i class="fas fa-redo"></i> Tentatives: ${chapStats.attempts_count}</span>
+                                </div>
+                            </div>
+                            ${statusHtml}
+                        </li>
+                    `;
+                }
+            }
+
+            function renderProgressAdvanced(progress) {
+                if (typeof Chart === 'undefined' || typeof frappe === 'undefined') {
+                    console.warn("Chart.js ou frappe-charts n'est pas disponible, les graphiques ne seront pas affichés.");
+                    return;
+                }
+
+                const adv = progress.advanced_stats || {
+                    challenge_topic_dist: {},
+                    challenge_diff_dist: { Easy: 0, Medium: 0, Hard: 0 },
+                    daily_avg_quiz_score: [],
+                    quiz_evolution_per_chapter: {}
+                };
+
+                Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#888';
+                Chart.defaults.font.family = "'Segoe UI', 'Inter', sans-serif";
+                Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(22,27,34,0.95)';
+                Chart.defaults.plugins.tooltip.cornerRadius = 8;
+                Chart.defaults.plugins.tooltip.padding = 10;
+
+                const topicLabels = Object.keys(adv.challenge_topic_dist || {});
+                const topicValues = Object.values(adv.challenge_topic_dist || {});
+                const topicColors = ['#4a6ee0', '#2ecc71', '#f39c12', '#e74c3c', '#1abc9c', '#9b59b6', '#3498db', '#e67e22'];
+                new Chart(document.getElementById('topicChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: topicLabels.length > 0 ? topicLabels : ['Aucun'],
+                        datasets: [{
+                            data: topicValues.length > 0 ? topicValues : [1],
+                            backgroundColor: topicColors,
+                            borderWidth: 2,
+                            borderColor: 'transparent',
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        cutout: '65%',
+                        plugins: {
+                            legend: { position: 'right', labels: { padding: 15, usePointStyle: true, pointStyle: 'circle' } },
+                            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} résolu(s)` } }
                         }
                     }
-                    const avg = count > 0 ? Math.round(totalScore / count) : 0;
+                });
 
-                    // ── XP & Level rendering ──────────────────────────────
-                    const xpTotal = stats.xp_total || 0;
-                    const level = stats.level || { num: 1, name: 'Débutant', color: '#6c757d', glow: 'rgba(108,117,125,0.5)', icon: '🌟', min_xp: 0, next_xp: 50 };
-                    const breakdown = stats.xp_breakdown || [];
-
-                    // XP stat card
-                    applyStatCard({
-                        cardId: 'card-quizzes',
-                        valueId: 'stat-quizzes',
-                        value: stats.total_quizzes_taken,
-                        max: 10,
-                        scaleText: 'Couleur: 0 -> 10'
-                    });
-                    applyStatCard({
-                        cardId: 'card-challenges',
-                        valueId: 'stat-challenges',
-                        value: stats.total_challenges_attempted,
-                        max: totalChallenges || 1,
-                        scaleText: `${stats.total_challenges_attempted || 0} / ${totalChallenges} défis`
-                    });
-                    applyStatCard({
-                        cardId: 'card-score',
-                        valueId: 'stat-score',
-                        value: avg,
-                        max: 100,
-                        suffix: '%',
-                        scaleText: 'Couleur: 0% -> 100%'
-                    });
-                    applyStatCard({
-                        cardId: 'xp-stat-card',
-                        valueId: 'stat-xp',
-                        value: xpTotal,
-                        max: 3000,
-                        suffix: ' XP',
-                        scaleText: 'Échelle: 0 -> 3000 XP',
-                        duration: 1350
-                    });
-                    applyStatCard({
-                        cardId: 'card-top1',
-                        valueId: 'stat-top1',
-                        value: stats.top1_percentage || 0,
-                        max: 100,
-                        suffix: '%',
-                        decimals: 1,
-                        scaleText: `${stats.top1_finishes || 0} / ${totalChallenges} problèmes`
-                    });
-                    applyStatCard({
-                        cardId: 'card-top3',
-                        valueId: 'stat-top3',
-                        value: stats.top3_percentage || 0,
-                        max: 100,
-                        suffix: '%',
-                        decimals: 1,
-                        scaleText: `${stats.top3_finishes || 0} / ${totalChallenges} problèmes`
-                    });
-                    applyStatCard({
-                        cardId: 'card-top10',
-                        valueId: 'stat-top10',
-                        value: stats.top10_percentage || 0,
-                        max: 100,
-                        suffix: '%',
-                        decimals: 1,
-                        scaleText: `${stats.top10_finishes || 0} / ${totalChallenges} problèmes`
-                    });
-
-                    // Level badge in profile header
-                    const badgeEl = document.getElementById('level-badge');
-                    badgeEl.textContent = `${level.icon} ${level.name}`;
-                    badgeEl.style.color = level.color;
-                    badgeEl.style.setProperty('--level-glow', level.glow);
-                    applyPercentileBadge(stats.leaderboard_bucket);
-
-                    // XP Progress bar
-                    const fillEl = document.getElementById('xp-bar-fill');
-                    const barLabel = document.getElementById('xp-bar-label');
-                    fillEl.style.background = level.color;
-                    if (level.next_xp) {
-                        const pct = Math.min(100, Math.round(((xpTotal - level.min_xp) / (level.next_xp - level.min_xp)) * 100));
-                        fillEl.style.width = pct + '%';
-                        barLabel.textContent = `${xpTotal} / ${level.next_xp} XP → ${level.next_level_name}`;
-                    } else {
-                        fillEl.style.width = '100%';
-                        barLabel.textContent = `${xpTotal} XP — Niveau Max 👑`;
+                const diffValues = [adv.challenge_diff_dist.Easy, adv.challenge_diff_dist.Medium, adv.challenge_diff_dist.Hard];
+                const diffColors = ['rgba(46,204,113,0.85)', 'rgba(241,196,15,0.85)', 'rgba(231,76,60,0.85)'];
+                const diffBorders = ['#2ecc71', '#f1c40f', '#e74c3c'];
+                new Chart(document.getElementById('difficultyChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Facile', 'Moyen', 'Difficile'],
+                        datasets: [{
+                            label: 'Défis Réussis',
+                            data: diffValues,
+                            backgroundColor: diffColors,
+                            borderColor: diffBorders,
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: { legend: { display: false } }
                     }
+                });
 
-                    // XP Modal
-                    document.getElementById('xp-modal-total').textContent = xpTotal + ' XP';
-                    const modalBadge = document.getElementById('xp-modal-level-badge');
-                    modalBadge.textContent = formatXpModalLevelName(level);
-                    modalBadge.style.color = level.color;
-                    modalBadge.style.setProperty('--level-glow', level.glow);
-
-                    // Highlight current level in ladder
-                    const ladderItems = document.querySelectorAll('#xp-level-ladder .level-ladder-item');
-                    ladderItems.forEach(item => item.classList.remove('current'));
-                    if (ladderItems[level.num - 1]) {
-                        ladderItems[level.num - 1].classList.add('current');
-                        ladderItems[level.num - 1].style.borderColor = level.color;
-                        ladderItems[level.num - 1].style.background = level.glow.replace('0.5', '0.1');
+                const dailyLabels = adv.daily_avg_quiz_score.map(d => d.day);
+                const dailyValues = adv.daily_avg_quiz_score.map(d => d.avg);
+                const dailyCtx = document.getElementById('dailyScoreChart').getContext('2d');
+                const dailyGrad = dailyCtx.createLinearGradient(0, 0, 0, 300);
+                dailyGrad.addColorStop(0, 'rgba(74, 110, 224, 0.35)');
+                dailyGrad.addColorStop(1, 'rgba(74, 110, 224, 0.0)');
+                new Chart(dailyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: dailyLabels,
+                        datasets: [{
+                            label: 'Moyenne Journalière (%)',
+                            data: dailyValues,
+                            borderColor: '#4a6ee0',
+                            backgroundColor: dailyGrad,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#4a6ee0',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: { legend: { display: false } }
                     }
+                });
 
-                    // Breakdown list
-                    const bList = document.getElementById('xp-breakdown-list');
-                    if (breakdown.length === 0) {
-                        bList.innerHTML = `<div style="text-align:center; color:var(--text-secondary); padding:20px;">Aucune contribution pour l'instant. Complétez des quiz et des défis !</div>`;
-                    } else {
-                        bList.innerHTML = breakdown.map(item =>
-                            `<div class="xp-row"><span>${item.icon} ${item.label}</span><span class="xp-pill">+${item.xp} XP</span></div>`
-                        ).join('');
+                const chapterEvolutionCtx = document.getElementById('chapterEvolutionChart').getContext('2d');
+                let evolutionChart;
+                const chapterSelect = document.getElementById('chapterSelect');
+                chapterSelect.innerHTML = '<option value="all">TOUS</option>';
+
+                Object.keys(adv.quiz_evolution_per_chapter).forEach(chap => {
+                    const opt = document.createElement('option');
+                    opt.value = chap;
+                    opt.textContent = chap.toUpperCase();
+                    chapterSelect.appendChild(opt);
+                });
+
+                const getStableColor = (str) => {
+                    let hash = 0;
+                    for (let i = 0; i < str.length; i++) {
+                        hash = str.charCodeAt(i) + ((hash << 5) - hash);
                     }
-                    // ── end XP & Level ────────────────────────────────────
+                    return `hsl(${Math.abs(hash) % 360}, 70%, 50%)`;
+                };
 
+                const renderEvolution = (filter) => {
+                    if (evolutionChart) evolutionChart.destroy();
 
-                    const chapterList = document.getElementById('chapter-list');
-                    chapterList.innerHTML = '';
-
-                    if (Object.keys(chapters).length === 0) {
-                        chapterList.innerHTML = '<li class="chapter-item"><span style="color:var(--text-secondary)">Aucun chapitre commencé. <a href="/course" style="color:#4a6ee0">Aller au cours</a></span></li>';
-                    } else {
-                        for (const [id, chapStats] of Object.entries(chapters)) {
-                            let statusHtml = '';
-                            const percent = (chapStats.score / chapStats.total) * 100;
-                            let r, g, b;
-                            if (percent < 50) {
-                                const ratio = percent / 50;
-                                r = Math.round(220 + (255 - 220) * ratio);
-                                g = Math.round(53 + (193 - 53) * ratio);
-                                b = Math.round(69 + (7 - 69) * ratio);
-                            } else {
-                                const ratio = (percent - 50) / 50;
-                                r = Math.round(255 + (40 - 255) * ratio);
-                                g = Math.round(193 + (167 - 193) * ratio);
-                                b = Math.round(7 + (69 - 7) * ratio);
-                            }
-                            const color = `rgb(${r}, ${g}, ${b})`;
-                            const bg = `rgba(${r}, ${g}, ${b}, 0.1)`;
-
-                            if (chapStats.all_correct) {
-                                statusHtml = `<span class="status-badge" style="background: ${bg}; color: ${color};"><i class="fas fa-check-circle"></i> Parfait</span>`;
-                            } else if (chapStats.score > 0) {
-                                statusHtml = `<span class="status-badge" style="background: ${bg}; color: ${color};"><i class="fas fa-exclamation-circle"></i> ${chapStats.score}/${chapStats.total}</span>`;
-                            } else {
-                                statusHtml = `<span class="status-badge" style="background: ${bg}; color: ${color};"><i class="fas fa-times-circle"></i> Échoué</span>`;
-                            }
-
-                            chapterList.innerHTML += `
-                                <li class="chapter-item">
-                                    <div class="chapter-info">
-                                        <div class="chapter-title">Chapitre : ${id.toUpperCase().replace(/_/g, ' ')}</div>
-                                        <div class="chapter-stats-mini" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
-                                            <i class="fas fa-chart-bar"></i> Moyenne: <strong>${chapStats.avg_score}%</strong> 
-                                            <span style="margin-left:8px;"><i class="fas fa-redo"></i> Tentatives: ${chapStats.attempts_count}</span>
-                                        </div>
-                                    </div>
-                                    ${statusHtml}
-                                </li>
-                            `;
-                        }
-                    }
-
-                    if (typeof Chart !== 'undefined' && typeof frappe !== 'undefined') {
-                        // Render Charts using Chart.js
-                        // Advanced Stats Initialization (Phase 6)
-                        const adv = data.progress.advanced_stats || {
-                            challenge_topic_dist: {},
-                            challenge_diff_dist: { 'Easy': 0, 'Medium': 0, 'Hard': 0 },
-                            daily_avg_quiz_score: [],
-                            quiz_evolution_per_chapter: {}
-                        };
-
-                        // Set global Chart.js defaults for a polished look
-                        Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#888';
-                        Chart.defaults.font.family = "'Segoe UI', 'Inter', sans-serif";
-                        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(22,27,34,0.95)';
-                        Chart.defaults.plugins.tooltip.cornerRadius = 8;
-                        Chart.defaults.plugins.tooltip.padding = 10;
-
-                        // 1. Topic Distribution Chart (Doughnut)
-                        const topicLabels = Object.keys(adv.challenge_topic_dist || {});
-                        const topicValues = Object.values(adv.challenge_topic_dist || {});
-                        const topicColors = ['#4a6ee0', '#2ecc71', '#f39c12', '#e74c3c', '#1abc9c', '#9b59b6', '#3498db', '#e67e22'];
-                        new Chart(document.getElementById('topicChart'), {
-                            type: 'doughnut',
-                            data: {
-                                labels: topicLabels.length > 0 ? topicLabels : ['Aucun'],
-                                datasets: [{
-                                    data: topicValues.length > 0 ? topicValues : [1],
-                                    backgroundColor: topicColors,
-                                    borderWidth: 2,
-                                    borderColor: 'transparent',
-                                    hoverOffset: 8
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                cutout: '65%',
-                                plugins: {
-                                    legend: { position: 'right', labels: { padding: 15, usePointStyle: true, pointStyle: 'circle' } },
-                                    tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} résolu(s)` } }
-                                }
-                            }
+                    const datasets = [];
+                    Object.entries(adv.quiz_evolution_per_chapter).forEach(([chap, entries]) => {
+                        if (filter !== 'all' && filter !== chap) return;
+                        datasets.push({
+                            label: chap.toUpperCase(),
+                            data: entries.map(e => ({ x: new Date(e.ts), y: e.score })),
+                            borderColor: getStableColor(chap),
+                            tension: 0.2,
+                            fill: false
                         });
+                    });
 
-                        // 2. Difficulty Distribution Chart (Bar)
-                        const diffLabels = ['Facile', 'Moyen', 'Difficile'];
-                        const diffValues = [adv.challenge_diff_dist.Easy, adv.challenge_diff_dist.Medium, adv.challenge_diff_dist.Hard];
-                        const diffColors = ['rgba(46,204,113,0.85)', 'rgba(241,196,15,0.85)', 'rgba(231,76,60,0.85)'];
-                        const diffBorders = ['#2ecc71', '#f1c40f', '#e74c3c'];
-                        new Chart(document.getElementById('difficultyChart'), {
-                            type: 'bar',
-                            data: {
-                                labels: diffLabels,
-                                datasets: [{
-                                    label: 'Défis Réussis',
-                                    data: diffValues,
-                                    backgroundColor: diffColors,
-                                    borderColor: diffBorders,
-                                    borderWidth: 2,
-                                    borderRadius: 8,
-                                    borderSkipped: false
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                scales: {
-                                    y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                                    x: { grid: { display: false } }
-                                },
-                                plugins: { legend: { display: false } }
-                            }
-                        });
-
-                        // 3. Daily Average Score Chart (Line with gradient fill)
-                        const dailyLabels = adv.daily_avg_quiz_score.map(d => d.day);
-                        const dailyValues = adv.daily_avg_quiz_score.map(d => d.avg);
-                        const dailyCtx = document.getElementById('dailyScoreChart').getContext('2d');
-                        const dailyGrad = dailyCtx.createLinearGradient(0, 0, 0, 300);
-                        dailyGrad.addColorStop(0, 'rgba(74, 110, 224, 0.35)');
-                        dailyGrad.addColorStop(1, 'rgba(74, 110, 224, 0.0)');
-                        new Chart(dailyCtx, {
-                            type: 'line',
-                            data: {
-                                labels: dailyLabels,
-                                datasets: [{
-                                    label: 'Moyenne Journalière (%)',
-                                    data: dailyValues,
-                                    borderColor: '#4a6ee0',
-                                    backgroundColor: dailyGrad,
-                                    fill: true,
-                                    tension: 0.4,
-                                    pointRadius: 5,
-                                    pointBackgroundColor: '#4a6ee0',
-                                    pointBorderColor: '#fff',
-                                    pointBorderWidth: 2,
-                                    pointHoverRadius: 8
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                scales: {
-                                    y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
-                                    x: { grid: { display: false } }
-                                },
-                                plugins: { legend: { display: false } }
-                            }
-                        });
-
-                        // 4. Per-Chapter Evolution Chart
-                        const chapterEvolutionCtx = document.getElementById('chapterEvolutionChart').getContext('2d');
-                        let evolutionChart;
-                        const chapterSelect = document.getElementById('chapterSelect');
-
-                        // Populate select
-                        Object.keys(adv.quiz_evolution_per_chapter).forEach(chap => {
-                            const opt = document.createElement('option');
-                            opt.value = chap;
-                            opt.textContent = chap.toUpperCase();
-                            chapterSelect.appendChild(opt);
-                        });
-
-                        const renderEvolution = (filter) => {
-                            if (evolutionChart) evolutionChart.destroy();
-
-                            const datasets = [];
-                            const allTimestamps = new Set();
-
-                            const getStableColor = (str) => {
-                                let hash = 0;
-                                for (let i = 0; i < str.length; i++) {
-                                    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-                                }
-                                return `hsl(${Math.abs(hash) % 360}, 70%, 50%)`;
-                            };
-
-                            Object.entries(adv.quiz_evolution_per_chapter).forEach(([chap, entries]) => {
-                                if (filter !== 'all' && filter !== chap) return;
-
-                                datasets.push({
-                                    label: chap.toUpperCase(),
-                                    data: entries.map(e => ({ x: new Date(e.ts), y: e.score })),
-                                    borderColor: getStableColor(chap),
-                                    tension: 0.2,
-                                    fill: false
-                                });
-                            });
-
-                            evolutionChart = new Chart(chapterEvolutionCtx, {
-                                type: 'line',
-                                data: { datasets: datasets },
-                                options: {
-                                    responsive: true,
-                                    scales: {
-                                        x: { type: 'time', time: { unit: 'day' }, title: { display: true, text: 'Date' } },
-                                        y: { beginAtZero: true, max: 100, title: { display: true, text: 'Score (%)' } }
-                                    }
-                                }
-                            });
-                        };
-
-                        chapterSelect.addEventListener('change', (e) => renderEvolution(e.target.value));
-                        renderEvolution('all');
-
-                        // 5. Activity Heatmap (Phase 7)
-                        if (data.progress.activity_map) {
-                            const points = data.progress.activity_map;
-                            if (Object.keys(points).length === 0) {
-                                document.getElementById('heatmap-chart').innerHTML = `
-                                    <div style="text-align:center;color:var(--text-secondary);padding:30px;">
-                                        Aucune activité enregistrée sur l'année.
-                                    </div>`;
-                            } else {
-                                new frappe.Chart("#heatmap-chart", {
-                                    type: 'heatmap',
-                                    data: {
-                                        dataPoints: points,
-                                        start: new Date(new Date().setMonth(new Date().getMonth() - 6)),
-                                        end: new Date()
-                                    },
-                                    countLabel: 'Activités',
-                                    colors: ['#ebedf0', '#d6e4ff', '#84aaff', '#3366ff', '#1a3380']
-                                });
+                    evolutionChart = new Chart(chapterEvolutionCtx, {
+                        type: 'line',
+                        data: { datasets },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: { type: 'time', time: { unit: 'day' }, title: { display: true, text: 'Date' } },
+                                y: { beginAtZero: true, max: 100, title: { display: true, text: 'Score (%)' } }
                             }
                         }
-                    } else {
-                        console.warn("Chart.js ou frappe-charts n'est pas disponible, les graphiques ne seront pas affichés.");
-                    }
+                    });
+                };
 
-                    // Render Badges with premium shape system
-                    if (stats.badges) {
-                        const badgesContainer = document.getElementById('badges-container');
-                        badgesContainer.innerHTML = '';
+                chapterSelect.onchange = (event) => renderEvolution(event.target.value);
+                renderEvolution('all');
 
-                        // Map badge identifier to shape class
-                        const shapeMap = {
-                            'first_challenge': 'hex',
-                            'course_completion': 'shield',
-                            'challenge_5': 'star',
-                            'challenge_10': 'star',
-                            'challenge_20': 'star',
-                            'hard_challenge': 'diamond',
-                            'perfect_quiz': 'circle',
-                            'quiz_5': 'circle',
-                            'quiz_10': 'circle',
-                            'streak_3': 'ribbon',
-                            'streak_7': 'ribbon',
-                            'streak_30': 'ribbon'
-                        };
-                        const defaultShape = 'hex';
+                const points = progress.activity_map || {};
+                const heatmapContainer = document.getElementById('heatmap-chart');
+                if (Object.keys(points).length === 0) {
+                    heatmapContainer.innerHTML = `
+                        <div style="text-align:center;color:var(--text-secondary);padding:30px;">
+                            Aucune activité enregistrée sur l'année.
+                        </div>`;
+                    return;
+                }
 
-                        let unreadBadges = [];
-                        const earnedBadges = stats.badges.filter(b => b.earned);
+                heatmapContainer.innerHTML = '';
+                new frappe.Chart("#heatmap-chart", {
+                    type: 'heatmap',
+                    data: {
+                        dataPoints: points,
+                        start: new Date(new Date().setMonth(new Date().getMonth() - 6)),
+                        end: new Date()
+                    },
+                    countLabel: 'Activités',
+                    colors: ['#ebedf0', '#d6e4ff', '#84aaff', '#3366ff', '#1a3380']
+                });
+            }
 
-                        if (earnedBadges.length === 0) {
-                            badgesContainer.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 30px;">
-                                <i class="fas fa-lock fa-3x" style="margin-bottom: 15px; opacity: 0.4;"></i><br><br>
-                                Aucun badge encore earné. Complétez des quiz et des défis pour en obtenir !
-                            </div>`;
-                        } else {
-                            earnedBadges.forEach(badge => {
-                                const shape = shapeMap[badge.identifier] || defaultShape;
-                                badgesContainer.innerHTML += `
-                                    <div class="badge-card earned" title="${badge.description}" data-shape="${shape}">
-                                        <div class="badge-shape ${shape}">
-                                            <i class="${badge.icon}"></i>
-                                        </div>
-                                        <div class="badge-name">${badge.name}</div>
-                                        <div class="badge-desc">${badge.description}</div>
-                                    </div>
-                                `;
-                                if (!badge.seen) unreadBadges.push(badge);
-                            });
-                        }
+            function renderProgressBadges(stats) {
+                if (!stats.badges) return;
 
+                const badgesContainer = document.getElementById('badges-container');
+                badgesContainer.innerHTML = '';
+
+                const shapeMap = {
+                    'first_challenge': 'hex',
+                    'course_completion': 'shield',
+                    'challenge_5': 'star',
+                    'challenge_10': 'star',
+                    'challenge_20': 'star',
+                    'hard_challenge': 'diamond',
+                    'perfect_quiz': 'circle',
+                    'quiz_5': 'circle',
+                    'quiz_10': 'circle',
+                    'streak_3': 'ribbon',
+                    'streak_7': 'ribbon',
+                    'streak_30': 'ribbon'
+                };
+                const defaultShape = 'hex';
+
+                const unreadBadges = [];
+                const earnedBadges = stats.badges.filter(badge => badge.earned);
+
+                if (earnedBadges.length === 0) {
+                    badgesContainer.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 30px;">
+                        <i class="fas fa-lock fa-3x" style="margin-bottom: 15px; opacity: 0.4;"></i><br><br>
+                        Aucun badge encore earné. Complétez des quiz et des défis pour en obtenir !
+                    </div>`;
+                } else {
+                    earnedBadges.forEach(badge => {
+                        const shape = shapeMap[badge.identifier] || defaultShape;
                         badgesContainer.innerHTML += `
-                            <div style="grid-column: 1 / -1; margin-top: 15px; text-align: center;">
-                                <a href="/badges" class="btn primary highlight" style="text-decoration:none; padding:10px 20px; border-radius:8px;">Voir tous les badges (${stats.badges.filter(b => b.earned).length}/${stats.badges.length}) <i class="fas fa-arrow-right"></i></a>
+                            <div class="badge-card earned" title="${badge.description}" data-shape="${shape}">
+                                <div class="badge-shape ${shape}">
+                                    <i class="${badge.icon}"></i>
+                                </div>
+                                <div class="badge-name">${badge.name}</div>
+                                <div class="badge-desc">${badge.description}</div>
                             </div>
                         `;
+                        if (!badge.seen) unreadBadges.push(badge);
+                    });
+                }
 
-                        // Trigger notifications for unseen badges
-                        if (unreadBadges.length > 0) {
-                            showBadgeNotifications(unreadBadges);
+                badgesContainer.innerHTML += `
+                    <div style="grid-column: 1 / -1; margin-top: 15px; text-align: center;">
+                        <a href="/badges" class="btn primary highlight" style="text-decoration:none; padding:10px 20px; border-radius:8px;">Voir tous les badges (${earnedBadges.length}/${stats.badges.length}) <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                `;
+
+                if (unreadBadges.length > 0) {
+                    showBadgeNotifications(unreadBadges);
+                }
+            }
+
+            try {
+                let summaryData = initialProgressPayload;
+                if (!summaryData || !summaryData.success) {
+                    summaryData = await fetchProgressSection('/api/user/progress/summary');
+                }
+
+                if (!summaryData || !summaryData.success) {
+                    throw new Error('Failed to load progress summary');
+                }
+
+                renderProgressSummary(summaryData.progress);
+
+                const [advancedResult, badgesResult] = await Promise.allSettled([
+                    fetchProgressSection('/api/user/progress/advanced'),
+                    fetchProgressSection('/api/user/progress/badges')
+                ]);
+
+                if (advancedResult.status === 'fulfilled' && advancedResult.value?.success) {
+                    renderProgressAdvanced(advancedResult.value.progress);
+                } else if (advancedResult.status === 'rejected') {
+                    console.error('Failed to load advanced progress stats', advancedResult.reason);
+                }
+
+                if (badgesResult.status === 'fulfilled' && badgesResult.value?.success) {
+                    renderProgressBadges(badgesResult.value.progress);
+
+                    if (badgesResult.value.progress.summary_refresh_required) {
+                        const refreshedSummary = await fetchProgressSection('/api/user/progress/summary');
+                        if (refreshedSummary.success) {
+                            renderProgressSummary(refreshedSummary.progress);
                         }
                     }
+                } else if (badgesResult.status === 'rejected') {
+                    console.error('Failed to load badges payload', badgesResult.reason);
                 }
             } catch (err) {
                 console.error("Failed to load progress", err);
