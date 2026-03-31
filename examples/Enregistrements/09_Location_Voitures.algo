@@ -16,6 +16,9 @@
 //     et passe la voiture en "non disponible" (via ptr). Verifie l'age (>21).
 //   - CloturerContrat(v, kmAjoutes) : Remet en dispo et ajoute les KM.
 //   - AfficherContrat(c) : Detail du contrat et du cout total a regler.
+//   - VehiculePlusRentable(tabC, nC, tabV, nV) : Affiche la voiture a plus fort revenu.
+//   - ClientLePlusFidele(tabC, nC, tabCl, nCl) : Affiche le client avec le plus de locations.
+//   - ChiffreAffairesLocation(tabC, nC) : Retourne le total des encaissements.
 // ================================================================
 
 Type Vehicule = Enregistrement
@@ -109,21 +112,123 @@ Debut
     Fsi
 Fin;
 
+Fonction ChiffreAffairesLocation(tabC[100]: Contrat, nC: Entier) : Reel;
+Var i: Entier;
+    total: Reel;
+Debut
+    total := 0.0;
+    Pour i := 0 a nC-1 Faire
+        Si tabC[i].idContrat <> -1 Alors
+            total := total + tabC[i].coutTotal;
+        Fsi
+    Fin Pour;
+    Retourner(total);
+Fin;
+
+Procedure VehiculePlusRentable(tabC[100]: Contrat, nC: Entier, tabV[100]: Vehicule, nV: Entier);
+Var i, j: Entier;
+    maxRevenu, rVeh: Reel;
+    immatMax[15], marqueMax[20]: Chaine;
+Debut
+    maxRevenu := -1.0;
+    immatMax := "";
+    marqueMax := "";
+    
+    Pour i := 0 a nV-1 Faire
+        rVeh := 0.0;
+        Pour j := 0 a nC-1 Faire
+            Si (tabC[j].idContrat <> -1) Et (tabC[j].immatVol = tabV[i].immat) Alors
+                rVeh := rVeh + tabC[j].coutTotal;
+            Fsi
+        Fin Pour;
+        
+        Si rVeh > maxRevenu Alors
+            maxRevenu := rVeh;
+            immatMax := tabV[i].immat;
+            marqueMax := tabV[i].marque;
+        Fsi
+    Fin Pour;
+    
+    Ecrire("\n>>> Vehicule le plus rentable: ", marqueMax, " (", immatMax, ") avec ", maxRevenu, " DA achetes.\n");
+Fin;
+
+Procedure ClientLePlusFidele(tabC[100]: Contrat, nC: Entier, tabCl[100]: ClientLoc, nCl: Entier);
+Var i, j, maxLoc, cLoc: Entier;
+    nomMax[30]: Chaine;
+Debut
+    maxLoc := -1;
+    nomMax := "";
+    
+    Pour i := 0 a nCl-1 Faire
+        cLoc := 0;
+        Pour j := 0 a nC-1 Faire
+            Si (tabC[j].idContrat <> -1) Et (tabC[j].permisCli = tabCl[i].permis) Alors
+                cLoc := cLoc + 1;
+            Fsi
+        Fin Pour;
+        
+        Si cLoc > maxLoc Alors
+            maxLoc := cLoc;
+            nomMax := tabCl[i].nom;
+        Fsi
+    Fin Pour;
+    
+    Ecrire(">>> Le client le plus fidele est ", nomMax, " avec ", maxLoc, " contrats.\n");
+Fin;
+
+
 Algorithme TestLocation;
 Var
-    auto1 : Vehicule;
-    locataire1 : ClientLoc;
-    contrat1 : Contrat;
+    V[5] : Vehicule;
+    C[5] : ClientLoc;
+    CT[10] : Contrat;
+    caTot: Reel;
 Debut
-    auto1 := NouveauVehicule("112233-116-16", "Peugeot 208", 4500.0, 150000);
-    locataire1 := NouveauClientLoc("PERMIS-DZ-1999", "Karim", 25);
+    Ecrire("=== AGENCE DE LOCATION DE VOITURES ===\n\n");
     
-    // Creation du contrat
-    contrat1 := EtablirContrat(8001, auto1, locataire1, 5);
-    AfficherContrat(contrat1);
+    // 5 Vehicules
+    V[0] := NouveauVehicule("1122-116-16", "Peugeot 208", 4500.0, 150000);
+    V[1] := NouveauVehicule("3344-118-16", "Renault Clio", 4000.0, 80000);
+    V[2] := NouveauVehicule("5566-120-16", "Dacia Logan", 3500.0, 120000);
+    V[3] := NouveauVehicule("7788-121-16", "Volkswagen Golf", 6000.0, 50000);
+    V[4] := NouveauVehicule("9900-119-16", "Seat Ibiza", 4800.0, 95000);
     
-    // Retour du vehicule apres avoir roulé 500km
-    CloturerContrat(auto1, 500);
+    // 5 Clients
+    C[0] := NouveauClientLoc("P-001", "Karim", 25);
+    C[1] := NouveauClientLoc("P-002", "Samir", 19); // Trop jeune !
+    C[2] := NouveauClientLoc("P-003", "Yasmine", 30);
+    C[3] := NouveauClientLoc("P-004", "Farid", 45);
+    C[4] := NouveauClientLoc("P-005", "Amira", 28);
     
-    Ecrire("Kilometrage actuel de la voiture : ", auto1.kilometrage, "\n");
+    // 10 Contrats (et clotures pour liberer)
+    CT[0] := EtablirContrat(1, V[0], C[0], 5); // Karim loue V0
+    CT[1] := EtablirContrat(2, V[1], C[1], 3); // ECHEC (age < 21)
+    CT[2] := EtablirContrat(3, V[2], C[2], 10); // Yasmine loue V2
+    CT[3] := EtablirContrat(4, V[3], C[3], 2); // Farid loue V3
+    
+    // Retours
+    CloturerContrat(V[0], 650);
+    CloturerContrat(V[3], 150);
+    
+    // Nouvelles locations
+    CT[4] := EtablirContrat(5, V[0], C[4], 7); // Amira loue V0
+    CT[5] := EtablirContrat(6, V[1], C[2], 5); // Yasmine loue V1
+    CT[6] := EtablirContrat(7, V[2], C[0], 2); // ECHEC (V2 deja louee par Yasmine)
+    CT[7] := EtablirContrat(8, V[3], C[0], 4); // Karim loue V3 (revenue dispo)
+    CT[8] := EtablirContrat(9, V[4], C[3], 15); // Farid loue V4
+    
+    // Retours partiels
+    CloturerContrat(V[1], 400);
+    CT[9] := EtablirContrat(10, V[1], C[2], 8); // Yasmine reloue V1
+    
+    // Affichage d'un contrat (ex: CT[4])
+    AfficherContrat(CT[4]);
+    
+    Ecrire("\n=== RAPPORTS DE L'AGENCE ===\n");
+    caTot := ChiffreAffairesLocation(CT, 10);
+    Ecrire("Chiffre d'Affaires Global : ", caTot, " DA\n");
+    
+    VehiculePlusRentable(CT, 10, V, 5);
+    ClientLePlusFidele(CT, 10, C, 5);
+    
 Fin.

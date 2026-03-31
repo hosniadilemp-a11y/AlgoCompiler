@@ -446,15 +446,27 @@
                 appendMessage(currentUser, text, true);
                 inputField.value = '';
 
-                // Envoyer le message via Database Insert
-                const { error } = await supabaseClient
-                    .from('chat_messages')
-                    .insert([{ user_name: currentUser, text: text }]);
-                
-                if (error) {
-                    console.error("Erreur envoi message:", error);
-                    const errorMsg = error.message || JSON.stringify(error);
-                    appendSystemMessage("Erreur lors de l'envoi du message : " + errorMsg);
+                // Envoyer le message via le backend Flask pour valider l'identité
+                const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+                const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+
+                try {
+                    const response = await fetch('/api/chat/message', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ text: text })
+                    });
+                    
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error(result.error || "Erreur inconnue du serveur");
+                    }
+                } catch (err) {
+                    console.error("Erreur envoi message:", err);
+                    appendSystemMessage("Erreur lors de l'envoi du message : " + err.message);
                 }
             };
 

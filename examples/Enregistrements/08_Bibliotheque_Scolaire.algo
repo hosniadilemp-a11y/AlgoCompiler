@@ -104,22 +104,130 @@ Debut
     Fsi
 Fin;
 
+Procedure MembrePlusActif(tabE[100]: Emprunt, nE: Entier, tabM[100]: EtudiantMembre, nM: Entier);
+Var i, j, maxEmp, curEmp: Entier;
+    nomMax[40]: Chaine;
+Debut
+    maxEmp := -1;
+    nomMax := "";
+    
+    Pour i := 0 a nM-1 Faire
+        curEmp := 0;
+        Pour j := 0 a nE-1 Faire
+            Si (tabE[j].id <> -1) Et (tabE[j].mat_etudiant = tabM[i].mat) Alors
+                curEmp := curEmp + 1;
+            Fsi
+        Fin Pour;
+        
+        Si curEmp > maxEmp Alors
+            maxEmp := curEmp;
+            nomMax := tabM[i].nom;
+        Fsi
+    Fin Pour;
+    
+    Ecrire("\n>>> Le membre le plus actif est ", nomMax, " avec ", maxEmp, " emprunts effectues.\n");
+Fin;
+
+Procedure LivrePlusPopulaire(tabE[100]: Emprunt, nE: Entier, tabL[100]: Livre, nL: Entier);
+Var i, j, maxEmp, curEmp: Entier;
+    titreMax[50]: Chaine;
+Debut
+    maxEmp := -1;
+    titreMax := "";
+    
+    Pour i := 0 a nL-1 Faire
+        curEmp := 0;
+        Pour j := 0 a nE-1 Faire
+            Si (tabE[j].id <> -1) Et (tabE[j].isbn_livre = tabL[i].isbn) Alors
+                curEmp := curEmp + 1;
+            Fsi
+        Fin Pour;
+        
+        Si curEmp > maxEmp Alors
+            maxEmp := curEmp;
+            titreMax := tabL[i].titre;
+        Fsi
+    Fin Pour;
+    
+    Ecrire(">>> Le livre le plus populaire est '", titreMax, "' avec ", maxEmp, " emprunts.\n");
+Fin;
+
+Procedure ListerEmpruntsMembre(tabE[100]: Emprunt, nE: Entier, matEtu: Entier, tabL[100]: Livre, nL: Entier);
+Var i, j: Entier;
+Debut
+    Ecrire("\n--- Historique des emprunts pour le matricule ", matEtu, " ---\n");
+    Pour i := 0 a nE-1 Faire
+        Si (tabE[i].id <> -1) Et (tabE[i].mat_etudiant = matEtu) Alors
+            Pour j := 0 a nL-1 Faire
+                Si tabL[j].isbn = tabE[i].isbn_livre Alors
+                    Ecrire("> Livre: '", tabL[j].titre, "' a retourner avant le ", tabE[i].dateRetour, "\n");
+                Fsi
+            Fin Pour;
+        Fsi
+    Fin Pour;
+Fin;
+
+
 Algorithme TestBibliotheque;
 Var
-    livre1 : Livre;
-    etudiant1 : EtudiantMembre;
-    fiche : Emprunt;
+    L[12] : Livre;
+    M[5]  : EtudiantMembre;
+    E[15] : Emprunt;
 Debut
-    livre1 := AjouterLivre("ISBN-978-2", "Algorithmique et Programmation", "Cormen");
-    etudiant1 := InscrireMembre(20210001, "Sofia", "Informatique L1");
+    Ecrire("=== BIBLIOTHEQUE SCOLAIRE ===\n\n");
     
-    // 1ere Tentative : Succes
-    fiche := EmprunterLivre(100, livre1, etudiant1, "30-11-2024");
-    DetailEmprunt(fiche, livre1, etudiant1);
+    // 12 Livres
+    L[0] := AjouterLivre("ISBN-001", "Algorithmique", "Cormen");
+    L[1] := AjouterLivre("ISBN-002", "Python Crash Course", "Eric Matthes");
+    L[2] := AjouterLivre("ISBN-003", "Clean Code", "Robert C. Martin");
+    L[3] := AjouterLivre("ISBN-004", "Design Patterns", "GoF");
+    L[4] := AjouterLivre("ISBN-005", "The C Programming Language", "Kernighan");
+    L[5] := AjouterLivre("ISBN-006", "Introduction to Algorithms", "Cormen");
+    L[6] := AjouterLivre("ISBN-007", "Structure and Interpretation", "Abelson");
+    L[7] := AjouterLivre("ISBN-008", "Head First Java", "Sierra");
+    L[8] := AjouterLivre("ISBN-009", "C++ Primer", "Lippman");
+    L[9] := AjouterLivre("ISBN-010", "Effective Java", "Bloch");
+    L[10] := AjouterLivre("ISBN-011", "Grokking Algorithms", "Bhargava");
+    L[11] := AjouterLivre("ISBN-012", "Code Complete", "McConnell");
     
-    // 2eme Tentative sur le meme livre : Echec
-    fiche := EmprunterLivre(101, livre1, etudiant1, "15-12-2024");
+    // 5 Membres
+    M[0] := InscrireMembre(202101, "Sofia", "L1 Info");
+    M[1] := InscrireMembre(202102, "Amine", "L2 Info");
+    M[2] := InscrireMembre(202103, "Yasmine", "M1 IA");
+    M[3] := InscrireMembre(202104, "Walid", "L3 Info");
+    M[4] := InscrireMembre(202105, "Sarah", "M2 Data");
     
-    // Retour du livre
-    RendreLivre(livre1);
+    // 15 Emprunts
+    E[0] := EmprunterLivre(1, L[0], M[0], "01-12-2024");
+    E[1] := EmprunterLivre(2, L[1], M[0], "02-12-2024");
+    E[2] := EmprunterLivre(3, L[2], M[1], "03-12-2024");
+    E[3] := EmprunterLivre(4, L[3], M[2], "04-12-2024");
+    E[4] := EmprunterLivre(5, L[4], M[3], "05-12-2024");
+    
+    // Retours
+    RendreLivre(L[0]);
+    RendreLivre(L[2]);
+    
+    // Re-emprunts du meme livre par d'autres
+    E[5] := EmprunterLivre(6, L[0], M[1], "10-12-2024");
+    E[6] := EmprunterLivre(7, L[2], M[2], "11-12-2024");
+    
+    E[7] := EmprunterLivre(8, L[5], M[4], "12-12-2024");
+    E[8] := EmprunterLivre(9, L[6], M[4], "13-12-2024");
+    E[9] := EmprunterLivre(10, L[7], M[3], "14-12-2024");
+    E[10] := EmprunterLivre(11, L[8], M[0], "15-12-2024");
+    E[11] := EmprunterLivre(12, L[9], M[1], "16-12-2024");
+    
+    RendreLivre(L[0]);
+    E[12] := EmprunterLivre(13, L[0], M[4], "20-12-2024"); // Le livre 0 (Algorithmique) très populaire
+    
+    E[13] := EmprunterLivre(14, L[10], M[2], "21-12-2024");
+    E[14] := EmprunterLivre(15, L[11], M[4], "22-12-2024");
+    
+    Ecrire("\n=== RAPPORTS BIBLIOTHEQUE ===\n");
+    MembrePlusActif(E, 15, M, 5);
+    LivrePlusPopulaire(E, 15, L, 12);
+    
+    ListerEmpruntsMembre(E, 15, 202101, L, 12); // Emprunts de Sofia
+    
 Fin.

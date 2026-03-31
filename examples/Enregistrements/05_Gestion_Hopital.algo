@@ -15,8 +15,11 @@
 //   - PlanifierRendezVous(idRV, date, p, m, motif) : Retourne un nouveau RendezVous associant le patient p au médecin m.
 //   - AfficherPatient(p) : Affiche les informations d'un patient.
 //   - AfficherRendezVous(rv, p, m) : Affiche en détail les informations d'un rendez-vous incluant le nom du patient et du médecin.
+//   - MoyenneAgePatients(tabP, n) : Calcule la moyenne d'âge d'un tableau de n patients.
+//   - ListerRendezVousMedecin(tabRV, nRV, idMed, tabP, nP) : Affiche tous les RDV d'un medecin.
+//   - MedecinPlusSollicite(tabRV, nRV, tabM, nM) : Trouve le medecin avec le plus de RDV.
 // 
-// Testez ensuite ces fonctions dans l'algorithme principal.
+// Testez ensuite ces fonctions dans l'algorithme principal avec un jeu de donnees de plus de 10 elements.
 // ================================================================
 
 Type Patient = Enregistrement
@@ -85,26 +88,116 @@ Debut
     Ecrire("========================\n\n");
 Fin;
 
+Fonction MoyenneAgePatients(tabP[100]: Patient, n: Entier) : Reel;
+Var i, somme : Entier;
+Debut
+    Si n = 0 Alors Retourner(0.0); Fsi
+    somme := 0;
+    Pour i := 0 a n-1 Faire
+        somme := somme + tabP[i].age;
+    Fin Pour;
+    Retourner(somme / n);
+Fin;
+
+Procedure ListerRendezVousMedecin(tabRV[100]: RendezVous, nRV: Entier, idMed: Entier, tabP[100]: Patient, nP: Entier);
+Var i, j : Entier;
+    nomPat[30] : Chaine;
+Debut
+    Ecrire("\n--- RDV pour le Medecin ID: ", idMed, " ---\n");
+    Pour i := 0 a nRV-1 Faire
+        Si (tabRV[i].idMedecin = idMed) Et (tabRV[i].idRV <> 0) Alors
+            // Cherche nom du patient
+            nomPat := "Inconnu";
+            Pour j := 0 a nP-1 Faire
+                Si tabP[j].id = tabRV[i].idPatient Alors
+                    nomPat := tabP[j].nom;
+                Fsi
+            Fin Pour;
+            Ecrire("> ", tabRV[i].date, " | Patient: ", nomPat, " | Motif: ", tabRV[i].motif, "\n");
+        Fsi
+    Fin Pour;
+Fin;
+
+Procedure MedecinPlusSollicite(tabRV[100]: RendezVous, nRV: Entier, tabM[100]: Medecin, nM: Entier);
+Var i, j, maxRDV, curRDV, idMax : Entier;
+    nomMax[30] : Chaine;
+Debut
+    Si nM > 0 Alors
+        maxRDV := -1;
+        idMax := -1;
+        nomMax := "";
+        
+        Pour i := 0 a nM-1 Faire
+            curRDV := 0;
+            Pour j := 0 a nRV-1 Faire
+                Si tabRV[j].idMedecin = tabM[i].id Alors
+                    curRDV := curRDV + 1;
+                Fsi
+            Fin Pour;
+            
+            Si curRDV > maxRDV Alors
+                maxRDV := curRDV;
+                idMax := tabM[i].id;
+                nomMax := tabM[i].nom;
+            Fsi
+        Fin Pour;
+        
+        Ecrire("\n+++ Le Medecin le plus sollicite est Dr. ", nomMax, " avec ", maxRDV, " rendez-vous. +++\n");
+    Fsi
+Fin;
+
 Algorithme GestionHopital;
 Var
     pat1  : Patient;
     med1  : Medecin;
     rv1   : RendezVous;
+    P[10] : Patient;
+    M[3]  : Medecin;
+    RV[12]: RendezVous;
+    moyAge : Reel;
 Debut
-    Ecrire("--- Initialisation du Système Hospitalier ---\n");
+    Ecrire("--- Initialisation du Systeme Hospitalier ---\n");
     
-    // Création des entités
-    pat1 := CreerPatient(1001, "Ali B.", 45);
-    med1 := CreerMedecin(501, "Kamal", "Cardiologie");
+    // 10 Patients
+    P[0] := CreerPatient(1001, "Ali B.", 45);
+    P[1] := CreerPatient(1002, "Sara K.", 34);
+    P[2] := CreerPatient(1003, "Yanis M.", 12);
+    P[3] := CreerPatient(1004, "Lina D.", 29);
+    P[4] := CreerPatient(1005, "Nour C.", 55);
+    P[5] := CreerPatient(1006, "Samy T.", 41);
+    P[6] := CreerPatient(1007, "Idir S.", 8);
+    P[7] := CreerPatient(1008, "Kenza F.", 61);
+    P[8] := CreerPatient(1009, "Ryad A.", 38);
+    P[9] := CreerPatient(1010, "Ines L.", 22);
     
-    // Affichage des entités
-    AfficherPatient(pat1);
+    // 3 Medecins
+    M[0] := CreerMedecin(501, "Kamal", "Cardiologie");
+    M[1] := CreerMedecin(502, "Nadia", "Pediatrie");
+    M[2] := CreerMedecin(503, "Omar", "Ophtalmologie");
     
-    // Planification
-    rv1 := PlanifierRendezVous(1, "2024-11-15 09:00", pat1, med1, "Controle de routine / Tension");
+    // 12 Rendez-vous
+    RV[0] := PlanifierRendezVous(1, "2024-11-15 09:00", P[0], M[0], "Controle de routine / Tension");
+    RV[1] := PlanifierRendezVous(2, "2024-11-15 09:30", P[4], M[0], "Douleurs thoraciques");
+    RV[2] := PlanifierRendezVous(3, "2024-11-15 10:00", P[7], M[0], "Suivi operation");
+    RV[3] := PlanifierRendezVous(4, "2024-11-15 10:30", P[8], M[0], "Bilan cardiaque");
     
-    // Affichage détaillé
-    AfficherRendezVous(rv1, pat1, med1);
+    RV[4] := PlanifierRendezVous(5, "2024-11-16 08:30", P[2], M[1], "Vaccination");
+    RV[5] := PlanifierRendezVous(6, "2024-11-16 09:00", P[6], M[1], "Fievre");
+    RV[6] := PlanifierRendezVous(7, "2024-11-16 09:30", P[9], M[1], "Certificat sport");
     
-    Ecrire("Test du système terminé avec succès.\n");
+    RV[7] := PlanifierRendezVous(8, "2024-11-17 14:00", P[1], M[2], "Baisse de vue");
+    RV[8] := PlanifierRendezVous(9, "2024-11-17 14:30", P[3], M[2], "Lunettes kassees");
+    RV[9] := PlanifierRendezVous(10, "2024-11-17 15:00", P[5], M[2], "Fond d'oeil");
+    RV[10] := PlanifierRendezVous(11, "2024-11-18 09:00", P[0], M[2], "Rougeur oeil");
+    RV[11] := PlanifierRendezVous(12, "2024-11-18 09:30", P[7], M[2], "Controle cataracte");
+    
+    // Nouvelles analyses
+    moyAge := MoyenneAgePatients(P, 10);
+    Ecrire("\nMoyenne d'age des patients inscrits : ", moyAge, " ans\n");
+    
+    ListerRendezVousMedecin(RV, 12, 501, P, 10);
+    
+    MedecinPlusSollicite(RV, 12, M, 3);
+    
+    Ecrire("Test du systeme termine avec succes.\n");
 Fin.

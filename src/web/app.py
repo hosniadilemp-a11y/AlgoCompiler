@@ -209,6 +209,10 @@ def update_last_seen():
 def protect_against_csrf():
     if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
         return None
+        
+    # Exempt chat API from strict CSRF (secured individually by @login_required)
+    if request.path == '/api/chat/message':
+        return None
 
     expected_token = flask_session.get('_csrf_token')
     submitted_token = get_submitted_csrf_token()
@@ -3547,6 +3551,27 @@ def live_contest(problem_id):
     results.sort(key=lambda x: (-x['score'], x['time_taken']))
     
     return jsonify({'success': True, 'leaderboard': results})
+
+
+@app.route('/api/chat/message', methods=['POST'])
+@login_required
+def api_chat_message():
+    from sqlalchemy import text
+    data = request.get_json(silent=True) or {}
+    text_content = data.get('text', '').strip()
+    
+    if not text_content:
+        return jsonify({'success': False, 'error': 'Message text is required'}), 400
+        
+    try:
+        sql = text("INSERT INTO chat_messages (user_name, text) VALUES (:user_name, :text)")
+        db.session.execute(sql, {'user_name': current_user.name, 'text': text_content})
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error saving chat message: {e}")
+        return jsonify({'success': False, 'error': 'Failed to save message'}), 500
 
 
 if __name__ == '__main__':

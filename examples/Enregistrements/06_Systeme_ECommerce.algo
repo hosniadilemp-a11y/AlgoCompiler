@@ -17,6 +17,9 @@
 //     stock est suffisant et si le client a assez de solde, sinon retourne 
 //     une LigneCommande vide et affiche un message d'erreur. Met a jour solde et stock.
 //   - AfficherLigneCommande(lc) : Affiche la ligne de commande.
+//   - ProduitPlusVendu(tabLC, nLC, tabP, nP) : Affiche le produit le plus vendu.
+//   - ClientPlusDepensier(tabLC, nLC, tabC, nC) : Affiche le client ayant le plus depensé.
+//   - ChiffreAffairesTotal(tabLC, nLC) : Retourne le total des ventes valides.
 // ================================================================
 
 Type Produit = Enregistrement
@@ -33,6 +36,7 @@ Type Client = Enregistrement
 Fin;
 
 Type LigneCommande = Enregistrement
+    client_id   : Entier;
     produit_ref : Entier;
     quantite    : Entier;
     sousTotal   : Reel;
@@ -88,12 +92,13 @@ Debut
     cli.solde := cli.solde - coutTotal;
     prod.stock := prod.stock - qte;
     
+    lc.client_id := cli.idClient;
     lc.produit_ref := prod.ref;
     lc.quantite := qte;
     lc.sousTotal := coutTotal;
     lc.valide := Vrai;
     
-    Ecrire("Commande passee avec succes ! (", qte, "x ", prod.nom, ")\n");
+    Ecrire("Commande passee ! (", qte, "x ", prod.nom, ")\n");
     Retourner(lc);
 Fin;
 
@@ -110,29 +115,114 @@ Debut
     Fsi
 Fin;
 
+Fonction ChiffreAffairesTotal(tabLC[100]: LigneCommande, nLC: Entier): Reel;
+Var i: Entier;
+    total: Reel;
+Debut
+    total := 0.0;
+    Pour i := 0 a nLC-1 Faire
+        Si tabLC[i].valide Alors
+            total := total + tabLC[i].sousTotal;
+        Fsi
+    Fin Pour;
+    Retourner(total);
+Fin;
+
+Procedure ProduitPlusVendu(tabLC[100]: LigneCommande, nLC: Entier, tabP[100]: Produit, nP: Entier);
+Var i, j, maxQte, curQte, idMax: Entier;
+    nomMax[40]: Chaine;
+Debut
+    maxQte := -1;
+    idMax := -1;
+    nomMax := "";
+    
+    Pour i := 0 a nP-1 Faire
+        curQte := 0;
+        Pour j := 0 a nLC-1 Faire
+            Si (tabLC[j].valide) Et (tabLC[j].produit_ref = tabP[i].ref) Alors
+                curQte := curQte + tabLC[j].quantite;
+            Fsi
+        Fin Pour;
+        
+        Si curQte > maxQte Alors
+            maxQte := curQte;
+            idMax := tabP[i].ref;
+            nomMax := tabP[i].nom;
+        Fsi
+    Fin Pour;
+    
+    Ecrire("\n>>> Produit le plus vendu : ", nomMax, " avec ", maxQte, " unites vendues.\n");
+Fin;
+
+Procedure ClientPlusDepensier(tabLC[100]: LigneCommande, nLC: Entier, tabC[100]: Client, nC: Entier);
+Var i, j: Entier;
+    maxDepense, curDepense: Reel;
+    nomMax[20]: Chaine;
+Debut
+    maxDepense := -1.0;
+    nomMax := "";
+    
+    Pour i := 0 a nC-1 Faire
+        curDepense := 0.0;
+        Pour j := 0 a nLC-1 Faire
+            Si (tabLC[j].valide) Et (tabLC[j].client_id = tabC[i].idClient) Alors
+                curDepense := curDepense + tabLC[j].sousTotal;
+            Fsi
+        Fin Pour;
+        
+        Si curDepense > maxDepense Alors
+            maxDepense := curDepense;
+            nomMax := tabC[i].pseudo;
+        Fsi
+    Fin Pour;
+    
+    Ecrire(">>> Client ayant le plus depense : ", nomMax, " (Total : ", maxDepense, " DA)\n");
+Fin;
+
 Algorithme TestECommerce;
 Var
-    p1 : Produit;
-    c1 : Client;
-    cmd1, cmd2 : LigneCommande;
+    P[5] : Produit;
+    C[4] : Client;
+    LC[10] : LigneCommande;
+    i : Entier;
+    ca : Reel;
 Debut
     Ecrire("### SYSTEME E-COMMERCE ###\n\n");
-    p1 := NouveauProduit(101, "Laptop Gamer RTX 4060", 150000.0, 5);
-    c1 := NouveauClient(1, "Adel", 200000.0);
     
-    // Test 1: Succès
-    cmd1 := PasserCommande(c1, p1, 1);
-    AfficherLigneCommande(cmd1, c1);
+    // 5 Produits
+    P[0] := NouveauProduit(101, "Laptop Gamer", 150000.0, 5);
+    P[1] := NouveauProduit(102, "Souris Sans Fil", 2500.0, 50);
+    P[2] := NouveauProduit(103, "Clavier Mecanique", 8500.0, 20);
+    P[3] := NouveauProduit(104, "Ecran 27 pouces", 45000.0, 10);
+    P[4] := NouveauProduit(105, "Casque Bluetooth", 12000.0, 15);
     
-    Ecrire("Nouveau solde Adel : ", c1.solde, "\n");
-    Ecrire("Nouveau stock PC : ", p1.stock, "\n\n");
+    // 4 Clients
+    C[0] := NouveauClient(1, "Adel", 200000.0);
+    C[1] := NouveauClient(2, "Sofiane", 50000.0);
+    C[2] := NouveauClient(3, "Meriem", 10000.0);
+    C[3] := NouveauClient(4, "Khaled", 300000.0);
     
-    // Test 2: Stock ajouté
-    AjouterStock(p1, 2);
-    Ecrire("Reapprovisionnement PC. Stock = ", p1.stock, "\n\n");
+    // 10 Commandes
+    LC[0] := PasserCommande(C[0], P[0], 1); // Adel achete Laptop
+    LC[1] := PasserCommande(C[0], P[1], 2); // Adel achete 2 Souris
+    LC[2] := PasserCommande(C[1], P[3], 1); // Sofiane achete Ecran
+    LC[3] := PasserCommande(C[2], P[4], 1); // Meriem achete Casque (Echec partiel si pas assez d'argent? Non 10000 < 12000, echec!)
+    LC[4] := PasserCommande(C[3], P[0], 2); // Khaled achete 2 Laptops
+    LC[5] := PasserCommande(C[3], P[2], 3); // Khaled achete 3 Claviers
+    LC[6] := PasserCommande(C[3], P[4], 5); // Khaled achete 5 Casques
+    LC[7] := PasserCommande(C[1], P[1], 1); // Sofiane achete 1 Souris
+    LC[8] := PasserCommande(C[0], P[2], 1); // Adel achete 1 Clavier
+    LC[9] := PasserCommande(C[2], P[1], 1); // Meriem achete 1 Souris (2500 < 10000, succes)
     
-    // Test 3: Echec solde
-    cmd2 := PasserCommande(c1, p1, 2); // 2 * 150000 = 300000 (Solde: 50000)
-    AfficherLigneCommande(cmd2, c1);
+    // Reapprovisionnement
+    AjouterStock(P[1], 20);
+    
+    // Analyses
+    ca := ChiffreAffairesTotal(LC, 10);
+    Ecrire("\n=== RAPPORTS STATISTIQUES ===\n");
+    Ecrire("Chiffre d'Affaires Global : ", ca, " DA\n");
+    
+    ProduitPlusVendu(LC, 10, P, 5);
+    ClientPlusDepensier(LC, 10, C, 4);
     
 Fin.

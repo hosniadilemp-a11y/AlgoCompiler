@@ -112,26 +112,123 @@ Debut
     Fsi
 Fin;
 
+Fonction RecetteTotaleHotel(tabR[100]: Reservation, nR: Entier, tabC[100]: Chambre, nC: Entier): Reel;
+Var i, j: Entier;
+    total, prixNuit: Reel;
+Debut
+    total := 0.0;
+    Pour i := 0 a nR-1 Faire
+        Si tabR[i].idRes <> -1 Alors
+            // Trouver le prix de la chambre
+            prixNuit := 0.0;
+            Pour j := 0 a nC-1 Faire
+                Si tabC[j].numero = tabR[i].numChambre Alors
+                    prixNuit := tabC[j].prixParNuit;
+                Fsi
+            Fin Pour;
+            total := total + (prixNuit * tabR[i].nuitees);
+        Fsi
+    Fin Pour;
+    Retourner(total);
+Fin;
+
+Procedure ChambrePlusRentable(tabR[100]: Reservation, nR: Entier, tabC[100]: Chambre, nC: Entier);
+Var i, j: Entier;
+    maxRevenu, rChambre: Reel;
+    idMax: Entier;
+Debut
+    maxRevenu := -1.0;
+    idMax := -1;
+    
+    Pour i := 0 a nC-1 Faire
+        rChambre := 0.0;
+        Pour j := 0 a nR-1 Faire
+            Si (tabR[j].idRes <> -1) Et (tabR[j].numChambre = tabC[i].numero) Alors
+                rChambre := rChambre + (tabC[i].prixParNuit * tabR[j].nuitees);
+            Fsi
+        Fin Pour;
+        
+        Si rChambre > maxRevenu Alors
+            maxRevenu := rChambre;
+            idMax := tabC[i].numero;
+        Fsi
+    Fin Pour;
+    
+    Ecrire("\n>>> La chambre la plus rentable est la N' ", idMax, " avec un revenu de ", maxRevenu, " DA.\n");
+Fin;
+
+Procedure AfficherTauxOccupation(tabC[100]: Chambre, nC: Entier);
+Var i, occupees: Entier;
+    taux: Reel;
+Debut
+    occupees := 0;
+    Pour i := 0 a nC-1 Faire
+        Si tabC[i].estLibre = Faux Alors
+            occupees := occupees + 1;
+        Fsi
+    Fin Pour;
+    
+    Si nC > 0 Alors
+        taux := (occupees * 100.0) / nC;
+        Ecrire(">>> Taux d'occupation actuel : ", taux, "%\n");
+    Fsi
+Fin;
+
+
 Algorithme TestHotel;
 Var
-    ch1, ch2 : Chambre;
-    cli1 : Client;
-    r1 : Reservation;
+    C[5] : Chambre;
+    Cli[5] : Client;
+    R[10] : Reservation;
+    caTot : Reel;
 Debut
-    ch1 := AjouterChambre(101, "Suite", 12000.0);
-    ch2 := AjouterChambre(102, "Standard", 5000.0);
+    Ecrire("=== INITIALISATION HOTEL ===\n\n");
     
-    cli1 := EnregistrerClient("P-999888", "Lynda", "0555667788");
+    // 5 Chambres
+    C[0] := AjouterChambre(101, "Suite Royale", 25000.0);
+    C[1] := AjouterChambre(102, "Suite", 12000.0);
+    C[2] := AjouterChambre(201, "Double", 8000.0);
+    C[3] := AjouterChambre(202, "Double", 8000.0);
+    C[4] := AjouterChambre(203, "Standard", 5000.0);
     
-    // R1 : reserve ch1 pour 3 nuits
-    r1 := CreerReservation(1, "12-11-2024", 3, ch1, cli1);
+    // 5 Clients
+    Cli[0] := EnregistrerClient("P-111", "Lynda", "0555111111");
+    Cli[1] := EnregistrerClient("P-222", "Karim", "0555222222");
+    Cli[2] := EnregistrerClient("P-333", "Amina", "0555333333");
+    Cli[3] := EnregistrerClient("P-444", "Youssef", "0555444444");
+    Cli[4] := EnregistrerClient("P-555", "Sonia", "0555555555");
     
-    FactureReservation(r1, ch1, cli1);
+    // 10 Reservations (certaines simulent l'historique en liberant la chambre apres)
+    R[0] := CreerReservation(1, "10-11-2024", 2, C[0], Cli[0]); // Lynda reserve 101
+    R[1] := CreerReservation(2, "11-11-2024", 4, C[2], Cli[1]); // Karim reserve 201
+    R[2] := CreerReservation(3, "11-11-2024", 1, C[4], Cli[2]); // Amina reserve 203
     
-    // On essaie de re-reserver la meme chambre
-    Ecrire("Tentative de double reservation :\n");
-    r1 := CreerReservation(2, "13-11-2024", 1, ch1, cli1);
+    // Amina libere 203
+    LibererChambre(C[4]);
     
-    // Depart de Lynda
-    LibererChambre(ch1);
+    R[3] := CreerReservation(4, "12-11-2024", 3, C[4], Cli[3]); // Youssef reserve 203
+    R[4] := CreerReservation(5, "13-11-2024", 2, C[3], Cli[4]); // Sonia reserve 202
+    
+    // Lynda libere 101, puis reloue 102
+    LibererChambre(C[0]);
+    R[5] := CreerReservation(6, "14-11-2024", 5, C[1], Cli[0]); // Lynda reserve 102
+    
+    // Echecs prevus (chambre occupee)
+    R[6] := CreerReservation(7, "15-11-2024", 1, C[2], Cli[2]); // Amina essaie 201 (Occupee)
+    R[7] := CreerReservation(8, "15-11-2024", 2, C[4], Cli[0]); // Lynda essaie 203 (Occupee)
+    
+    // Autres reservations
+    R[8] := CreerReservation(9, "15-11-2024", 1, C[0], Cli[2]); // Amina reserve 101 (Devenue libre)
+    R[9] := CreerReservation(10, "16-11-2024", 3, C[0], Cli[3]); // Echec
+    
+    // Facturation d'un exemple
+    FactureReservation(R[5], C[1], Cli[0]);
+    
+    Ecrire("\n=== RAPPORTS HOTELIER ===\n");
+    caTot := RecetteTotaleHotel(R, 10, C, 5);
+    Ecrire("Recette Globale des Reservations : ", caTot, " DA\n");
+    
+    ChambrePlusRentable(R, 10, C, 5);
+    AfficherTauxOccupation(C, 5);
+    
 Fin.
