@@ -2173,22 +2173,32 @@ def get_problems():
     )
     solver_map = {prob_id: count for prob_id, count in solver_counts}
     
+    problems_data = [
+        {
+            'id': p.id,
+            'title': p.title,
+            'topic': p.topic,
+            'difficulty': p.difficulty,
+            'solved': p.id in solved_ids if current_user.is_authenticated else None,
+            'attempted_users': attempt_map.get(p.id, 0),
+            'solvers': solver_map.get(p.id, 0),
+            'success_rate': round((solver_map.get(p.id, 0) / attempt_map.get(p.id, 1)) * 100, 1) if attempt_map.get(p.id, 0) else 0,
+            'description': p.description[:150] + '...' if p.description and len(p.description) > 150 else p.description
+        }
+        for p in problems
+    ]
+
+    # Sort: unsolved first (for authenticated users), then by difficulty (Easy < Medium < Hard)
+    diff_order = {'Easy': 0, 'Medium': 1, 'Hard': 2}
+    problems_data.sort(key=lambda x: (
+        1 if x['solved'] is True else 0,
+        diff_order.get(x['difficulty'], 3),
+        x['id']
+    ))
+
     return jsonify({
         'success': True,
-        'problems': [
-            {
-                'id': p.id,
-                'title': p.title,
-                'topic': p.topic,
-                'difficulty': p.difficulty,
-                'solved': p.id in solved_ids if current_user.is_authenticated else None,
-                'attempted_users': attempt_map.get(p.id, 0),
-                'solvers': solver_map.get(p.id, 0),
-                'success_rate': round((solver_map.get(p.id, 0) / attempt_map.get(p.id, 1)) * 100, 1) if attempt_map.get(p.id, 0) else 0,
-                'description': p.description[:150] + '...' if p.description and len(p.description) > 150 else p.description
-            }
-            for p in problems
-        ]
+        'problems': problems_data
     })
 
 @app.route('/api/problems/<int:problem_id>', methods=['GET'])
@@ -2889,8 +2899,11 @@ def compute_user_leaderboard_bucket(stats_by_user, user_id):
     else:
         top_percent = round((user_rank / total_users) * 100, 1)
 
-    thresholds = [1, 5, 10, 20, 50, 70]
-    bucket_percent = next((threshold for threshold in thresholds if top_percent <= threshold), 100)
+    if user_rank == 1:
+        bucket_percent = 1
+    else:
+        thresholds = [1, 5, 10, 20, 50, 70]
+        bucket_percent = next((threshold for threshold in thresholds if top_percent <= threshold), 100)
 
     return {
         'rank': user_rank,
