@@ -1,0 +1,110 @@
+// ================================================================
+// EXERCICE 5 : Système de Gestion d'un Hôpital
+// ================================================================
+// ÉNONCÉ DE L'EXERCICE :
+// Un hôpital souhaite informatiser la gestion de ses rendez-vous patients.
+// Vous devez modéliser ce système en utilisant 3 structures de données :
+//   1. Patient : identifiant, nom, age.
+//   2. Medecin : identifiant, nom, specialite.
+//   3. RendezVous : identifiant, date (chaine), idPatient, idMedecin, motif.
+//
+// TRAVAIL DEMANDÉ :
+// Écrire 5 fonctions/procédures pour gérer le système :
+//   - CreerPatient(id, nom, age) : Retourne un nouveau Patient initialisé.
+//   - CreerMedecin(id, nom, specialite) : Retourne un nouveau Medecin initialisé.
+//   - PlanifierRendezVous(idRV, date, p, m, motif) : Retourne un nouveau RendezVous associant le patient p au médecin m.
+//   - AfficherPatient(p) : Affiche les informations d'un patient.
+//   - AfficherRendezVous(rv, p, m) : Affiche en détail les informations d'un rendez-vous incluant le nom du patient et du médecin.
+// 
+// Testez ensuite ces fonctions dans l'algorithme principal.
+// ================================================================
+
+Type Patient = Enregistrement
+    id   : Entier;
+    nom[30]  : Chaine;
+    age  : Entier;
+Fin;
+
+Type Medecin = Enregistrement
+    id         : Entier;
+    nom[30]        : Chaine;
+    specialite[30] : Chaine;
+Fin;
+
+Type RendezVous = Enregistrement
+    idRV      : Entier;
+    date[20]      : Chaine;
+    idPatient : Entier;
+    idMedecin : Entier;
+    motif[50]     : Chaine;
+Fin;
+
+// --- Implémentation des Fonctions ---
+
+Fonction CreerPatient(id: Entier, n: Chaine, a: Entier) : Patient;
+Var p : Patient;
+Debut
+    p.id := id;
+    p.nom := n;
+    p.age := a;
+    Retourner(p);
+Fin;
+
+Fonction CreerMedecin(id: Entier, n: Chaine, s: Chaine) : Medecin;
+Var m : Medecin;
+Debut
+    m.id := id;
+    m.nom := n;
+    m.specialite := s;
+    Retourner(m);
+Fin;
+
+Fonction PlanifierRendezVous(id: Entier, d: Chaine, p: Patient, m: Medecin, motif: Chaine) : RendezVous;
+Var rv : RendezVous;
+Debut
+    rv.idRV := id;
+    rv.date := d;
+    rv.idPatient := p.id;
+    rv.idMedecin := m.id;
+    rv.motif := motif;
+    Retourner(rv);
+Fin;
+
+Procedure AfficherPatient(p : Patient);
+Debut
+    Ecrire("Patient [", p.id, "] : ", p.nom, " (", p.age, " ans)\n");
+Fin;
+
+Procedure AfficherRendezVous(rv: RendezVous, p: Patient, m: Medecin);
+Debut
+    Ecrire("=== Rendez-Vous #", rv.idRV, " ===\n");
+    Ecrire("Date : ", rv.date, "\n");
+    Ecrire("Patient : ", p.nom, "\n");
+    Ecrire("Medecin : Dr. ", m.nom, " (Spécialité: ", m.specialite, ")\n");
+    Ecrire("Motif : ", rv.motif, "\n");
+    Ecrire("========================\n\n");
+Fin;
+
+Algorithme GestionHopital;
+Var
+    pat1  : Patient;
+    med1  : Medecin;
+    rv1   : RendezVous;
+Debut
+    Ecrire("--- Initialisation du Système Hospitalier ---\n");
+    
+    // Création des entités
+    pat1 := CreerPatient(1001, "Ali B.", 45);
+    med1 := CreerMedecin(501, "Kamal", "Cardiologie");
+    
+    // Affichage des entités
+    AfficherPatient(pat1);
+    
+    // Planification
+    rv1 := PlanifierRendezVous(1, "2024-11-15 09:00", pat1, med1, "Controle de routine / Tension");
+    
+    // Affichage détaillé
+    AfficherRendezVous(rv1, pat1, med1);
+    
+    Ecrire("Test du système terminé avec succès.\n");
+Fin.

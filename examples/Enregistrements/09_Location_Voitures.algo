@@ -1,0 +1,129 @@
+// ================================================================
+// EXERCICE 9 : Agence de Location de Voitures
+// ================================================================
+// ÉNONCÉ DE L'EXERCICE :
+// Une agence de location a besoin d'un micro-système pour louer ses véhicules.
+// Créez 3 structures algorithmiques :
+//   1. Vehicule : immat (Chaine), marque (Chaine), pxJour (Reel), kilometrage (Entier), dispo (Booleen).
+//   2. ClientLoc : permis (Chaine), nom (Chaine), age (Entier).
+//   3. Contrat : idContrat (Entier), immatVol (Chaine), permisCli (Chaine), jours (Entier), coutTotal (Reel).
+//
+// TRAVAIL DEMANDÉ :
+// Écrire 5 fonctions/procédures pour gérer le workflow :
+//   - NouveauVehicule(i, m, px, km) : Retourne un Vehicule.
+//   - NouveauClientLoc(p, n, a) : Retourne un ClientLoc.
+//   - EtablirContrat(id, v, c, j) : Crée le contrat, calcule le cout total, 
+//     et passe la voiture en "non disponible" (via ptr). Verifie l'age (>21).
+//   - CloturerContrat(v, kmAjoutes) : Remet en dispo et ajoute les KM.
+//   - AfficherContrat(c) : Detail du contrat et du cout total a regler.
+// ================================================================
+
+Type Vehicule = Enregistrement
+    immat[15]       : Chaine;
+    marque[20]      : Chaine;
+    pxJour      : Reel;
+    kilometrage : Entier;
+    dispo       : Booleen;
+Fin;
+
+Type ClientLoc = Enregistrement
+    permis[20] : Chaine;
+    nom[30]    : Chaine;
+    age    : Entier;
+Fin;
+
+Type Contrat = Enregistrement
+    idContrat : Entier;
+    immatVol[15]  : Chaine;
+    permisCli[20] : Chaine;
+    jours     : Entier;
+    coutTotal : Reel;
+Fin;
+
+// --- Implémentations ---
+
+Fonction NouveauVehicule(i: Chaine, m: Chaine, px: Reel, km: Entier) : Vehicule;
+Var v : Vehicule;
+Debut
+    v.immat := i;
+    v.marque := m;
+    v.pxJour := px;
+    v.kilometrage := km;
+    v.dispo := Vrai;
+    Retourner(v);
+Fin;
+
+Fonction NouveauClientLoc(p: Chaine, n: Chaine, a: Entier) : ClientLoc;
+Var c : ClientLoc;
+Debut
+    c.permis := p;
+    c.nom := n;
+    c.age := a;
+    Retourner(c);
+Fin;
+
+Fonction EtablirContrat(id: Entier, Var v: Vehicule, Var c: ClientLoc, j: Entier) : Contrat;
+Var ct : Contrat;
+Debut
+    // Init erreur
+    ct.idContrat := -1;
+    
+    Si c.age < 21 Alors
+        Ecrire("Location refusee : Le client doit avoir au moins 21 ans (", c.nom, " a ", c.age, " ans).\n");
+        Retourner(ct);
+    Fsi
+    
+    Si v.dispo = Faux Alors
+        Ecrire("Location refusee : Le vehicule ", v.marque, " n'est pas disponible.\n");
+        Retourner(ct);
+    Fsi
+    
+    // Tout est OK: on loue
+    v.dispo := Faux;
+    
+    ct.idContrat := id;
+    ct.immatVol := v.immat;
+    ct.permisCli := c.permis;
+    ct.jours := j;
+    ct.coutTotal := v.pxJour * j;
+    
+    Ecrire("Contrat etabli avec succes pour ", j, " jours.\n");
+    Retourner(ct);
+Fin;
+
+Procedure CloturerContrat(Var v: Vehicule, kmAjoutes: Entier);
+Debut
+    v.kilometrage := v.kilometrage + kmAjoutes;
+    v.dispo := Vrai;
+    Ecrire("Vehicule restitue. Nouveau kilometrage: ", v.kilometrage, " km.\n");
+Fin;
+
+Procedure AfficherContrat(ct: Contrat);
+Debut
+    Si ct.idContrat <> -1 Alors
+        Ecrire("\n[ CONTRAT N' ", ct.idContrat, " ]\n");
+        Ecrire("Client (Permis) : ", ct.permisCli, "\n");
+        Ecrire("Vehicule (Immat) : ", ct.immatVol, "\n");
+        Ecrire("Duree : ", ct.jours, " jours\n");
+        Ecrire("Total a payer : ", ct.coutTotal, " DA\n\n");
+    Fsi
+Fin;
+
+Algorithme TestLocation;
+Var
+    auto1 : Vehicule;
+    locataire1 : ClientLoc;
+    contrat1 : Contrat;
+Debut
+    auto1 := NouveauVehicule("112233-116-16", "Peugeot 208", 4500.0, 150000);
+    locataire1 := NouveauClientLoc("PERMIS-DZ-1999", "Karim", 25);
+    
+    // Creation du contrat
+    contrat1 := EtablirContrat(8001, auto1, locataire1, 5);
+    AfficherContrat(contrat1);
+    
+    // Retour du vehicule apres avoir roulé 500km
+    CloturerContrat(auto1, 500);
+    
+    Ecrire("Kilometrage actuel de la voiture : ", auto1.kilometrage, "\n");
+Fin.

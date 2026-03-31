@@ -72,14 +72,30 @@ def get_default_value(type_name):
     if t == 'chaine': return '""'
     if t == 'booleen': return 'False'
     if t == 'caractere': return "''"
-    if 'pointeur' in t or t.startswith('pointeur_') or t.startswith('^'): return 'None'  # NIL pointer
-    # Fixed-size string field: TABLEAU_CHAINE_N
-    if t.startswith('tableau_chaine_'):
+    if 'POINTEUR' in t or t.startswith('^'): return 'None'  # NIL pointer
+
+    if t.startswith('MATRICE_'):
+        parts = t.split('_')
         try:
-            n = int(t.split('_')[-1])
-            return f"['\\0'] * {n}"
+            # Format: MATRICE_TYPE_ROWS_COLS
+            rows = int(parts[-2])
+            cols = int(parts[-1])
+            elem_type = '_'.join(parts[1:-2])
+            elem_default = get_default_value(elem_type)
+            return f"[[{elem_default} for _ in range({cols})] for _ in range({rows})]"
         except:
-            return "['\\0']"
+            pass
+
+    if t.startswith('TABLEAU_'):
+        parts = t.split('_')
+        try:
+            size = int(parts[-1])
+            elem_type = '_'.join(parts[1:-1])
+            elem_default = get_default_value(elem_type)
+            return f"[{elem_default} for _ in range({size})]"
+        except:
+            return '[]'
+
     # User-defined record type — emit empty dict initialiser
     if type_name in record_types:
         return _build_record_init(type_name)
@@ -1405,58 +1421,76 @@ def p_id_list(p):
 
 def p_id_or_array_access(p):
     '''id_or_array_access : ID
-                          | ID CARET
-                          | ID LBRACKET expression RBRACKET
-                          | ID LBRACKET expression RBRACKET LBRACKET expression RBRACKET'''
+                          | id_or_array_access DOT ID
+                          | id_or_array_access LBRACKET expression RBRACKET
+                          | id_or_array_access CARET'''
     if len(p) == 2:
-        p[0] = p[1]
-    elif len(p) == 3 and str(p[2]) == '^':
-        p[0] = f"{p[1]}^"
-    elif len(p) == 5:
-        p[0] = f"{p[1]}[{p[3][0]}]"
-    else:
-        p[0] = f"{p[1]}[{p[3][0]}][{p[6][0]}]"
+        var_name = p[1]
+        var_type, _ = find_variable(var_name)
+        p[0] = (var_name, var_type)
+    elif p[2] == '.':
+        base_code, base_type = p[1]
+        field_name = p[3]
+        field_type = 'UNKNOWN'
+        if base_type in record_types:
+            field_type = record_types[base_type].get(field_name, 'UNKNOWN')
+        
+        # If base was a dereference, we need to call _get() in Python
+        if base_code.endswith('._DEREF'):
+            base_code = f"({base_code[:-7]})._get()"
+            
+        p[0] = (f"{base_code}['{field_name}']", field_type)
+    elif p[2] == '[':
+        base_code, base_type = p[1]
+        idx_code = p[3][0]
+        elem_type = 'UNKNOWN'
+        if base_type.startswith('TABLEAU_'):
+            elem_type = _extract_array_element_type(base_type)
+        
+        if base_code.endswith('._DEREF'):
+            base_code = f"({base_code[:-7]})._get()"
+            
+        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+    else: # CARET
+        base_code, base_type = p[1]
+        # Resolve the type being pointed to
+        if base_type.startswith('POINTEUR_'):
+            elem_type = base_type[9:]
+        elif base_type.startswith('^'):
+            elem_type = base_type[1:]
+        else:
+            elem_type = 'UNKNOWN'
+            
+        if base_code.endswith('._DEREF'):
+            base_code = f"({base_code[:-7]})._get()"
+            
+        # We append a marker to indicate this needs ._set() if used in LIRE
+        p[0] = (f"{base_code}._DEREF", elem_type)
 
 def p_statement_io_read(p):
     '''statement : LIRE LPAREN id_list RPAREN SEMICOLON'''
     indent = get_indent()
-    vars = p[3]
+    vars = p[3] # Now a list of (py_code, type_name)
     code_blocks = []
     
-    for var_name_access in vars:
-        is_deref = isinstance(var_name_access, str) and var_name_access.endswith('^')
-        if is_deref:
-            base_name = var_name_access[:-1]
-        else:
-            base_name = var_name_access.split('[')[0]
-            
-        if is_local_scope() and base_name not in symbol_table[scope_stack[-1]]:
-            globals_modified_in_subprogram[scope_stack[-1]].add(base_name)
-            
-        # Resolve type for _algo_read_typed
-        type_str = "'UNKNOWN'"
+    for py_code, var_type in vars:
+        # Extract base variable name for global tracking
+        import re
+        m = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)', py_code)
+        if m:
+            base_name = m.group(1)
+            if is_local_scope() and base_name not in symbol_table[scope_stack[-1]]:
+                if scope_stack[-1] not in globals_modified_in_subprogram:
+                    globals_modified_in_subprogram[scope_stack[-1]] = set()
+                globals_modified_in_subprogram[scope_stack[-1]].add(base_name)
         
-        full_type, _ = find_variable(base_name)
-        if full_type != 'UNKNOWN':
-            if is_deref:
-                if full_type.startswith('POINTEUR_'):
-                    type_str = f"'{full_type.replace('POINTEUR_', '')}'"
-                elif full_type == 'POINTEUR':
-                    type_str = "'UNKNOWN'"
-            elif '[' in var_name_access:
-                if full_type.startswith('TABLEAU_'):
-                    type_str = f"'{_extract_array_element_type(full_type)}'"
-                elif full_type.startswith('MATRICE_'):
-                     type_str = f"'{full_type.replace('MATRICE_', '')}'"
-                else:
-                    type_str = f"'{full_type}'"
-            else:
-                type_str = f"'{full_type}'"
+        type_str = f"'{var_type}'"
         
-        if is_deref:
-            block = f"{indent}{base_name}._set(_algo_read_typed({base_name}._get(), _algo_read(), {type_str}))"
+        if py_code.endswith('._DEREF'):
+            target = py_code[:-7]
+            block = f"{indent}{target}._set(_algo_read_typed({target}._get(), _algo_read(), {type_str}))"
         else:
-            block = f"{indent}{var_name_access} = _algo_read_typed({var_name_access}, _algo_read(), {type_str})"
+            block = f"{indent}{py_code} = _algo_read_typed({py_code}, _algo_read(), {type_str})"
         code_blocks.append(block)
         
     p[0] = "\n".join(code_blocks)
@@ -1748,126 +1782,112 @@ def p_value(p):
         p[0] = str(p[1])
 
 def p_expression_array_access(p):
-    '''expression : ID LBRACKET expression RBRACKET'''
-    var_name = p[1]
+    '''expression : expression LBRACKET expression RBRACKET'''
+    base_code, base_type = p[1]
     idx_code = p[3][0]
-    var_type, _ = find_variable(var_name)
     elem_type = 'UNKNOWN'
-    if var_type.startswith('TABLEAU_'):
-        elem_type = _extract_array_element_type(var_type)
-        p[0] = (f"{var_name}[{idx_code}]", elem_type)
-    elif var_type.upper().startswith('MATRICE_CHAINE'):
+    if base_type.startswith('TABLEAU_'):
+        elem_type = _extract_array_element_type(base_type)
+        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+    elif base_type.upper().startswith('MATRICE_CHAINE'):
         elem_type = 'CHAINE'
-        p[0] = (f"{var_name}[{idx_code}]", elem_type)
-    elif var_type == 'CHAINE':
+        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+    elif base_type == 'CHAINE':
         elem_type = 'CARACTERE_TYPE'
-        p[0] = (f"_algo_get_char({var_name}, {idx_code})", elem_type)
+        p[0] = (f"_algo_get_char({base_code}, {idx_code})", elem_type)
     else:
-        p[0] = (f"{var_name}[{idx_code}]", elem_type)
+        # Fallback for unknown types or pointers used as arrays (decay)
+        p[0] = (f"{base_code}[{idx_code}]", elem_type)
 
 def p_expression_matrix_access(p):
-    '''expression : ID LBRACKET expression RBRACKET LBRACKET expression RBRACKET'''
-    var_name = p[1]
+    '''expression : expression LBRACKET expression RBRACKET LBRACKET expression RBRACKET'''
+    base_code, mat_type = p[1]
     idx1 = p[3][0]
     idx2 = p[6][0]
-    mat_type, _ = find_variable(var_name)
     elem_type = 'UNKNOWN'
     if mat_type.upper().startswith('MATRICE_CHAINE'):
         elem_type = 'CARACTERE_TYPE'
-        p[0] = (f"_algo_get_char({var_name}[{idx1}], {idx2})", elem_type)
+        p[0] = (f"_algo_get_char({base_code}[{idx1}], {idx2})", elem_type)
     elif mat_type.startswith('MATRICE_'):
         elem_type = mat_type.replace('MATRICE_', '')
-        p[0] = (f"{var_name}[{idx1}][{idx2}]", elem_type)
+        p[0] = (f"{base_code}[{idx1}][{idx2}]", elem_type)
     else:
-        p[0] = (f"{var_name}[{idx1}][{idx2}]", elem_type)
+        p[0] = (f"{base_code}[{idx1}][{idx2}]", elem_type)
 
 def p_statement_assign_array(p):
-    '''statement : ID LBRACKET expression RBRACKET ASSIGN expression SEMICOLON'''
-    var_name = p[1]
+    '''statement : expression LBRACKET expression RBRACKET ASSIGN expression SEMICOLON'''
+    base_code, var_type = p[1]
     idx_code = p[3][0]
     val_code = p[6][0]
     val_type = p[6][1]
-
-    var_type, _ = find_variable(var_name)
+    
+    # For semantic checks, we might still need a variable name if it's a simple variable
+    var_name = base_code if base_code.isidentifier() else "expression"
     
     check_allocation_semantic(p, var_name, val_code, is_array_access=True)
 
     if '_algo_allouer(' in val_code:
         # Inject element_size into the call
-        # var_type can be POINTEUR_POINTEUR_ENTIER
         base_t = var_type.replace('POINTEUR_', '', 1).replace('^', '', 1)
         if base_t.startswith('POINTEUR_'): base_t = base_t[9:]
         elif base_t.startswith('^'): base_t = base_t[1:]
         stride = mem_alloc.get_type_size(base_t)
         import re
-        # Handles one level of balanced parens inside allouer
         val_code = re.sub(r"(_algo_allouer\((?:[^()]|\([^()]*\))+)\)", rf"\1, element_size={stride})", val_code)
 
     if var_type.upper() in ['CHAINE', 'CHAINE_TYPE']:
-        # Single string var: character assignment
         if val_type == 'CHAINE':
             parser_errors.append({
                 "line": p.lineno(1),
                 "column": 0,
-                "message": f"Type error: '{var_name}[{idx_code}]' attend un Caractere (guillemets simples 'X'), pas une Chaine. Utilisez: {var_name}[{idx_code}] <- 'X'",
+                "message": f"Type error: Array element attend un Caractere, pas une Chaine.",
                 "type": "Semantic Error",
                 "error_code": "E3.3"
             })
-        p[0] = f"{get_indent()}{var_name} = _algo_set_char({var_name}, {idx_code}, {val_code})"
+        p[0] = f"{get_indent()}{base_code} = _algo_set_char({base_code}, {idx_code}, {val_code})"
     elif var_type.upper().startswith('MATRICE_CHAINE'):
-        # mots[i] := "word"  — assign a whole row of the word-matrix
-        p[0] = f"{get_indent()}_algo_assign_fixed_string({var_name}[{idx_code}], {val_code})"
+        p[0] = f"{get_indent()}_algo_assign_fixed_string({base_code}[{idx_code}], {val_code})"
     elif 'POINTEUR_POINTEUR_CARACTERE' in var_type.upper() or 'POINTEUR_POINTEUR_CARACTERE_TYPE' in var_type.upper():
-        # mots[i] := "word"  — for ^^Caractere: store a fresh char-array in the pointer slot
-        # If it's a string literal, create a char-array from it
-        # If it's an allocated pointer (_algo_allouer), store it directly
         if val_type in ('CHAINE', 'CHAINE_TYPE'):
-            # Fill the already-allocated char-array with the string value
-            p[0] = f"{get_indent()}_algo_assign_fixed_string({var_name}[{idx_code}], {val_code})"
+            p[0] = f"{get_indent()}_algo_assign_fixed_string({base_code}[{idx_code}], {val_code})"
         else:
-            # allouer(...) or pointer — store as-is
-            p[0] = f"{get_indent()}{var_name}[{idx_code}] = ({val_code})._clone() if hasattr({val_code}, '_clone') else {val_code}"
+            p[0] = f"{get_indent()}{base_code}[{idx_code}] = ({val_code})._clone() if hasattr({val_code}, '_clone') else {val_code}"
     else:
-        p[0] = f"{get_indent()}_tmp_val = {val_code}\n{get_indent()}{var_name}[{idx_code}] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
+        p[0] = f"{get_indent()}_tmp_val = {val_code}\n{get_indent()}{base_code}[{idx_code}] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
 
 def p_statement_assign_matrix(p):
-    '''statement : ID LBRACKET expression RBRACKET LBRACKET expression RBRACKET ASSIGN expression SEMICOLON'''
-    var_name = p[1]
+    '''statement : expression LBRACKET expression RBRACKET LBRACKET expression RBRACKET ASSIGN expression SEMICOLON'''
+    base_code, mat_type = p[1]
     idx1, idx2, val = p[3][0], p[6][0], p[9][0]
     val_type = p[9][1]
-    mat_type, _ = find_variable(var_name)
     mat_type = mat_type.upper()
     if mat_type.startswith('MATRICE_CHAINE'):
-        # mots[i][j] := 'c'  — set one character inside a word-row
         if val_type in ('CHAINE', 'CHAINE_TYPE'):
             parser_errors.append({
                 "line": p.lineno(1),
                 "column": 0,
-                "message": f"Erreur: '{var_name}[{p[3][0]}][{p[6][0]}]' attend un Caractere, pas une Chaine.",
+                "message": f"Erreur: element attend un Caractere, pas une Chaine.",
                 "type": "Semantic Error",
                 "error_code": "E3.3"
             })
-            p[0] = f"{get_indent()}pass  # blocked: string assigned to char slot"
+            p[0] = f"{get_indent()}pass"
         else:
-            p[0] = f"{get_indent()}_algo_set_char({var_name}[{idx1}], {idx2}, {val})"
+            p[0] = f"{get_indent()}_algo_set_char({base_code}[{idx1}], {idx2}, {val})"
 
     elif 'POINTEUR_POINTEUR_CARACTERE' in mat_type:
-        # ^^Caractere: mots[i][j] := 'c' is valid (set char in allocated word)
-        # BUT mots[i][j] := "string" is an error
         if val_type in ('CHAINE', 'CHAINE_TYPE'):
             parser_errors.append({
                 "line": p.lineno(1),
                 "column": 0,
-                "message": f"Erreur: '{var_name}[{idx1}][{idx2}]' attend un Caractere, pas une Chaine. Utilisez: {var_name}[{idx1}] <- \"mot\" pour assigner un mot entier.",
+                "message": f"Erreur: element attend un Caractere, pas une Chaine.",
                 "type": "Semantic Error",
                 "error_code": "E3.3"
             })
-            p[0] = f"{get_indent()}pass  # blocked: string assigned to char slot"
+            p[0] = f"{get_indent()}pass"
         else:
-            # set a character in the dynamically allocated word
-            p[0] = f"{get_indent()}_algo_set_char({var_name}[{idx1}], {idx2}, {val})"
+            p[0] = f"{get_indent()}_algo_set_char({base_code}[{idx1}], {idx2}, {val})"
     else:
-        p[0] = f"{get_indent()}_tmp_val = {val}\n{get_indent()}{var_name}[{idx1}][{idx2}] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
+        p[0] = f"{get_indent()}_tmp_val = {val}\n{get_indent()}{base_code}[{idx1}][{idx2}] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
 
 # Error tracking
 parser_errors = []

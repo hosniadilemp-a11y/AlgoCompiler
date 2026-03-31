@@ -1,0 +1,138 @@
+// ================================================================
+// EXERCICE 6 : Plateforme E-Commerce simplifiée
+// ================================================================
+// ÉNONCÉ DE L'EXERCICE :
+// Pour gérer les commandes en ligne d'une boutique, vous disposez de 
+// 3 types d'enregistrements :
+//   1. Produit : ref (Entier), nom (Chaine), prix (Reel), stock (Entier).
+//   2. Client : idClient (Entier), pseudo (Chaine), solde (Reel).
+//   3. LigneCommande : produit_ref (Entier), quantite (Entier), sousTotal (Reel).
+//
+// TRAVAIL DEMANDÉ :
+// Écrire 5 fonctions/procédures essentielles :
+//   - NouveauProduit(ref, nom, prix, stock) : Retourne un Produit initialisé.
+//   - NouveauClient(id, pseudo, solde) : Retourne un Client initialisé.
+//   - AjouterStock(p, qte) : Augmente le stock du produit p.
+//   - PasserCommande(c, p, qte) : Crée et retourne une LigneCommande si le 
+//     stock est suffisant et si le client a assez de solde, sinon retourne 
+//     une LigneCommande vide et affiche un message d'erreur. Met a jour solde et stock.
+//   - AfficherLigneCommande(lc) : Affiche la ligne de commande.
+// ================================================================
+
+Type Produit = Enregistrement
+    ref      : Entier;
+    nom[40]      : Chaine;
+    prix     : Reel;
+    stock    : Entier;
+Fin;
+
+Type Client = Enregistrement
+    idClient : Entier;
+    pseudo[20]   : Chaine;
+    solde    : Reel;
+Fin;
+
+Type LigneCommande = Enregistrement
+    produit_ref : Entier;
+    quantite    : Entier;
+    sousTotal   : Reel;
+    valide      : Booleen;
+Fin;
+
+// --- Implémentation ---
+
+Fonction NouveauProduit(r: Entier, n: Chaine, p: Reel, s: Entier) : Produit;
+Var prod : Produit;
+Debut
+    prod.ref := r;
+    prod.nom := n;
+    prod.prix := p;
+    prod.stock := s;
+    Retourner(prod);
+Fin;
+
+Fonction NouveauClient(i: Entier, p: Chaine, s: Reel) : Client;
+Var cli : Client;
+Debut
+    cli.idClient := i;
+    cli.pseudo := p;
+    cli.solde := s;
+    Retourner(cli);
+Fin;
+
+Procedure AjouterStock(Var prod: Produit, ajout: Entier);
+Debut
+    prod.stock := prod.stock + ajout;
+Fin;
+
+Fonction PasserCommande(Var cli: Client, Var prod: Produit, qte: Entier) : LigneCommande;
+Var lc : LigneCommande;
+    coutTotal : Reel;
+Debut
+    coutTotal := prod.prix * qte;
+    
+    // Verif de la faisabilité
+    Si prod.stock < qte Alors
+        Ecrire("Erreur : Stock insuffisant pour le produit ", prod.nom, "\n");
+        lc.valide := Faux;
+        Retourner(lc);
+    Fsi
+    
+    Si cli.solde < coutTotal Alors
+        Ecrire("Erreur : Solde insuffisant pour le client ", cli.pseudo, "\n");
+        lc.valide := Faux;
+        Retourner(lc);
+    Fsi
+    
+    // Succés
+    cli.solde := cli.solde - coutTotal;
+    prod.stock := prod.stock - qte;
+    
+    lc.produit_ref := prod.ref;
+    lc.quantite := qte;
+    lc.sousTotal := coutTotal;
+    lc.valide := Vrai;
+    
+    Ecrire("Commande passee avec succes ! (", qte, "x ", prod.nom, ")\n");
+    Retourner(lc);
+Fin;
+
+Procedure AfficherLigneCommande(lc: LigneCommande, c: Client);
+Debut
+    Si lc.valide Alors
+        Ecrire("--- RECU DE COMMANDE ---\n");
+        Ecrire("Client : ", c.pseudo, "\n");
+        Ecrire("Produit Reference : ", lc.produit_ref, "\n");
+        Ecrire("Quantite : ", lc.quantite, "\n");
+        Ecrire("Total facturé : ", lc.sousTotal, " DA\n");
+    Sinon
+        Ecrire("Ligne de commande invalide.\n");
+    Fsi
+Fin;
+
+Algorithme TestECommerce;
+Var
+    p1 : Produit;
+    c1 : Client;
+    cmd1, cmd2 : LigneCommande;
+Debut
+    Ecrire("### SYSTEME E-COMMERCE ###\n\n");
+    p1 := NouveauProduit(101, "Laptop Gamer RTX 4060", 150000.0, 5);
+    c1 := NouveauClient(1, "Adel", 200000.0);
+    
+    // Test 1: Succès
+    cmd1 := PasserCommande(c1, p1, 1);
+    AfficherLigneCommande(cmd1, c1);
+    
+    Ecrire("Nouveau solde Adel : ", c1.solde, "\n");
+    Ecrire("Nouveau stock PC : ", p1.stock, "\n\n");
+    
+    // Test 2: Stock ajouté
+    AjouterStock(p1, 2);
+    Ecrire("Reapprovisionnement PC. Stock = ", p1.stock, "\n\n");
+    
+    // Test 3: Echec solde
+    cmd2 := PasserCommande(c1, p1, 2); // 2 * 150000 = 300000 (Solde: 50000)
+    AfficherLigneCommande(cmd2, c1);
+    
+Fin.

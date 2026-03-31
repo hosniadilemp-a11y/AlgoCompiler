@@ -1,0 +1,125 @@
+// ================================================================
+// EXERCICE 8 : Gestion d'une Bibliothèque Universitaire
+// ================================================================
+// ÉNONCÉ DE L'EXERCICE :
+// Pour gèrer le fonds documentaire et les lecteurs d'une bibliothèque, 
+// vous devez utiliser 3 enregistrements :
+//   1. Livre : isbn (Chaine), titre (Chaine), auteur (Chaine), disponible (Booleen).
+//   2. EtudiantMembre : mat (Entier), nom (Chaine), filiere (Chaine).
+//   3. Emprunt : id (Entier), isbn_livre (Chaine), mat_etudiant (Entier), dateRetour (Chaine).
+//
+// TRAVAIL DEMANDÉ :
+// Écrire 5 fonctions/procédures pour automatiser la gestion :
+//   - AjouterLivre(isbn, titre, auteur) : Retourne un Livre disponible.
+//   - InscrireMembre(mat, nom, filiere) : Retourne un EtudiantMembre.
+//   - EmprunterLivre(idEmp, livre, membre, dateRet) : Si le livre est 
+//     disponible, crée l'emprunt et marque le livre comme non disponible 
+//     (via pointeur).
+//   - RendreLivre(livre) : Remet le livre en statut disponible (via pointeur).
+//   - DetailEmprunt(emp, L, M) : Affiche la fiche de l'emprunt avec les infos 
+//     croisees du livre L et du membre M.
+// ================================================================
+
+Type Livre = Enregistrement
+    isbn[20]       : Chaine;
+    titre[50]      : Chaine;
+    auteur[30]     : Chaine;
+    disponible : Booleen;
+Fin;
+
+Type EtudiantMembre = Enregistrement
+    mat        : Entier;
+    nom[40]        : Chaine;
+    filiere[20]    : Chaine;
+Fin;
+
+Type Emprunt = Enregistrement
+    id           : Entier;
+    isbn_livre[20]   : Chaine;
+    mat_etudiant : Entier;
+    dateRetour[15]   : Chaine;
+Fin;
+
+// --- Implementations ---
+
+Fonction AjouterLivre(i: Chaine, t: Chaine, a: Chaine) : Livre;
+Var L : Livre;
+Debut
+    L.isbn := i;
+    L.titre := t;
+    L.auteur := a;
+    L.disponible := Vrai;
+    Retourner(L);
+Fin;
+
+Fonction InscrireMembre(m: Entier, n: Chaine, f: Chaine) : EtudiantMembre;
+Var etd : EtudiantMembre;
+Debut
+    etd.mat := m;
+    etd.nom := n;
+    etd.filiere := f;
+    Retourner(etd);
+Fin;
+
+Fonction EmprunterLivre(id: Entier, Var L: Livre, Var M: EtudiantMembre, dr: Chaine) : Emprunt;
+Var emp : Emprunt;
+Debut
+    Si L.disponible = Faux Alors
+        Ecrire("Erreur : Le livre '", L.titre, "' n'est pas disponible actuellement.\n");
+        emp.id := -1;
+        Retourner(emp);
+    Fsi
+    
+    L.disponible := Faux;
+    
+    emp.id := id;
+    emp.isbn_livre := L.isbn;
+    emp.mat_etudiant := M.mat;
+    emp.dateRetour := dr;
+    
+    Ecrire("Emprunt effectue avec succes.\n");
+    Retourner(emp);
+Fin;
+
+Procedure RendreLivre(Var L: Livre);
+Debut
+    Si L.disponible = Faux Alors
+        L.disponible := Vrai;
+        Ecrire("Le livre '", L.titre, "' a ete rendu et est de nouveau disponible.\n");
+    Sinon
+        Ecrire("Anomalie : Ce livre etait deja marque comme disponible.\n");
+    Fsi
+Fin;
+
+Procedure DetailEmprunt(emp: Emprunt, L: Livre, M: EtudiantMembre);
+Debut
+    Si emp.id = -1 Alors
+        Ecrire("Fiche Emprunt Vide (Non valide).\n");
+    Sinon
+        Ecrire("---------------- FICHE EMPRUNT ----------------\n");
+        Ecrire("Membre : ", M.nom, " (Matricule: ", M.mat, " | Filiere: ", M.filiere, ")\n");
+        Ecrire("Livre EMPRUNTE : '", L.titre, "' par ", L.auteur, " (ISBN: ", L.isbn, ")\n");
+        Ecrire("=> A RETOURNER AVANT LE : ", emp.dateRetour, "\n");
+        Ecrire("-----------------------------------------------\n\n");
+    Fsi
+Fin;
+
+Algorithme TestBibliotheque;
+Var
+    livre1 : Livre;
+    etudiant1 : EtudiantMembre;
+    fiche : Emprunt;
+Debut
+    livre1 := AjouterLivre("ISBN-978-2", "Algorithmique et Programmation", "Cormen");
+    etudiant1 := InscrireMembre(20210001, "Sofia", "Informatique L1");
+    
+    // 1ere Tentative : Succes
+    fiche := EmprunterLivre(100, livre1, etudiant1, "30-11-2024");
+    DetailEmprunt(fiche, livre1, etudiant1);
+    
+    // 2eme Tentative sur le meme livre : Echec
+    fiche := EmprunterLivre(101, livre1, etudiant1, "15-12-2024");
+    
+    // Retour du livre
+    RendreLivre(livre1);
+Fin.
