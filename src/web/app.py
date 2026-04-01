@@ -234,7 +234,18 @@ def cleanup_db_session(exc):
 
 
 # Basic Config
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+# VULN-001: Fail loudly in production if SECRET_KEY is not set
+if not is_local_dev and not os.environ.get('SECRET_KEY'):
+    import warnings
+    warnings.warn(
+        "SECRET_KEY is not set! A random key is being used, which will "
+        "invalidate all sessions on every restart. Set SECRET_KEY in your "
+        "environment variables.",
+        stacklevel=1
+    )
+# VULN-015: Limit upload/request size to prevent DoS via large payloads
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 database_url = os.environ.get('DATABASE_URL')
 direct_database_url = (
@@ -1243,12 +1254,23 @@ def add_header(r):
     """
     Add headers to both force latest IE rendering engine or Chrome Frame,
     and also to cache the rendered page for 10 minutes.
+    Security headers added: VULN-012
     """
     r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     r.headers["Pragma"] = "no-cache"
     r.headers["Expires"] = "0"
     r.headers['Cache-Control'] = 'public, max-age=0'
     r.headers['X-App-Build'] = APP_BUILD_ID
+
+    # ── Security headers (VULN-012) ────────────────────────────────────────
+    r.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    r.headers['X-Content-Type-Options'] = 'nosniff'
+    r.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    r.headers['X-XSS-Protection'] = '1; mode=block'
+    if not app.debug:
+        r.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # ───────────────────────────────────────────────────────────────────────
+
     request_duration_ms = current_request_duration_ms()
     if request_duration_ms is not None:
         r.headers[REQUEST_TIMING_HEADER] = f"{request_duration_ms:.3f}"

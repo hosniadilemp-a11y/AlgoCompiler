@@ -3,12 +3,26 @@ Q&A Blueprint — /qa
 Authenticated-only StackOverflow-like module with question/answer/vote support.
 """
 from datetime import datetime
-from flask import Blueprint, abort, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
 from web.models import QAAnswer, QAQuestion, QAVote, db, User
 
 qa_bp = Blueprint("qa", __name__, url_prefix="/qa")
+
+# ── CSRF guard for all state-changing requests (VULN-008) ────────────────────
+@qa_bp.before_request
+def _csrf_protect():
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        token = request.headers.get("X-CSRFToken") or request.headers.get("X-Csrf-Token")
+        session_token = session.get("_csrf_token")
+        if not token or not session_token or token != session_token:
+            return jsonify({"success": False, "error": "CSRF token manquant ou invalide."}), 403
+
+# Allowed sort keys (VULN-011)
+_ALLOWED_QA_SORTS = frozenset({"date", "votes"})
+_MAX_BODY = 20_000   # chars
+_MAX_CODE = 10_000   # chars
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,8 +78,10 @@ def index():
 def api_list_questions():
     """Return paginated questions as JSON. sort=date|votes"""
     sort  = request.args.get("sort", "date")
+    if sort not in _ALLOWED_QA_SORTS:  # VULN-011: allowlist
+        sort = "date"
     page  = request.args.get("page", 1, type=int)
-    limit = request.args.get("limit", 20, type=int)
+    limit = min(50, max(1, request.args.get("limit", 20, type=int)))  # cap at 50
 
     q = QAQuestion.query
     if sort == "votes":
@@ -108,6 +124,10 @@ def api_ask_question():
         return jsonify({"success": False, "error": "Titre et description requis."}), 400
     if len(title) > 255:
         return jsonify({"success": False, "error": "Titre trop long (max 255 caractères)."}), 400
+    if len(body) > _MAX_BODY:
+        return jsonify({"success": False, "error": f"Description trop longue (max {_MAX_BODY} caractères)."}), 400
+    if code and len(code) > _MAX_CODE:
+        return jsonify({"success": False, "error": f"Code trop long (max {_MAX_CODE} caractères)."}), 400
 
     q = QAQuestion(user_id=current_user.id, title=title, body=body, code=code)
     db.session.add(q)

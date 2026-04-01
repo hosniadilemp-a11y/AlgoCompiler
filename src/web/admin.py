@@ -5,6 +5,7 @@ Completely separate from the main user auth (Flask-Login).
 """
 import datetime
 import functools
+import hmac
 import os
 import csv
 import io
@@ -71,7 +72,10 @@ def login_api():
             return jsonify({'success': True})
 
     # Fallback only when env credentials were explicitly configured.
-    if has_env_admin_credentials() and username_input == ADMIN_USERNAME and password_input == ADMIN_PASSWORD:
+    # Use hmac.compare_digest to prevent timing attacks (VULN-014)
+    if (has_env_admin_credentials()
+            and hmac.compare_digest(username_input, ADMIN_USERNAME or '')
+            and hmac.compare_digest(password_input, ADMIN_PASSWORD or '')):
         session['admin_logged_in'] = True
         session.permanent = True
         session['admin_user_id'] = None
