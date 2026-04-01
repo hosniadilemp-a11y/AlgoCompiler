@@ -22,6 +22,9 @@ for env_path in (
     if os.path.exists(env_path):
         load_dotenv(env_path, override=False)
 
+app_env = (os.environ.get('APP_ENV') or os.environ.get('FLASK_ENV') or '').strip().lower()
+is_local_dev = app_env not in {'production', 'prod'}
+
 # Add parent directory to path to allow importing 'compiler'
 sys.path.append(os.path.abspath(os.path.join(APP_DIR, '..')))
 
@@ -256,8 +259,6 @@ session_pooler_url = (
     os.environ.get('SUPABASE_SESSION_POOLER_URL')
     or os.environ.get('SESSION_DATABASE_URL')
 )
-app_env = (os.environ.get('APP_ENV') or os.environ.get('FLASK_ENV') or '').strip().lower()
-is_local_dev = app_env not in {'production', 'prod'}
 if direct_database_url and database_url and 'supabase.com:6543' in database_url and is_local_dev:
     database_url = direct_database_url
 elif session_pooler_url and database_url and 'pooler.supabase.com:6543' in database_url:
