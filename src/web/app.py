@@ -434,6 +434,10 @@ app.register_blueprint(auth_bp)
 from web.admin import admin_bp
 app.register_blueprint(admin_bp)
 
+# Register Q&A Blueprint
+from web.qa import qa_bp
+app.register_blueprint(qa_bp)
+
 # Correct path to examples and fixtures
 EXAMPLES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'examples'))
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'fixtures'))

@@ -209,3 +209,53 @@ class UserBadge(db.Model):
     seen = db.Column(db.Boolean, default=False)
     
     user = db.relationship('User', backref=db.backref('badges', lazy=True, cascade="all, delete-orphan"))
+
+
+# ── Q&A Module ────────────────────────────────────────────────────────────────
+
+class QAQuestion(db.Model):
+    __tablename__ = 'qa_questions'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title      = db.Column(db.String(255), nullable=False)
+    body       = db.Column(db.Text, nullable=False)
+    code       = db.Column(db.Text, nullable=True)   # optional code snippet
+    vote_score = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    author  = db.relationship('User', backref=db.backref('qa_questions', lazy=True))
+    answers = db.relationship('QAAnswer', backref='question', lazy=True,
+                              cascade='all, delete-orphan', order_by='QAAnswer.created_at.asc()')
+
+
+class QAAnswer(db.Model):
+    __tablename__ = 'qa_answers'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer, db.ForeignKey('qa_questions.id'), nullable=False, index=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    body        = db.Column(db.Text, nullable=False)
+    code        = db.Column(db.Text, nullable=True)
+    vote_score  = db.Column(db.Integer, default=0)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship('User', backref=db.backref('qa_answers', lazy=True))
+
+
+class QAVote(db.Model):
+    """One vote per user per target (question or answer). value = +1 or -1."""
+    __tablename__ = 'qa_votes'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'target_type', 'target_id', name='uq_qa_vote'),
+    )
+
+    id          = db.Column(db.Integer, primary_key=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    target_type = db.Column(db.String(10), nullable=False)   # 'question' | 'answer'
+    target_id   = db.Column(db.Integer, nullable=False)
+    value       = db.Column(db.Integer, nullable=False)       # +1 or -1
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    voter = db.relationship('User', backref=db.backref('qa_votes', lazy=True))

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q&A — AlgoCompiler</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='course-styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root {
+            --qa-accent: #4a6ee0;
+            --qa-accent-hover: #3a5ec0;
+            --qa-success: #2ecc71;
+            --qa-danger: #e74c3c;
+            --qa-warn: #f39c12;
+            --qa-bg: var(--panel-bg, #161b22);
+            --qa-border: var(--border-color, #30363d);
+            --qa-text: var(--text-color, #e6edf3);
+            --qa-muted: #8b949e;
+            --qa-code-bg: #0d1117;
+        }
+
+        .qa-layout {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 24px;
+        }
+
+        @media (max-width: 800px) { .qa-layout { grid-template-columns: 1fr; } }
+
+        /* ── Sidebar ── */
+        .qa-sidebar { position: sticky; top: 20px; align-self: start; }
+        .qa-sidebar-card {
+            background: var(--qa-bg);
+            border: 1px solid var(--qa-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 14px;
+        }
+        .qa-sidebar-card h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--qa-muted);
+            margin-bottom: 14px;
+        }
+
+        /* ── Question List ── */
+        .qa-main { min-width: 0; }
+        .qa-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .qa-header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--qa-accent), #9b59b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .qa-sort-bar {
+            display: flex;
+            gap: 8px;
+        }
+        .qa-sort-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--qa-border);
+            background: transparent;
+            color: var(--qa-muted);
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .qa-sort-btn.active, .qa-sort-btn:hover {
+            background: var(--qa-accent);
+            border-color: var(--qa-accent);
+            color: #fff;
+        }
+
+        /* ── Question Card ── */
+        .qa-card {
+            background: var(--qa-bg);
+            border: 1px solid var(--qa-border);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .qa-card:hover { border-color: var(--qa-accent); box-shadow: 0 4px 20px rgba(74,110,224,0.1); }
+        .qa-card-header {
+            padding: 18px 20px;
+            cursor: pointer;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+        .qa-vote-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            min-width: 36px;
+            padding-top: 2px;
+        }
+        .qa-vote-btn {
+            background: none;
+            border: 1px solid var(--qa-border);
+            color: var(--qa-muted);
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .qa-vote-btn:hover { border-color: var(--qa-accent); color: var(--qa-accent); }
+        .qa-vote-btn.voted-up   { background: rgba(46,204,113,0.15); border-color: var(--qa-success); color: var(--qa-success); }
+        .qa-vote-btn.voted-down { background: rgba(231,76,60,0.15);  border-color: var(--qa-danger);  color: var(--qa-danger); }
+        .qa-vote-score {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--qa-text);
+            min-width: 20px;
+            text-align: center;
+        }
+        .qa-card-body { flex: 1; min-width: 0; }
+        .qa-card-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--qa-text);
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+        .qa-card-excerpt {
+            font-size: 0.875rem;
+            color: var(--qa-muted);
+            line-height: 1.5;
+            margin-bottom: 10px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .qa-card-meta {
+            display: flex;
+            gap: 14px;
+            font-size: 0.78rem;
+            color: var(--qa-muted);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .qa-tag {
+            background: rgba(74,110,224,0.15);
+            border: 1px solid rgba(74,110,224,0.3);
+            color: var(--qa-accent);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+        }
+        .qa-tag.answers { background: rgba(46,204,113,0.1); border-color: rgba(46,204,113,0.3); color: var(--qa-success); }
+
+        /* ── Expanded Card Detail ── */
+        .qa-card-detail {
+            border-top: 1px solid var(--qa-border);
+            padding: 20px;
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+        .qa-card-detail.open { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Code Blocks ── */
+        .qa-code-block {
+            background: var(--qa-code-bg) !important;
+            border: 1px solid var(--qa-border);
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 14px 0;
+            position: relative;
+        }
+        .qa-code-block pre {
+            margin: 0;
+            padding: 16px;
+            font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+        .qa-code-label {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            font-size: 0.7rem;
+            color: var(--qa-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            background: var(--qa-code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .qa-body-text {
+            font-size: 0.92rem;
+            color: var(--qa-text);
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ── Answers ── */
+        .qa-answers-section { margin-top: 24px; }
+        .qa-answers-section h4 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--qa-muted);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .qa-answer {
+            border: 1px solid var(--qa-border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.02);
+            display: flex;
+            gap: 12px;
+        }
+        .qa-answer-content { flex: 1; min-width: 0; }
+        .qa-answer-meta { font-size: 0.77rem; color: var(--qa-muted); margin-top: 8px; }
+
+        /* ── Answer Form ── */
+        .qa-answer-form { margin-top: 20px; }
+        .qa-answer-form h4 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--qa-muted);
+            margin-bottom: 12px;
+        }
+        .qa-textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--qa-code-bg);
+            border: 1px solid var(--qa-border);
+            border-radius: 8px;
+            color: var(--qa-text);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .qa-textarea:focus { outline: none; border-color: var(--qa-accent); }
+        .qa-code-textarea {
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            background: #0d1117;
+            min-height: 70px;
+        }
+        .qa-form-field { margin-bottom: 10px; }
+        .qa-form-label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--qa-muted);
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .qa-form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--qa-code-bg);
+            border: 1px solid var(--qa-border);
+            border-radius: 8px;
+            color: var(--qa-text);
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .qa-form-input:focus { outline: none; border-color: var(--qa-accent); }
+
+        /* ── Buttons ── */
+        .qa-btn {
+            padding: 9px 20px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .qa-btn-primary { background: var(--qa-accent); color: #fff; }
+        .qa-btn-primary:hover { background: var(--qa-accent-hover); transform: translateY(-1px); }
+        .qa-btn-secondary { background: transparent; border: 1px solid var(--qa-border); color: var(--qa-text); }
+        .qa-btn-secondary:hover { border-color: var(--qa-accent); color: var(--qa-accent); }
+        .qa-btn-danger { background: transparent; border: 1px solid var(--qa-border); color: var(--qa-muted); font-size: 0.78rem; padding: 5px 10px; border-radius: 6px; }
+        .qa-btn-danger:hover { border-color: var(--qa-danger); color: var(--qa-danger); }
+
+        /* ── Ask Question Panel (overlay style) ── */
+        .qa-ask-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            display: none;
+        }
+        .qa-ask-overlay.open { display: flex; }
+        .qa-ask-modal {
+            background: var(--qa-bg);
+            border: 1px solid var(--qa-border);
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .qa-ask-modal h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* ── Empty / Loading states ── */
+        .qa-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--qa-muted);
+        }
+        .qa-empty i { font-size: 3rem; margin-bottom: 14px; display: block; }
+        .qa-spinner {
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+        }
+        .qa-spinner i { font-size: 2rem; color: var(--qa-accent); animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Pagination ── */
+        .qa-pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        .qa-page-btn {
+            padding: 7px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--qa-border);
+            background: transparent;
+            color: var(--qa-text);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .qa-page-btn.active, .qa-page-btn:hover { background: var(--qa-accent); border-color: var(--qa-accent); color: #fff; }
+        .qa-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ── Delete button (inline) ── */
+        .qa-delete-btn {
+            background: none;
+            border: none;
+            color: var(--qa-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 3px 6px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+        .qa-delete-btn:hover { color: var(--qa-danger); }
+    </style>
+</head>
+
+<body>
+{% include 'partials/navbar.html' %}
+
+<div class="qa-layout">
+
+    <!-- ── Main Column ── -->
+    <div class="qa-main">
+
+        <!-- Header row -->
+        <div class="qa-header">
+            <h1><i class="fas fa-comments" style="font-size:1.2rem;"></i> Questions & Réponses</h1>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <div class="qa-sort-bar">
+                    <button class="qa-sort-btn active" id="sort-date" onclick="setSort('date')">
+                        <i class="fas fa-clock"></i> Récent
+                    </button>
+                    <button class="qa-sort-btn" id="sort-votes" onclick="setSort('votes')">
+                        <i class="fas fa-fire"></i> Populaire
+                    </button>
+                </div>
+                <button class="qa-btn qa-btn-primary" onclick="openAsk()">
+                    <i class="fas fa-plus"></i> Poser une Question
+                </button>
+            </div>
+        </div>
+
+        <!-- Question list -->
+        <div id="qa-list">
+            <div class="qa-spinner"><i class="fas fa-circle-notch"></i></div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="qa-pagination" id="qa-pagination"></div>
+
+    </div>
+
+    <!-- ── Sidebar ── -->
+    <div class="qa-sidebar">
+        <div class="qa-sidebar-card">
+            <h3><i class="fas fa-info-circle"></i> À propos du Q&A</h3>
+            <p style="font-size:0.85rem; color:var(--qa-muted); line-height:1.6;">
+                Posez vos questions sur l'algorithmique, le code AlgoCompiler, ou les défis. 
+                Les autres étudiants et enseignants peuvent répondre.
+            </p>
+        </div>
+        <div class="qa-sidebar-card">
+            <h3><i class="fas fa-lightbulb"></i> Conseils</h3>
+            <ul style="font-size:0.82rem; color:var(--qa-muted); line-height:1.8; padding-left:16px;">
+                <li>Titrez clairement votre question</li>
+                <li>Ajoutez votre code si pertinent</li>
+                <li>Votez pour les bonnes réponses</li>
+            </ul>
+        </div>
+        <div class="qa-sidebar-card">
+            <h3><i class="fas fa-chart-bar"></i> Statistiques</h3>
+            <div id="qa-stats" style="font-size:0.85rem; color:var(--qa-muted);">
+                <div>Questions: <strong id="stat-q">—</strong></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── Ask Question Overlay ── -->
+<div class="qa-ask-overlay" id="ask-overlay" onclick="closeAskIfClickedOutside(event)">
+    <div class="qa-ask-modal" id="ask-modal">
+        <h2>
+            <span><i class="fas fa-question-circle" style="color:var(--qa-accent);"></i> Nouvelle Question</span>
+            <button onclick="closeAsk()" style="background:none;border:none;color:var(--qa-muted);font-size:1.4rem;cursor:pointer;">&times;</button>
+        </h2>
+
+        <div class="qa-form-field">
+            <label class="qa-form-label" for="ask-title">Titre <span style="color:#e74c3c;">*</span></label>
+            <input id="ask-title" class="qa-form-input" type="text" placeholder="Ex: Comment déclarer un tableau en Algo?" maxlength="255">
+        </div>
+        <div class="qa-form-field">
+            <label class="qa-form-label" for="ask-body">Description <span style="color:#e74c3c;">*</span></label>
+            <textarea id="ask-body" class="qa-textarea" rows="5" placeholder="Décrivez votre problème en détail..."></textarea>
+        </div>
+        <div class="qa-form-field">
+            <label class="qa-form-label" for="ask-code">Code (optionnel)</label>
+            <textarea id="ask-code" class="qa-textarea qa-code-textarea" rows="5"
+                placeholder="// Collez votre code ici&#10;algorithme Exemple&#10;début&#10;  ecrire(&quot;Hello&quot;)&#10;fin"></textarea>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+            <button class="qa-btn qa-btn-secondary" onclick="closeAsk()">Annuler</button>
+            <button class="qa-btn qa-btn-primary" onclick="submitQuestion()">
+                <i class="fas fa-paper-plane"></i> Publier
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentSort = 'date';
+let currentPage = 1;
+let openCardId  = null;
+const ME_ID     = {{ current_user.id }};
+const IS_ADMIN  = {{ 'true' if current_user.is_admin else 'false' }};
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+function timeAgo(iso) {
+    const diff = (Date.now() - new Date(iso + 'Z').getTime()) / 1000;
+    if (diff < 60)    return 'à l\'instant';
+    if (diff < 3600)  return `il y a ${Math.floor(diff / 60)} min`;
+    if (diff < 86400) return `il y a ${Math.floor(diff / 3600)} h`;
+    return `il y a ${Math.floor(diff / 86400)} j`;
+}
+
+function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderCode(code) {
+    if (!code || !code.trim()) return '';
+    const highlighted = hljs.highlightAuto(code).value;
+    return `
+      <div class="qa-code-block" style="position:relative;">
+        <span class="qa-code-label">CODE</span>
+        <pre><code>${highlighted}</code></pre>
+      </div>`;
+}
+
+async function api(url, opts = {}) {
+    const r = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': window.APP_CSRF_TOKEN || '' },
+        ...opts
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Erreur serveur');
+    return data;
+}
+
+// ── Sort ─────────────────────────────────────────────────────────────────────
+function setSort(sort) {
+    currentSort = sort;
+    currentPage = 1;
+    document.querySelectorAll('.qa-sort-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('sort-' + sort).classList.add('active');
+    loadQuestions();
+}
+
+// ── Load Questions ────────────────────────────────────────────────────────────
+async function loadQuestions() {
+    const list = document.getElementById('qa-list');
+    list.innerHTML = '<div class="qa-spinner"><i class="fas fa-circle-notch"></i></div>';
+
+    try {
+        const d = await api(`/qa/api/questions?sort=${currentSort}&page=${currentPage}&limit=15`);
+        document.getElementById('stat-q').textContent = d.total;
+
+        if (d.questions.length === 0) {
+            list.innerHTML = `
+              <div class="qa-empty">
+                <i class="fas fa-comments"></i>
+                <p style="font-size:1rem; margin-bottom:8px;">Aucune question pour le moment.</p>
+                <p style="font-size:0.85rem;">Soyez le premier à poser une question !</p>
+                <button class="qa-btn qa-btn-primary" style="margin-top:16px;" onclick="openAsk()">
+                    <i class="fas fa-plus"></i> Poser une Question
+                </button>
+              </div>`;
+            document.getElementById('qa-pagination').innerHTML = '';
+            return;
+        }
+
+        list.innerHTML = d.questions.map(q => renderQuestionCard(q)).join('');
+        renderPagination(d.pages, d.page);
+
+    } catch (e) {
+        list.innerHTML = `<div class="qa-empty"><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i><p>${e.message}</p></div>`;
+    }
+}
+
+// ── Render a single question card ─────────────────────────────────────────────
+function renderQuestionCard(q) {
+    const excerpt = q.body.length > 180 ? q.body.slice(0, 180) + '…' : q.body;
+    const upClass   = q.user_vote === 1 ? 'voted-up'   : '';
+    const downClass = q.user_vote === -1 ? 'voted-down' : '';
+    const canDelete = (ME_ID === parseInt(q.author_id)) || IS_ADMIN;
+
+    return `
+      <div class="qa-card" id="card-${q.id}">
+        <div class="qa-card-header" onclick="toggleCard(${q.id})">
+          <div class="qa-vote-col">
+            <button class="qa-vote-btn ${upClass}" onclick="vote(event,'question',${q.id},1)"
+                    id="up-q-${q.id}"><i class="fas fa-chevron-up"></i></button>
+            <span class="qa-vote-score" id="score-q-${q.id}">${q.vote_score}</span>
+            <button class="qa-vote-btn ${downClass}" onclick="vote(event,'question',${q.id},-1)"
+                    id="down-q-${q.id}"><i class="fas fa-chevron-down"></i></button>
+          </div>
+          <div class="qa-card-body">
+            <div class="qa-card-title">${escHtml(q.title)}</div>
+            <div class="qa-card-excerpt">${escHtml(excerpt)}</div>
+            <div class="qa-card-meta">
+              <span><i class="fas fa-user-circle"></i> ${escHtml(q.author)}</span>
+              <span><i class="fas fa-clock"></i> ${timeAgo(q.created_at)}</span>
+              <span class="qa-tag answers" title="Réponses">
+                <i class="fas fa-comment-alt"></i> ${q.answer_count}
+              </span>
+              ${q.code ? '<span class="qa-tag"><i class="fas fa-code"></i> Code</span>' : ''}
+              <i class="fas fa-chevron-down" style="margin-left:auto;color:var(--qa-muted);transition:transform 0.2s;"
+                 id="chevron-${q.id}"></i>
+            </div>
+          </div>
+        </div>
+        <div class="qa-card-detail" id="detail-${q.id}">
+          <div class="qa-body-text">${escHtml(q.body)}</div>
+          ${renderCode(q.code)}
+          <div id="answers-${q.id}" style="margin-top:20px;">
+            <div class="qa-spinner"><i class="fas fa-circle-notch"></i></div>
+          </div>
+        </div>
+      </div>`;
+}
+
+// ── Toggle Card ───────────────────────────────────────────────────────────────
+function toggleCard(qid) {
+    const detail  = document.getElementById('detail-' + qid);
+    const chevron = document.getElementById('chevron-' + qid);
+
+    if (openCardId === qid) {
+        detail.classList.remove('open');
+        chevron.style.transform = 'rotate(0deg)';
+        openCardId = null;
+        return;
+    }
+
+    // Close previous
+    if (openCardId !== null) {
+        const prev = document.getElementById('detail-' + openCardId);
+        const prevChevron = document.getElementById('chevron-' + openCardId);
+        if (prev) { prev.classList.remove('open'); prevChevron.style.transform = 'rotate(0deg)'; }
+    }
+
+    detail.classList.add('open');
+    chevron.style.transform = 'rotate(180deg)';
+    openCardId = qid;
+    loadAnswers(qid);
+}
+
+// ── Load Answers ──────────────────────────────────────────────────────────────
+async function loadAnswers(qid) {
+    const container = document.getElementById('answers-' + qid);
+    container.innerHTML = '<div class="qa-spinner"><i class="fas fa-circle-notch"></i></div>';
+
+    try {
+        const d = await api(`/qa/api/questions/${qid}`);
+        const answers = d.answers;
+
+        let html = '<div class="qa-answers-section">';
+        html += `<h4><i class="fas fa-comment-dots"></i> ${answers.length} Réponse${answers.length !== 1 ? 's' : ''}</h4>`;
+
+        if (answers.length === 0) {
+            html += '<p style="color:var(--qa-muted);font-size:0.88rem;">Aucune réponse pour le moment. Soyez le premier !</p>';
+        } else {
+            html += answers.map(a => renderAnswer(a)).join('');
+        }
+
+        // Answer form
+        html += `
+          <div class="qa-answer-form">
+            <h4><i class="fas fa-pen"></i> Votre Réponse</h4>
+            <div class="qa-form-field">
+              <textarea class="qa-textarea" id="ans-body-${qid}" rows="4"
+                        placeholder="Rédigez votre réponse..."></textarea>
+            </div>
+            <div class="qa-form-field">
+              <label class="qa-form-label">Code (optionnel)</label>
+              <textarea class="qa-textarea qa-code-textarea" id="ans-code-${qid}" rows="4"
+                        placeholder="// Votre code..."></textarea>
+            </div>
+            <div style="text-align:right; margin-top:8px;">
+              <button class="qa-btn qa-btn-primary" onclick="submitAnswer(${qid})">
+                <i class="fas fa-reply"></i> Envoyer la Réponse
+              </button>
+            </div>
+          </div>`;
+
+        html += '</div>';
+        container.innerHTML = html;
+
+    } catch (e) {
+        container.innerHTML = `<p style="color:var(--qa-danger);">Erreur: ${e.message}</p>`;
+    }
+}
+
+function renderAnswer(a) {
+    const upClass   = a.user_vote ===  1 ? 'voted-up'   : '';
+    const downClass = a.user_vote === -1 ? 'voted-down' : '';
+    return `
+      <div class="qa-answer" id="answer-${a.id}">
+        <div class="qa-vote-col">
+          <button class="qa-vote-btn ${upClass}" onclick="vote(event,'answer',${a.id},1)"
+                  id="up-a-${a.id}"><i class="fas fa-chevron-up"></i></button>
+          <span class="qa-vote-score" id="score-a-${a.id}">${a.vote_score}</span>
+          <button class="qa-vote-btn ${downClass}" onclick="vote(event,'answer',${a.id},-1)"
+                  id="down-a-${a.id}"><i class="fas fa-chevron-down"></i></button>
+        </div>
+        <div class="qa-answer-content">
+          <div class="qa-body-text">${escHtml(a.body)}</div>
+          ${renderCode(a.code)}
+          <div class="qa-answer-meta">
+            <i class="fas fa-user-circle"></i> <strong>${escHtml(a.author)}</strong>
+            &nbsp;·&nbsp; ${timeAgo(a.created_at)}
+            &nbsp;·&nbsp;
+            <button class="qa-delete-btn" onclick="deleteAnswer(${a.id})">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </div>
+        </div>
+      </div>`;
+}
+
+// ── Vote ──────────────────────────────────────────────────────────────────────
+async function vote(evt, type, id, value) {
+    evt.stopPropagation();
+    try {
+        const d = await api('/qa/api/vote', {
+            method: 'POST',
+            body: JSON.stringify({ target_type: type, target_id: id, value })
+        });
+        const prefix = type === 'question' ? 'q' : 'a';
+        document.getElementById(`score-${prefix}-${id}`).textContent = d.new_score;
+
+        const upBtn   = document.getElementById(`up-${prefix}-${id}`);
+        const downBtn = document.getElementById(`down-${prefix}-${id}`);
+        upBtn.classList.toggle('voted-up',   d.user_vote === 1);
+        downBtn.classList.toggle('voted-down', d.user_vote === -1);
+        upBtn.classList.toggle('voted-up',   false);
+        downBtn.classList.toggle('voted-down', false);
+        if (d.user_vote === 1)  upBtn.classList.add('voted-up');
+        if (d.user_vote === -1) downBtn.classList.add('voted-down');
+
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Erreur', text: e.message, timer: 2000, showConfirmButton: false });
+    }
+}
+
+// ── Submit Question ───────────────────────────────────────────────────────────
+async function submitQuestion() {
+    const title = document.getElementById('ask-title').value.trim();
+    const body  = document.getElementById('ask-body').value.trim();
+    const code  = document.getElementById('ask-code').value.trim();
+
+    if (!title || !body) {
+        Swal.fire({ icon: 'warning', title: 'Champs requis', text: 'Titre et description sont obligatoires.', timer: 2500, showConfirmButton: false });
+        return;
+    }
+
+    try {
+        await api('/qa/api/questions', { method: 'POST', body: JSON.stringify({ title, body, code }) });
+        closeAsk();
+        currentPage = 1;
+        Swal.fire({ icon: 'success', title: 'Question publiée !', timer: 1500, showConfirmButton: false });
+        loadQuestions();
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Erreur', text: e.message });
+    }
+}
+
+// ── Submit Answer ─────────────────────────────────────────────────────────────
+async function submitAnswer(qid) {
+    const body = document.getElementById(`ans-body-${qid}`).value.trim();
+    const code = document.getElementById(`ans-code-${qid}`).value.trim();
+
+    if (!body) {
+        Swal.fire({ icon: 'warning', title: 'Réponse vide', text: 'Veuillez saisir votre réponse.', timer: 2000, showConfirmButton: false });
+        return;
+    }
+
+    try {
+        await api(`/qa/api/questions/${qid}/answers`, { method: 'POST', body: JSON.stringify({ body, code }) });
+        Swal.fire({ icon: 'success', title: 'Réponse publiée !', timer: 1500, showConfirmButton: false });
+        loadAnswers(qid);
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Erreur', text: e.message });
+    }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteAnswer(aid) {
+    const confirmed = await Swal.fire({
+        title: 'Supprimer cette réponse ?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Oui, supprimer',
+        cancelButtonText:  'Annuler',
+        confirmButtonColor: '#e74c3c'
+    });
+    if (!confirmed.isConfirmed) return;
+    try {
+        await api(`/qa/api/answers/${aid}`, { method: 'DELETE' });
+        document.getElementById('answer-' + aid)?.remove();
+        Swal.fire({ icon: 'success', title: 'Supprimée.', timer: 1200, showConfirmButton: false });
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Erreur', text: e.message });
+    }
+}
+
+// ── Pagination ────────────────────────────────────────────────────────────────
+function renderPagination(totalPages, curPage) {
+    const el = document.getElementById('qa-pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    let html = `<button class="qa-page-btn" onclick="goPage(${curPage - 1})" ${curPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i></button>`;
+    for (let p = 1; p <= totalPages; p++) {
+        html += `<button class="qa-page-btn ${p === curPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+    }
+    html += `<button class="qa-page-btn" onclick="goPage(${curPage + 1})" ${curPage === totalPages ? 'disabled' : ''}>
+                 <i class="fas fa-chevron-right"></i></button>`;
+    el.innerHTML = html;
+}
+
+function goPage(p) {
+    currentPage = p;
+    openCardId = null;
+    loadQuestions();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Ask Overlay ───────────────────────────────────────────────────────────────
+function openAsk() {
+    document.getElementById('ask-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('ask-title').focus(), 100);
+}
+function closeAsk() {
+    document.getElementById('ask-overlay').classList.remove('open');
+    document.getElementById('ask-title').value = '';
+    document.getElementById('ask-body').value  = '';
+    document.getElementById('ask-code').value  = '';
+}
+function closeAskIfClickedOutside(e) {
+    if (e.target === document.getElementById('ask-overlay')) closeAsk();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAsk(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', loadQuestions);
+</script>
+</body>
+</html>
