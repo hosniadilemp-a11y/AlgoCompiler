@@ -82,9 +82,28 @@ def execute_code(python_code, test_cases, timeout_seconds=DEFAULT_TIMEOUT_SECOND
     """
     results = []
     
-    # Write the compiled python code to a temporary file
+    # Strict Sandboxing Wrapper: Prevents Arbitrary Code Execution (ACE)
+    # This prevents the user's generated python code from executing OS commands or reading arbitrary system files
+    security_wrapper = '''
+import builtins
+
+_orig_import = builtins.__import__
+def _secure_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name not in ('math', 'random'):
+        raise ImportError(f"Security Sandbox: Import of module '{name}' is strictly prohibited.")
+    return _orig_import(name, globals, locals, fromlist, level)
+
+builtins.__import__ = _secure_import
+for bad_func in ('open', 'eval', 'exec', 'compile'):
+    if hasattr(builtins, bad_func):
+        delattr(builtins, bad_func)
+
+# --- END OF SANDBOX --- #
+'''
+
+    # Write the securely-wrapped python code to a temporary file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as temp_script:
-        temp_script.write(python_code)
+        temp_script.write(security_wrapper + "\n" + python_code)
         script_path = temp_script.name
 
     try:

@@ -298,8 +298,60 @@ Fin.</textarea>
             setInterval(window.checkNewBadges, 60000);
         }
 
+        // --- Forced Password Change Modal (after admin reset) ---
+        {% if current_user.is_authenticated and current_user.force_password_change %}
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                Swal.fire({
+                    title: '🔒 Action Requise',
+                    html: `
+                        <p style="font-size: 0.9rem; color: var(--text-color); margin-bottom: 15px;">
+                            Votre mot de passe a été réinitialisé par un administrateur.
+                            Pour votre sécurité, vous devez choisir un nouveau mot de passe personnel maintenant.
+                        </p>
+                        <form id="force-reset-form" style="text-align: left;">
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 0.8rem; margin-bottom: 4px;">Nouveau mot de passe</label>
+                                <input type="password" id="force-new-password" class="swal2-input" placeholder="Min 8 car., Maj, Chiffre, Spécial..." style="width: 100%; margin: 0;">
+                            </div>
+                        </form>
+                    `,
+                    icon: 'warning',
+                    showCancelButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    confirmButtonText: 'Confirmer le nouveau mot de passe',
+                    confirmButtonColor: '#e74c3c',
+                    preConfirm: () => {
+                        const password = document.getElementById('force-new-password').value;
+                        if (!password || password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password) || !/[!@#$%^&*]/.test(password)) {
+                            Swal.showValidationMessage('Doit comporter 8+ car., une majuscule, un chiffre et un caractère spécial.');
+                            return false;
+                        }
+                        return { password, security_question: 'N/A', security_answer: 'N/A' };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch("{{ url_for('auth.complete_profile') }}", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                            body: JSON.stringify(result.value)
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('✅ Succès', 'Votre mot de passe a été mis à jour.', 'success')
+                                    .then(() => window.location.reload());
+                            } else {
+                                Swal.fire('Erreur', data.message, 'error');
+                            }
+                        });
+                    }
+                });
+            }, 1000);
+        });
+        {% elif not current_user.password_hash or not current_user.security_question %}
         // --- Profile Completion Modal for OAuth Users ---
-        {% if not current_user.password_hash or not current_user.security_question %}
         {% if not session.get('profile_modal_dismissed') %}
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('profile_modal_dismissed') === 'true') return;

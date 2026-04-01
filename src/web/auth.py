@@ -374,104 +374,17 @@ def forgot_password():
                 flash('Ce compte est temporairement bloqué. Réessayez plus tard.', 'danger')
                 return redirect(url_for('auth.forgot_password'))
                 
-            session['reset_email'] = user.email
-            session['reset_verified'] = False
+            user.reset_code = 'PENDING'
+            db.session.commit()
+            
             session.pop('captcha_answer', None)
-            return redirect(url_for('auth.security_check'))
+            flash('Votre demande a été envoyée à un administrateur. Vous recevrez très prochainement votre nouveau mot de passe par e-mail.', 'success')
+            return redirect(url_for('auth.login'))
         else:
             flash('Aucun compte (avec mot de passe) n\'est associé à cet e-mail.', 'danger')
             
     captcha_text = generate_math_captcha()
     return render_template('auth/forgot_password.html', captcha_text=captcha_text)
-
-@auth_bp.route('/security_check', methods=['GET', 'POST'])
-def security_check():
-    email = session.get('reset_email')
-    if not email:
-        return redirect(url_for('auth.forgot_password'))
-        
-    user = User.query.filter(func.lower(User.email) == email.lower()).first()
-    if not user:
-        return redirect(url_for('auth.forgot_password'))
-        
-    # Check if user is locked out
-    if user.lockout_until and user.lockout_until > datetime.utcnow():
-        flash('Votre compte est bloqué en raison de trop nombreuses tentatives. Réessayez plus tard.', 'danger')
-        return redirect(url_for('auth.forgot_password'))
-        
-    if request.method == 'POST':
-        answer = request.form.get('security_answer')
-        if verify_security_answer(user, answer):
-            # Reset failed attempts on success
-            user.failed_login_attempts = 0
-            db.session.commit()
-            session['reset_verified'] = True
-            flash('Parfait ! Saisissez votre nouveau mot de passe.', 'info')
-            return redirect(url_for('auth.new_password'))
-        else:
-            # Increment failed attempts
-            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-            if user.failed_login_attempts >= 5:
-                # Lock out for 6 hours
-                user.lockout_until = datetime.utcnow() + timedelta(hours=6)
-                db.session.commit()
-                flash('Trop de tentatives incorrectes. Votre compte est bloqué pour 6 heures.', 'danger')
-                session.pop('reset_email', None) # Force restart
-                return redirect(url_for('auth.forgot_password'))
-            else:
-                db.session.commit()
-                flash(f'Réponse incorrecte ({user.failed_login_attempts}/5).', 'danger')
-            
-    return render_template('auth/security_check.html', question=user.security_question)
-
-@auth_bp.route('/verify_reset', methods=['GET', 'POST'])
-def verify_reset():
-    email = session.get('reset_email')
-    if not email:
-        return redirect(url_for('auth.forgot_password'))
-        
-    if request.method == 'POST':
-        code = request.form.get('code')
-        user = User.query.filter_by(email=email).first()
-        
-        if user and user.reset_code == code and user.reset_code_expires and user.reset_code_expires > datetime.utcnow():
-            # Code is correct
-            session['reset_verified'] = True
-            return redirect(url_for('auth.new_password'))
-        else:
-            flash('Code invalide ou expiré.', 'danger')
-            
-    return render_template('auth/verify_reset.html', email=email)
-
-@auth_bp.route('/new_password', methods=['GET', 'POST'])
-def new_password():
-    email = session.get('reset_email')
-    if not email or not session.get('reset_verified'):
-        return redirect(url_for('auth.forgot_password'))
-        
-    if request.method == 'POST':
-        password = request.form.get('password')
-        is_strong, msg = validate_password_strength(password)
-        if not is_strong:
-            flash(msg, 'danger')
-            return render_template('auth/new_password.html')
-            
-        user = User.query.filter_by(email=email).first()
-        if user:
-            user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
-            user.reset_code = None
-            user.reset_code_expires = None
-            user.failed_login_attempts = 0
-            user.lockout_until = None
-            db.session.commit()
-            
-            session.pop('reset_email', None)
-            session.pop('reset_verified', None)
-            
-            flash('Votre mot de passe a été réinitialisé avec succès !', 'success')
-            return redirect(url_for('auth.login'))
-            
-    return render_template('auth/new_password.html')
 
 @auth_bp.route('/logout')
 @login_required
@@ -586,6 +499,7 @@ def complete_profile():
     current_user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
     current_user.security_question = security_question
     current_user.security_answer = hash_security_answer(security_answer)
+    current_user.force_password_change = False
     db.session.commit()
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

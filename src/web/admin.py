@@ -652,6 +652,33 @@ def stats_quiz_questions(cid):
     return jsonify({'questions': result})
 
 
+
+@admin_bp.route('/api/reset_requests', methods=['GET'])
+@admin_required
+def get_reset_requests():
+    users = User.query.filter_by(reset_code='PENDING').all()
+    results = [{'id': u.id, 'name': u.name, 'email': u.email} for u in users]
+    return jsonify({'success': True, 'requests': results})
+
+@admin_bp.route('/api/process_reset/<int:user_id>', methods=['POST'])
+@admin_required
+def process_manual_reset(user_id):
+    import string
+    import random
+    u = db.session.get(User, user_id)
+    if not u or u.reset_code != 'PENDING':
+        return jsonify({'error': 'Requête invalide ou introuvable.'}), 404
+        
+    chars = string.ascii_letters + string.digits + "!@#$%^&*"
+    pwd = ''.join(random.choice(chars) for _ in range(8))
+    
+    u.password_hash = generate_password_hash(pwd)
+    u.reset_code = None
+    u.reset_code_expires = None
+    u.force_password_change = True
+    db.session.commit()
+    return jsonify({'success': True, 'password': pwd})
+
 # ── User management ───────────────────────────────────────────────────────────
 @admin_bp.route('/api/users/<int:user_id>/reset_password', methods=['POST'])
 @admin_required

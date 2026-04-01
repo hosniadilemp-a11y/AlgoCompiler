@@ -111,7 +111,7 @@ class User(UserMixin, db.Model):
     # Email verification & Password Reset
     email_verified = db.Column(db.Boolean, default=False)
     verification_code = db.Column(db.String(6), nullable=True)
-    reset_code = db.Column(db.String(6), nullable=True)
+    reset_code = db.Column(db.String(10), nullable=True) # Increased to 10 for 'PENDING' status
     reset_code_expires = db.Column(db.DateTime, nullable=True)
     
     # Security / Rate Limiting
@@ -126,6 +126,8 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, nullable=True)
     is_admin = db.Column(db.Boolean, default=False)
+    force_password_change = db.Column(db.Boolean, default=False)
+
 
     # Relationships
     quiz_attempts = db.relationship('QuizAttempt', backref='user', lazy=True, cascade="all, delete-orphan")

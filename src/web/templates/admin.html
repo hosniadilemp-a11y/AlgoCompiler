@@ -11,6 +11,7 @@
   <script src="{{ url_for('static', filename='csrf.js') }}?v={{ ASSET_VERSION }}"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -870,6 +871,8 @@
             class="fas fa-chart-line"></i> Vue d'ensemble</div>
         <div class="nav-item" onclick="showSection('users')" id="nav-users"><i class="fas fa-users"></i> Utilisateurs
         </div>
+        <div class="nav-item" onclick="showSection('resets')" id="nav-resets"><i class="fas fa-key"></i> Réinitialisations
+        </div>
         <div class="nav-item" onclick="showSection('problems')" id="nav-problems"><i class="fas fa-laptop-code"></i>
           Problèmes</div>
         <div class="nav-item" onclick="showSection('quizzes')" id="nav-quizzes"><i class="fas fa-graduation-cap"></i>
@@ -1022,7 +1025,35 @@
           </div>
         </div>
 
-        <!-- USERS -->
+        
+        <!-- RESETS -->
+        <div class="section" id="sec-resets">
+          <div class="page-header">
+            <h2>Demandes de réinitialisation</h2>
+            <p>Gérer les mots de passe oubliés</p>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="resetsTable">
+                  <tr>
+                    <td colspan="4" style="text-align:center;color:#8b949e;padding:30px;">Chargement…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+<!-- USERS -->
         <div class="section" id="sec-users">
           <div class="page-header">
             <h2>Utilisateurs</h2>
@@ -1534,6 +1565,7 @@
       if (name === 'courses') loadCourseChapters();
       if (name === 'probstats') loadProbStats();
       if (name === 'admins') loadAdmins();
+      if (name === 'resets') loadResetRequests();
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────────
@@ -1545,6 +1577,7 @@
       if (hash === 'courses') return showSection('courses');
       if (hash === 'probstats') return showSection('probstats');
       if (hash === 'admins') return showSection('admins');
+      if (hash === 'resets') return showSection('resets');
       showSection('overview');
     }
     window.addEventListener('hashchange', () => {
@@ -2338,6 +2371,110 @@
         console.error("Error fetching live contest", err);
       }
     }
+
+    
+    
+    // ── Resets ──────────────────────────────────────────────────────────────────
+    async function loadResetRequests() {
+      console.log("[DEBUG] loadResetRequests START");
+      const tb = $('resetsTable');
+      if (!tb) { console.error("[DEBUG] resetsTable NOT FOUND IN DOM"); return; }
+      
+      showLoading(true);
+      try {
+        console.log("[DEBUG] Fetching /admin/api/reset_requests...");
+        const d = await api('/admin/api/reset_requests');
+        console.log("[DEBUG] API Response:", d);
+        
+        if (!d.success) {
+           tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#e74c3c; padding:30px;">Erreur API: ${d.error || 'Inconnue'}</td></tr>`;
+           return;
+        }
+
+        const requests = d.requests || [];
+        console.log("[DEBUG] Found " + requests.length + " requests");
+        
+        if (requests.length === 0) {
+          tb.innerHTML = '<tr><td colspan="4" style="padding:40px; text-align:center; color:#8b949e;"><i class="fas fa-check-circle" style="display:block; font-size:2rem; margin-bottom:10px; color:#238636;"></i> Aucune demande de réinitialisation en attente.</td></tr>';
+        } else {
+          tb.innerHTML = requests.map(r => `
+            <tr style="border-bottom: 1px solid #21262d;">
+              <td style="padding:15px; color:#8b949e;">#${r.id}</td>
+              <td style="padding:15px; font-weight:bold;">${r.name}</td>
+              <td style="padding:15px; color:#c9d1d9;">${r.email}</td>
+              <td style="padding:15px;">
+                <button class="btn btn-success btn-sm" onclick="processReset(${r.id}, '${r.name.replace(/'/g, "\'")}', '${r.email}')"><i class="fas fa-magic"></i> Réinitialiser</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) { 
+        console.error("[DEBUG] loadResetRequests CRASH:", err);
+        tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#e74c3c; padding:30px;">Erreur critique: ${err.message}</td></tr>`;
+        toast(err.message, 'error'); 
+      }
+      finally { 
+        console.log("[DEBUG] loadResetRequests END");
+        showLoading(false); 
+      }
+    }
+
+    async function processReset(id, name, email) {
+      console.log("[DEBUG] processReset for:", name);
+      if (typeof Swal === 'undefined') {
+          alert("Erreur: SweetAlert2 n'est pas chargé. Mot de passe en cours de génération...");
+      }
+
+      if (!confirm(`Générer un nouveau mot de passe pour ${name} ?`)) return;
+      
+      try {
+        const res = await api(`/admin/api/process_reset/${id}`, { method: 'POST' });
+        if (res.success) {
+          const newPwd = res.password;
+          console.log("[DEBUG] Password generated successfully");
+
+          if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                title: 'Mot de passe généré',
+                html: `<p>Le nouveau mot de passe pour <b>${name}</b> est :</p>
+                       <div style="font-family:monospace; font-size:1.5rem; background:#0d1117; padding:15px; border-radius:8px; margin:15px 0; border:1px solid #30363d; color:#2ecc71;">${newPwd}</div>
+                       <p style="font-size:0.85rem; color:#8b949e;">L'utilisateur devra le changer à sa première connexion.</p>`,
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-envelope"></i> Ouvrir Mailer',
+                cancelButtonText: 'Fermer',
+                confirmButtonColor: '#238636'
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  const subject = encodeURIComponent("Réinitialisation de votre mot de passe - AlgoCompiler");
+                  const body = encodeURIComponent(`Bonjour ${name},
+
+Votre mot de passe a été réinitialisé.
+
+Mot de passe temporaire : ${newPwd}
+
+Connectez-vous ici: ${window.location.origin}/login
+
+Cordialement,
+L'équipe AlgoCompiler`);
+                  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                }
+                loadResetRequests();
+              });
+          } else {
+              alert(`Mot de passe pour ${name}: ${newPwd}
+
+Copié dans la console.`);
+              console.log("NOUVEAU MOT DE PASSE:", newPwd);
+              loadResetRequests();
+          }
+        }
+      } catch (err) { 
+          console.error("[DEBUG] processReset Error:", err);
+          toast(err.message, 'error'); 
+      }
+    }
+
     // ── Admins ───────────────────────────────────────────────────────────────────
     async function loadAdmins() {
       try {
