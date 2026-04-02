@@ -869,6 +869,7 @@
       <nav style="margin-top:12px;">
         <div class="nav-item active" onclick="showSection('overview')" id="nav-overview"><i
             class="fas fa-chart-line"></i> Vue d'ensemble</div>
+        <div class="nav-item" onclick="showSection('qa')" id="nav-qa"><i class="fas fa-question-circle"></i> Questions & Réponses</div>
         <div class="nav-item" onclick="showSection('users')" id="nav-users"><i class="fas fa-users"></i> Utilisateurs
         </div>
         <div class="nav-item" onclick="showSection('resets')" id="nav-resets"><i class="fas fa-key"></i> Réinitialisations
@@ -1025,6 +1026,38 @@
           </div>
         </div>
 
+        <!-- Q&A -->
+        <div id="sec-qa" class="section">
+          <div class="page-header">
+            <h2>Gestion des Questions & Réponses</h2>
+            <p>Modérez les contenus publiés par les étudiants.</p>
+          </div>
+
+          <div class="panel">
+            <div class="filter-bar">
+              <input type="text" id="qaSearch" placeholder="Rechercher une question (titre)..." oninput="loadQAQuestions()">
+              <button class="btn btn-info" onclick="loadQAQuestions()"><i class="fas fa-sync"></i> Actualiser</button>
+            </div>
+
+            <div class="table-wrap">
+              <table id="qaTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Titre</th>
+                    <th>Auteur</th>
+                    <th>Réponses</th>
+                    <th>Score</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="qaList"></tbody>
+              </table>
+            </div>
+            <div id="qaPagination" style="margin-top:20px; text-align:center;"></div>
+          </div>
+        </div>
         
         <!-- RESETS -->
         <div class="section" id="sec-resets">
@@ -1559,6 +1592,7 @@
       $(`sec-${name}`).classList.add('active');
       $(`nav-${name}`).classList.add('active');
       if (name === 'overview') loadOverview();
+      if (name === 'qa') loadQAQuestions();
       if (name === 'users') loadUsers();
       if (name === 'problems') loadProblems();
       if (name === 'quizzes') loadChapters();
@@ -1578,6 +1612,7 @@
       if (hash === 'probstats') return showSection('probstats');
       if (hash === 'admins') return showSection('admins');
       if (hash === 'resets') return showSection('resets');
+      if (hash === 'qa') return showSection('qa');
       showSection('overview');
     }
     window.addEventListener('hashchange', () => {
@@ -1676,6 +1711,91 @@
           <div style="color:#8b949e;">Taux: ${easiest ? easiest.pass_rate : 0}% | Tentatives: ${easiest ? easiest.attempts : 0}</div>
         </div>
       `;
+    }
+
+    // ── Q&A Management ──
+    let currentQAPage = 1;
+    function esc(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    async function loadQAQuestions(page = 1) {
+      currentQAPage = page;
+      const search = $('qaSearch').value;
+      try {
+        const res = await api(`/admin/api/qa/questions?page=${page}&search=${encodeURIComponent(search)}`);
+        const list = $('qaList');
+        list.innerHTML = res.questions.map(q => `
+          <tr style="border-bottom: 1px solid #30363d;">
+            <td style="color:#8b949e;">#${q.id}</td>
+            <td>
+              <div style="font-weight:700;">${esc(q.title)}</div>
+              <div style="font-size:0.75rem; color:#8b949e; margin-top:4px;">${esc(q.body.substring(0, 100))}...</div>
+            </td>
+            <td>${esc(q.author)}</td>
+            <td><span class="tag tag-easy">${q.answer_count}</span></td>
+            <td><span class="tag ${q.vote_score >= 0 ? 'tag-passed' : 'tag-failed'}">${q.vote_score}</span></td>
+            <td>${fmtDate(q.created_at)}</td>
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-info btn-sm" onclick="editQAQuestion(${q.id}, '${esc(q.title.replace(/'/g, "\\'"))}')" title="Modifier">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="deleteQAQuestion(${q.id})" title="Supprimer">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          ${q.answers.length > 0 ? `
+            <tr>
+              <td colspan="7" style="background:rgba(0,0,0,0.2); padding: 12px 30px;">
+                <div style="font-size:0.8rem; font-weight:700; color:#8b949e; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Réponses :</div>
+                ${q.answers.map(a => `
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #21262d; padding:8px 0;">
+                    <div style="flex:1; font-size:0.85rem;">
+                      <span style="font-weight:700; color:#4a6ee0;">${esc(a.author)}:</span> 
+                      <span style="color:#e6edf3;">${esc(a.body)}</span>
+                    </div>
+                    <button class="btn btn-danger btn-sm" style="transform:scale(0.85); padding: 4px 8px;" onclick="deleteQAAnswer(${a.id})" title="Supprimer la réponse">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                `).join('')}
+              </td>
+            </tr>
+          `: ''}
+        `).join('') || '<tr><td colspan="7" style="text-align:center; padding:30px; color:#8b949e;">Aucune question trouvée.</td></tr>';
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
+    async function deleteQAQuestion(qid) {
+      if (!confirm('Supprimer cette question et toutes ses réponses ?')) return;
+      try {
+        await api(`/admin/api/qa/questions/${qid}`, { method: 'DELETE' });
+        toast('Question supprimée.');
+        loadQAQuestions(currentQAPage);
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
+    async function editQAQuestion(qid, currentTitle) {
+      const newTitle = prompt("Modifier le titre de la question :", currentTitle);
+      if (newTitle && newTitle !== currentTitle) {
+        try {
+          await api(`/admin/api/qa/questions/${qid}`, {
+            method: 'PUT',
+            body: JSON.stringify({ title: newTitle })
+          });
+          toast('Question mise à jour.');
+          loadQAQuestions(currentQAPage);
+        } catch (e) { toast(e.message, 'error'); }
+      }
+    }
+
+    async function deleteQAAnswer(aid) {
+      if (!confirm('Supprimer cette réponse ?')) return;
+      try {
+        await api(`/admin/api/qa/answers/${aid}`, { method: 'DELETE' });
+        toast('Réponse supprimée.');
+        loadQAQuestions(currentQAPage);
+      } catch (e) { toast(e.message, 'error'); }
     }
 
     // ── Users ─────────────────────────────────────────────────────────────────────

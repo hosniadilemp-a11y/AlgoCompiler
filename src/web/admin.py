@@ -1574,3 +1574,89 @@ def admin_import_course_chapter_json():
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
 
+
+# ── Q&A Management ────────────────────────────────────────────────────────────
+from web.models import QAQuestion, QAAnswer, QAVote
+
+@admin_bp.route('/api/qa/questions', methods=['GET'])
+@admin_required
+def admin_list_qa_questions():
+    """Return paginated list of all Q&A questions."""
+    page  = request.args.get('page', 1, type=int)
+    limit = min(50, max(1, request.args.get('limit', 20, type=int)))
+    search = request.args.get('search', '').strip()
+
+    q = QAQuestion.query
+    if search:
+        q = q.filter(QAQuestion.title.ilike(f'%{search}%'))
+    q = q.order_by(QAQuestion.created_at.desc())
+    pagination = q.paginate(page=page, per_page=limit, error_out=False)
+
+    return jsonify({
+        'success': True,
+        'questions': [{
+            'id':           item.id,
+            'title':        item.title,
+            'body':         item.body[:200],
+            'author':       item.author.name,
+            'author_id':    item.user_id,
+            'vote_score':   item.vote_score,
+            'answer_count': len(item.answers),
+            'created_at':   item.created_at.isoformat(),
+            'answers': [{
+                'id':         a.id,
+                'body':       a.body[:200],
+                'author':     a.author.name,
+                'vote_score': a.vote_score,
+                'created_at': a.created_at.isoformat(),
+            } for a in item.answers]
+        } for item in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'page':  page,
+    })
+
+
+@admin_bp.route('/api/qa/questions/<int:qid>', methods=['DELETE'])
+@admin_required
+def admin_delete_qa_question(qid):
+    """Delete a question and all its answers/votes."""
+    q = db.session.get(QAQuestion, qid)
+    if not q:
+        return jsonify({'success': False, 'error': 'Question introuvable.'}), 404
+    db.session.delete(q)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/qa/questions/<int:qid>', methods=['PUT'])
+@admin_required
+def admin_update_qa_question(qid):
+    """Update the title and/or body of a question."""
+    q = db.session.get(QAQuestion, qid)
+    if not q:
+        return jsonify({'success': False, 'error': 'Question introuvable.'}), 404
+    import re
+    data = request.get_json(force=True) or {}
+    title = re.sub(r'<[^>]+>', '', str(data.get('title', q.title)).strip())
+    body  = re.sub(r'<[^>]+>', '', str(data.get('body',  q.body)).strip())
+    if not title or not body:
+        return jsonify({'success': False, 'error': 'Titre et description requis.'}), 400
+    q.title = title
+    q.body  = body
+    db.session.commit()
+    return jsonify({'success': True, 'title': q.title, 'body': q.body})
+
+
+@admin_bp.route('/api/qa/answers/<int:aid>', methods=['DELETE'])
+@admin_required
+def admin_delete_qa_answer(aid):
+    """Delete a specific answer."""
+    a = db.session.get(QAAnswer, aid)
+    if not a:
+        return jsonify({'success': False, 'error': 'Réponse introuvable.'}), 404
+    # Remove associated votes
+    QAVote.query.filter_by(target_type='answer', target_id=aid).delete()
+    db.session.delete(a)
+    db.session.commit()
+    return jsonify({'success': True})

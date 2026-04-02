@@ -24,6 +24,13 @@
             --qa-code-bg: #0d1117;
         }
 
+        *, *::before, *::after { box-sizing: border-box; }
+        body { 
+            height: auto; 
+            min-height: 100vh;
+            overflow-y: auto; 
+            overflow-x: hidden; 
+        }
         .qa-layout {
             max-width: 1100px;
             margin: 30px auto;
@@ -34,6 +41,10 @@
         }
 
         @media (max-width: 800px) { .qa-layout { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) {
+            .qa-layout { padding: 0 10px; }
+            .qa-ask-modal { padding: 20px 14px; }
+        }
 
         /* ── Sidebar ── */
         .qa-sidebar { position: sticky; top: 20px; align-self: start; }
@@ -333,8 +344,7 @@
             border: 1px solid var(--qa-border);
             border-radius: 16px;
             padding: 30px;
-            width: 100%;
-            max-width: 700px;
+            width: min(700px, 100%);
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -649,6 +659,12 @@ async function loadAnswers(qid) {
         const answers = d.answers;
 
         let html = '<div class="qa-answers-section">';
+        // ── Back button (Fix #1) ──────────────────────────────────────
+        html += `<div style="margin-bottom:16px;">
+          <button class="qa-btn qa-btn-secondary" onclick="toggleCard(${qid})" style="font-size:0.82rem;padding:6px 14px;">
+            <i class="fas fa-arrow-left"></i> Retour à la liste
+          </button>
+        </div>`;
         html += `<h4><i class="fas fa-comment-dots"></i> ${answers.length} Réponse${answers.length !== 1 ? 's' : ''}</h4>`;
 
         if (answers.length === 0) {
