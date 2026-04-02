@@ -226,40 +226,15 @@ def api_vote():
 
     if existing:
         if existing.value == value:
-            # Toggle off (remove vote) — atomic decrement
-            if target_type == "question":
-                db.session.execute(
-                    sa_update(QAQuestion).where(QAQuestion.id == target_id)
-                    .values(vote_score=QAQuestion.vote_score - existing.value)
-                )
-                db.session.refresh(target)
-            else:
-                db.session.execute(
-                    sa_update(QAAnswer).where(QAAnswer.id == target_id)
-                    .values(vote_score=QAAnswer.vote_score - existing.value)
-                )
-                db.session.refresh(target)
+            # Toggle off (remove vote)
             db.session.delete(existing)
-            new_vote = None
+            new_vote_val = None
         else:
-            # Change direction — atomic swap
-            delta = value - existing.value
-            if target_type == "question":
-                db.session.execute(
-                    sa_update(QAQuestion).where(QAQuestion.id == target_id)
-                    .values(vote_score=QAQuestion.vote_score + delta)
-                )
-                db.session.refresh(target)
-            else:
-                db.session.execute(
-                    sa_update(QAAnswer).where(QAAnswer.id == target_id)
-                    .values(vote_score=QAAnswer.vote_score + delta)
-                )
-                db.session.refresh(target)
+            # Change direction
             existing.value = value
-            new_vote = value
+            new_vote_val = value
     else:
-        # New vote — atomic increment
+        # New vote
         vote = QAVote(
             user_id=current_user.id,
             target_type=target_type,
@@ -267,22 +242,28 @@ def api_vote():
             value=value
         )
         db.session.add(vote)
-        if target_type == "question":
-            db.session.execute(
-                sa_update(QAQuestion).where(QAQuestion.id == target_id)
-                .values(vote_score=QAQuestion.vote_score + value)
-            )
-            db.session.refresh(target)
-        else:
-            db.session.execute(
-                sa_update(QAAnswer).where(QAAnswer.id == target_id)
-                .values(vote_score=QAAnswer.vote_score + value)
-            )
-            db.session.refresh(target)
-        new_vote = value
+        new_vote_val = value
 
-    db.session.commit()
-    return jsonify({"success": True, "new_score": target.vote_score, "user_vote": new_vote})
+    # Flush changes to ensure the sum query sees the new state in this transaction
+    db.session.flush()
+
+    # Recalculate total score from source of truth (qa_votes table)
+    # This prevents drift and race conditions by always syncing with reality
+    from sqlalchemy import func
+    new_score = db.session.query(func.sum(QAVote.value)).filter_by(
+        target_type=target_type,
+        target_id=target_id
+    ).scalar() or 0
+
+    target.vote_score = new_score
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": "Transaction échouée."}), 500
+
+    return jsonify({"success": True, "new_score": target.vote_score, "user_vote": new_vote_val})
 
 
 
