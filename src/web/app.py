@@ -430,13 +430,15 @@ def inject_supabase_credentials():
     if os.path.exists(announcement_path):
         mtime = int(os.path.getmtime(announcement_path))
 
-    # NOTE: Supabase URL and anon key are intentionally NOT injected into templates
-    # to prevent chat history exposure via client-side Supabase REST API access.
+    # NOTE: Supabase URL and anon key are restored for chat functionality.
+    # RLS should be used on Supabase side to protect sensitive data.
     return {
         'ANNOUNCEMENT_MTIME': mtime,
         'APP_BUILD_ID': APP_BUILD_ID,
         'ASSET_VERSION': ASSET_VERSION,
-        'csrf_token': generate_csrf_token
+        'csrf_token': generate_csrf_token,
+        'INJECTED_SUPABASE_URL': os.environ.get('SUPABASE_URL'),
+        'INJECTED_SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY')
     }
 
 # Register Auth Blueprint
@@ -3604,7 +3606,7 @@ def api_chat_message():
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error saving chat message: {e}")
+        print(f">>> [ERROR] Error saving chat message: {e}", flush=True)
         return jsonify({'success': False, 'error': 'Failed to save message'}), 500
 
 
