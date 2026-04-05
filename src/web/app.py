@@ -3669,7 +3669,14 @@ def update_profile():
     if not name:
         return jsonify({'success': False, 'error': 'Le pseudo est requis'}), 400
         
-    current_user.name = name
+    # Check if name is taken by another user
+    from sqlalchemy import func
+    from web.models import User
+    existing_user = User.query.filter(func.lower(User.name) == name.strip().lower(), User.id != current_user.id).first()
+    if existing_user:
+        return jsonify({'success': False, 'error': 'Ce pseudo est déjà utilisé'}), 400
+        
+    current_user.name = name.strip()
     current_user.study_year = study_year
     
     if dob_str:
@@ -3763,8 +3770,8 @@ def api_chat_message():
         return jsonify({'success': False, 'error': 'Message text is required'}), 400
 
     try:
-        sql = text("INSERT INTO chat_messages (user_name, text) VALUES (:user_name, :text)")
-        db.session.execute(sql, {'user_name': current_user.name, 'text': text_content})
+        sql = text("INSERT INTO chat_messages (user_id, user_name, text) VALUES (:user_id, :user_name, :text)")
+        db.session.execute(sql, {'user_id': current_user.id, 'user_name': current_user.name, 'text': text_content})
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:

@@ -306,81 +306,139 @@
 
         .contributors {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-        }
-
-        .contributor-card,
-        .profile-card,
-        .ack-card {
-            border-radius: 22px;
-            padding: 18px;
-            background: var(--hof-card-bg);
-            border: 1px solid var(--hof-card-border);
-            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.08);
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 20px;
         }
 
         .contributor-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            border-radius: 28px;
+            background: var(--hof-card-bg);
+            border: 1px solid var(--hof-card-border);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            position: relative;
         }
 
         .contributor-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 34px rgba(0, 0, 0, 0.12);
-            border-color: color-mix(in srgb, var(--hof-card-border) 50%, #4a6ee0 50%);
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            border-color: #f6c453;
         }
 
-        .contributor-rank {
-            display: inline-flex;
+        .card-header {
+            padding: 24px 24px 0;
+            display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 7px 11px;
-            border-radius: 999px;
-            background: var(--hof-rank-chip-bg);
-            color: var(--hof-rank-chip-text);
-            font-weight: 800;
+            justify-content: space-between;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #f6c453, #ff9f54);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #1a1204;
+            box-shadow: 0 8px 16px rgba(246, 196, 83, 0.2);
+        }
+
+        .rank-badge {
+            background: rgba(246, 196, 83, 0.15);
+            color: #f6c453;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-weight: 900;
+            font-size: 0.9rem;
+            border: 1px solid rgba(246, 196, 83, 0.3);
+        }
+
+        .card-body {
+            padding: 20px 24px;
+            flex: 1;
         }
 
         .contributor-name {
-            margin: 16px 0 8px;
-            font-size: 1.06rem;
+            margin: 0 0 6px !important;
+            font-size: 1.2rem !important;
             font-weight: 800;
             color: var(--text-color);
         }
 
-        .contributor-score {
-            margin-top: 12px;
-            color: var(--hof-score);
-            font-size: 1.6rem;
-            font-weight: 900;
-        }
-
-        .contributor-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .mini-pill {
-            background: var(--hof-pill-bg);
-            color: var(--hof-pill-text);
-            font-size: 0.8rem;
-        }
-
-        .security-badge {
+        .sec-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
             background: var(--hof-security-bg);
             border: 1px solid var(--hof-security-border);
             color: var(--hof-security-text);
-            font-size: 0.74rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .score-display {
+            display: flex;
+            flex-direction: column;
+            margin-top: 10px;
+        }
+
+        .score-value {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #f6c453;
+            line-height: 1;
+        }
+
+        .score-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .contributor-footer {
+            padding: 16px 24px;
+            background: rgba(0, 0, 0, 0.02);
+            border-top: 1px solid var(--hof-card-border);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .stat-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .stat-pill i {
+            color: #f6c453;
+            font-size: 0.8rem;
         }
 
         .honoree {
-            display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-            gap: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
         }
 
         .profile-head {
@@ -408,35 +466,78 @@
 
         .profile-card {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            min-height: 220px;
+            text-align: center;
+            padding: 40px;
+            width: 100%;
+            background: radial-gradient(circle at center, rgba(246, 196, 83, 0.1), transparent 70%), var(--hof-card-bg);
+            border: 2px solid rgba(246, 196, 83, 0.3);
+        }
+
+        .profile-avatar-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f6c453, #ff9f54);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: 900;
+            color: #1a1204;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(246, 196, 83, 0.4);
+            border: 4px solid rgba(255, 255, 255, 0.2);
         }
 
         .ack-card {
             background: var(--hof-ack-bg);
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #f6c453;
+            box-shadow: 0 0 30px rgba(246, 196, 83, 0.15);
+        }
+
+        .ack-card::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(246, 196, 83, 0.05) 0%, transparent 70%);
+            pointer-events: none;
         }
 
         .ack-card h3 {
             color: var(--hof-ack-title);
             margin-bottom: 12px;
+            font-family: 'Georgia', serif;
+            font-style: italic;
+            font-size: 1.6rem;
         }
-
+        
         .ack-card p {
             color: var(--hof-ack-text);
-            line-height: 1.8;
+            line-height: 1.9;
+            font-size: 1.1rem;
         }
 
         .ack-seal {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            margin-top: 18px;
-            padding: 10px 14px;
+            gap: 12px;
+            margin-top: 22px;
+            padding: 12px 20px;
             border-radius: 999px;
-            background: var(--hof-ack-seal-bg);
-            border: 1px solid var(--hof-ack-seal-border);
-            color: var(--hof-ack-seal-text);
-            font-weight: 800;
+            background: linear-gradient(135deg, rgba(246, 196, 83, 0.2), rgba(246, 196, 83, 0.1));
+            border: 1px solid rgba(246, 196, 83, 0.4);
+            color: #f6c453;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            box-shadow: 0 4px 15px rgba(246, 196, 83, 0.2);
         }
 
         .empty-state {
@@ -532,8 +633,8 @@
             </section>
 
             <section class="section">
-                <h2>Top Contributors</h2>
-                <p>Une selection elegante des membres les mieux classes, avec leurs points forts et leur impact.</p>
+                <h2>Top Students</h2>
+                <p>Une selection prestigieuse des etudiants les plus assidus, illustrant leur excellence et leur contribution a l'ecosysteme AlgoCompiler.</p>
                 <div id="contributors-grid" class="contributors">
                     <div class="empty-state">Chargement des contributeurs...</div>
                 </div>
@@ -653,17 +754,31 @@
 
             container.innerHTML = entries.map((entry) => `
                 <article class="contributor-card">
-                    <div class="contributor-rank">
-                        <span>${escapeHtml(entry.rank_badge || `#${entry.rank || '--'}`)}</span>
-                        <span>Rang ${escapeHtml(entry.display_rank || '--')}</span>
+                    <div class="card-header">
+                        <div class="user-avatar">${escapeHtml((entry.name || '?').trim().charAt(0).toUpperCase())}</div>
+                        <div class="rank-badge">${escapeHtml(entry.rank_badge || `#${entry.rank || '--'}`)}</div>
                     </div>
-                    <div class="contributor-name">${escapeHtml(entry.name || `Utilisateur #${entry.user_id}`)}</div>
-                    ${entry.security_badge ? `<span class="security-badge"><i class="${escapeHtml(entry.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(entry.security_badge.short_label || 'Securite')}</span>` : ''}
-                    <div class="contributor-score">${Number(entry.score || 0).toLocaleString('fr-FR')} pts</div>
-                    <div class="contributor-meta">
-                        <span class="mini-pill">Quiz ${Number(entry.quizzes || 0).toLocaleString('fr-FR')}</span>
-                        <span class="mini-pill">Defis ${Number(entry.challenges || 0).toLocaleString('fr-FR')}</span>
-                        <span class="mini-pill">Top 10 ${Number(entry.top10 || 0).toLocaleString('fr-FR')}</span>
+                    <div class="card-body">
+                        <h3 class="contributor-name">${escapeHtml(entry.name || `Utilisateur #${entry.user_id}`)}</h3>
+                        ${entry.security_badge ? `<span class="sec-badge"><i class="${escapeHtml(entry.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(entry.security_badge.short_label || 'Securite')}</span>` : ''}
+                        <div class="score-display">
+                            <span class="score-value">${Number(entry.score || 0).toLocaleString('fr-FR')}</span>
+                            <span class="score-label">Points</span>
+                        </div>
+                    </div>
+                    <div class="contributor-footer">
+                        <div class="stat-pill" title="Quiz terminés">
+                            <i class="fas fa-question-circle"></i>
+                            <span>${Number(entry.quizzes || 0)}</span>
+                        </div>
+                        <div class="stat-pill" title="Défis relevés">
+                            <i class="fas fa-trophy"></i>
+                            <span>${Number(entry.challenges || 0)}</span>
+                        </div>
+                        <div class="stat-pill" title="Top 10 apparitions">
+                            <i class="fas fa-medal"></i>
+                            <span>${Number(entry.top10 || 0)}</span>
+                        </div>
                     </div>
                 </article>
             `).join('');
@@ -678,24 +793,25 @@
 
             container.innerHTML = `
                 <article class="profile-card">
+                    <div class="profile-avatar-large">${escapeHtml((honoree.name || '?').trim().charAt(0).toUpperCase())}</div>
                     <div class="profile-head">
-                        <div>
-                            <div class="profile-title">
-                                <h3>${escapeHtml(honoree.name || 'Utilisateur')}</h3>
-                                ${honoree.security_badge ? `<span class="security-badge"><i class="${escapeHtml(honoree.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(honoree.security_badge.label || 'Securite')}</span>` : ''}
-                            </div>
-                            <div class="profile-subtitle">Profil complet du membre mis a l honneur.</div>
+                        <div class="profile-title">
+                            <h3>${escapeHtml(honoree.name || 'Utilisateur')}</h3>
+                            ${honoree.security_badge ? `<span class="security-badge"><i class="${escapeHtml(honoree.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(honoree.security_badge.label || 'Securité')}</span>` : ''}
                         </div>
+                        <div class="profile-subtitle">Membre d'exception mis à l'honneur pour ses contributions exemplaires.</div>
                     </div>
                 </article>
                 <article class="ack-card">
-                    <div>
+                    <div style="text-align: center;">
                         <h3>Reconnaissance Officielle</h3>
                         <p>${escapeHtml(acknowledgment || '')}</p>
                     </div>
-                    <div class="ack-seal">
-                        <i class="fas fa-certificate"></i>
-                        Merci pour la securite et l'amelioration de la communaute
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <div class="ack-seal">
+                            <i class="fas fa-certificate"></i>
+                            Sceau de Mérite & d'Honneur
+                        </div>
                     </div>
                 </article>
             `;

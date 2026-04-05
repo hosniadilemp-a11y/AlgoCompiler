@@ -333,6 +333,7 @@
 
         // User Info (Injecté par Flask/Jinja)
         const currentUser = "{{ current_user.name if current_user.is_authenticated else 'Anonyme' }}";
+        const currentUserId = "{{ current_user.id if current_user.is_authenticated else '' }}";
         const isAuthenticated = ("{{ 'true' if current_user.is_authenticated else 'false' }}" === "true");
 
         function appendMessage(user, text, isMine, isHistory = false) {
@@ -383,7 +384,8 @@
                     messagesContainer.appendChild(systemMsg);
 
                     data.forEach(msg => {
-                        appendMessage(msg.user_name, msg.text, msg.user_name === currentUser, true);
+                        const isMine = currentUserId && String(msg.user_id) === String(currentUserId);
+                        appendMessage(msg.user_name, msg.text, isMine, true);
                     });
                 }
             } catch (err) {
@@ -397,8 +399,10 @@
         const room = supabaseClient.channel('global-chat-db');
 
         room.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
-            const { user_name, text } = payload.new;
-            if (user_name !== currentUser) {
+            const { user_id, user_name, text } = payload.new;
+            const isMine = currentUserId && String(user_id) === String(currentUserId);
+            
+            if (!isMine) {
                 appendMessage(user_name, text, false);
 
                 // Show notification if chat is closed

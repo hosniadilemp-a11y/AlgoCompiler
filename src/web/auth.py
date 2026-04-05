@@ -234,15 +234,22 @@ def signup():
             flash(msg, 'danger')
             return redirect(url_for('auth.signup'))
             
-        # Check existing (case-insensitive)
-        user = User.query.filter(func.lower(User.email) == email.lower()).first()
-        if user:
+        # Check existing email (case-insensitive)
+        user_by_email = User.query.filter(func.lower(User.email) == email.lower()).first()
+        if user_by_email:
             # If user exists but is locked out or has too many resend attempts, check lockout time
-            if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
+            if user_by_email.lockout_until and user_by_email.lockout_until > datetime.now(timezone.utc):
                 flash('Ce compte est temporairement bloqué. Réessayez plus tard.', 'danger')
                 return redirect(url_for('auth.signup'))
             flash('Un compte avec cet e-mail existe déjà.', 'danger')
             return redirect(url_for('auth.signup'))
+            
+        # Check existing name (case-insensitive) - NEW SECURITY CHECK
+        if name:
+            user_by_name = User.query.filter(func.lower(User.name) == name.strip().lower()).first()
+            if user_by_name:
+                flash('Ce pseudo est déjà utilisé. Veuillez en choisir un autre.', 'danger')
+                return redirect(url_for('auth.signup'))
             
         # Parse date
         date_of_birth = None
@@ -459,7 +466,24 @@ def oauth_auth(provider):
                  db.session.commit()
         else:
              # Create new user
-             user = User(email=email, name=name, oauth_provider=provider, oauth_id=oauth_id, email_verified=True)
+             # Ensure unique name for OAuth registration
+             base_name = name or email.split('@')[0]
+             unique_name = base_name
+             counter = 0
+             
+             while User.query.filter(func.lower(User.name) == unique_name.lower()).first():
+                 counter += 1
+                 if counter == 1:
+                     unique_name = f"{base_name}{random.randint(100, 999)}"
+                 else:
+                     unique_name = f"{base_name}{random.randint(1000, 9999)}"
+                 
+                 # Safety break to avoid infinite loop
+                 if counter > 10:
+                     unique_name = f"{base_name}_{random.getrandbits(32)}"
+                     break
+                     
+             user = User(email=email, name=unique_name, oauth_provider=provider, oauth_id=oauth_id, email_verified=True)
              db.session.add(user)
              db.session.commit()
                  

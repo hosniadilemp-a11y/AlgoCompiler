@@ -100,7 +100,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=True) # Nullable for OAuth users
-    name = db.Column(db.String(100), nullable=False) # Pseudo
+    name = db.Column(db.String(100), unique=True, nullable=False) # Pseudo
     date_of_birth = db.Column(db.Date, nullable=True)
     study_year = db.Column(db.String(50), nullable=True)
     

@@ -21,6 +21,17 @@
             --lb-security-soft: rgba(63, 208, 201, 0.14);
         }
 
+        body.light-theme {
+            --lb-gold: #b28a00;
+            --lb-gold-soft: rgba(178, 138, 0, 0.1);
+            --lb-silver: #4a5568;
+            --lb-silver-soft: rgba(74, 85, 104, 0.1);
+            --lb-bronze: #8a4b2d;
+            --lb-bronze-soft: rgba(138, 75, 45, 0.1);
+            --lb-security: #0d7f8d;
+            --lb-security-soft: rgba(13, 127, 141, 0.1);
+        }
+
         .leaderboard-shell {
             max-width: 1380px;
             margin: 40px auto;
@@ -396,9 +407,15 @@
         .stats-badges {
             display: flex;
             gap: 14px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             color: var(--text-secondary);
             font-size: 0.85rem;
+        }
+
+        .stat-item {
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
         }
 
         .stat-item i {
