@@ -14,7 +14,7 @@ tokens = (
     'LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'COMMA', 'SEMICOLON', 'COLON', 'DOT',
     'ID', 'NUMBER', 'STRING_LITERAL', 'CHAR_LITERAL',
     'AND', 'OR', 'NOT', 'QUE',
-    'LONGUEUR', 'CONCAT',
+    'LONGUEUR', 'CONCAT', 'ASCII',
     'VRAI', 'FAUX',
     'CARET', 'AMPERSAND', 'NIL',  # Pointer support
     'TYPE', 'ENREGISTREMENT', 'ARROW'  # Record support
@@ -101,6 +101,7 @@ reserved = {
     'nil': 'NIL',  # Null pointer
     'type': 'TYPE',  # Record type declaration
     'enregistrement': 'ENREGISTREMENT',  # Record keyword
+    'ascii': 'ASCII',  # Built-in character to int
 }
 
 def t_ASSIGN(t):

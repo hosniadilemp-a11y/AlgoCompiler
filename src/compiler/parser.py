@@ -321,6 +321,9 @@ def p_program(p):
                | type_block ALGORITHME ID SEMICOLON declarations DEBUT statements FIN DOT
                | program_subprogram_list ALGORITHME ID SEMICOLON declarations DEBUT statements FIN DOT
                | ALGORITHME ID SEMICOLON declarations DEBUT statements FIN DOT'''
+    global symbol_table, scope_stack, parser_errors, indent_level
+    indent_level = 0 # Reset indent for the main block (Fix #8)
+    
     if len(p) == 11:
         # type_block + subprograms + algo
         algo_name = p[4]
@@ -594,7 +597,7 @@ def p_program(p):
     p[0] = code
     
     # Reset all state for next build if needed
-    global symbol_table, scope_stack, parser_errors, indent_level
+    # (global declarations moved to top of function)
     # But usually reset_parser() is called outside.
 
 def p_program_subprogram_list_single(p):
@@ -1050,7 +1053,11 @@ def p_parameter_declaration_array(p):
              current_subprogram_var_params = set()
         current_subprogram_var_params.add(name)
         
-    arr_type = f"TABLEAU_{type_name}_{size}"
+    if type_name.upper() in ('CHAINE', 'CHAINE_TYPE'):
+        arr_type = 'CHAINE'
+    else:
+        arr_type = f"TABLEAU_{type_name}_{size}"
+    
     add_variable(name, arr_type)
     alloc_name = f"{scope_stack[-1]}.{name}"
     if isinstance(size, int):
@@ -1445,6 +1452,12 @@ def p_id_or_array_access(p):
         elem_type = 'UNKNOWN'
         if base_type.startswith('TABLEAU_'):
             elem_type = _extract_array_element_type(base_type)
+            if elem_type.upper() in ('CHAINE', 'CHAINE_TYPE'):
+                elem_type = 'CARACTERE' # Indexing a string within an array returns a char? 
+                                        # Wait, if it's an array of strings, S[i] is a string.
+                                        # But fixed strings are TABLEAU_CHAINE_N.
+        elif base_type.upper() in ('CHAINE', 'CHAINE_TYPE'):
+            elem_type = 'CARACTERE' # Fix #9: String index returns Character
         
         if base_code.endswith('._DEREF'):
             base_code = f"({base_code[:-7]})._get()"
@@ -1736,6 +1749,10 @@ def p_expression_dereference(p):
 def p_expression_len(p):
     '''expression : LONGUEUR LPAREN expression RPAREN'''
     p[0] = (f"_algo_longueur({p[3][0]})", 'ENTIER')
+
+def p_expression_ascii(p):
+    '''expression : ASCII LPAREN expression RPAREN'''
+    p[0] = (f"ord({p[3][0]})", 'ENTIER')
 
 def p_expression_allouer(p):
     '''expression : ALLOUER LPAREN expression RPAREN'''

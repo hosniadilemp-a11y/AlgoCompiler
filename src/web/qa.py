@@ -3,10 +3,23 @@ Q&A Blueprint — /qa
 Authenticated-only StackOverflow-like module with question/answer/vote support.
 """
 from datetime import datetime
+from markupsafe import Markup
 from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import update as sa_update
 
 from web.models import QAAnswer, QAQuestion, QAVote, db, User
+
+
+# ── Input sanitiser ───────────────────────────────────────────────────────────
+import re
+
+def _strip_html(value: str) -> str:
+    """Remove all HTML/script tags and dangerous sequences from user input."""
+    # Strip HTML tags
+    cleaned = re.sub(r'<[^>]+>', '', value)
+    return cleaned
+
 
 qa_bp = Blueprint("qa", __name__, url_prefix="/qa")
 
@@ -116,9 +129,9 @@ def api_list_questions():
 def api_ask_question():
     """Create a new question."""
     data  = request.get_json(force=True) or {}
-    title = str(data.get("title", "")).strip()
-    body  = str(data.get("body",  "")).strip()
-    code  = str(data.get("code",  "")).strip() or None
+    title = _strip_html(str(data.get("title", "")).strip())
+    body  = _strip_html(str(data.get("body",  "")).strip())
+    code  = _strip_html(str(data.get("code",  "")).strip()) or None
 
     if not title or not body:
         return jsonify({"success": False, "error": "Titre et description requis."}), 400
@@ -172,8 +185,8 @@ def api_post_answer(qid):
         return jsonify({"success": False, "error": "Question introuvable."}), 404
 
     data = request.get_json(force=True) or {}
-    body = str(data.get("body", "")).strip()
-    code = str(data.get("code", "")).strip() or None
+    body = _strip_html(str(data.get("body", "")).strip())
+    code = _strip_html(str(data.get("code", "")).strip()) or None
 
     if not body:
         return jsonify({"success": False, "error": "La réponse ne peut pas être vide."}), 400
@@ -196,11 +209,11 @@ def api_vote():
     if target_type not in ("question", "answer") or value not in (1, -1) or target_id <= 0:
         return jsonify({"success": False, "error": "Paramètres invalides."}), 400
 
-    # Resolve the target object
+    # Resolve the target object with row-level lock to prevent race conditions
     if target_type == "question":
-        target = db.session.get(QAQuestion, target_id)
+        target = db.session.get(QAQuestion, target_id, with_for_update=True)
     else:
-        target = db.session.get(QAAnswer, target_id)
+        target = db.session.get(QAAnswer, target_id, with_for_update=True)
 
     if not target:
         return jsonify({"success": False, "error": "Cible introuvable."}), 404
@@ -209,20 +222,17 @@ def api_vote():
         user_id=current_user.id,
         target_type=target_type,
         target_id=target_id
-    ).first()
+    ).with_for_update().first()
 
     if existing:
         if existing.value == value:
             # Toggle off (remove vote)
-            target.vote_score -= existing.value
             db.session.delete(existing)
-            new_vote = None
+            new_vote_val = None
         else:
             # Change direction
-            target.vote_score -= existing.value
-            target.vote_score += value
             existing.value = value
-            new_vote = value
+            new_vote_val = value
     else:
         # New vote
         vote = QAVote(
@@ -232,11 +242,29 @@ def api_vote():
             value=value
         )
         db.session.add(vote)
-        target.vote_score += value
-        new_vote = value
+        new_vote_val = value
 
-    db.session.commit()
-    return jsonify({"success": True, "new_score": target.vote_score, "user_vote": new_vote})
+    # Flush changes to ensure the sum query sees the new state in this transaction
+    db.session.flush()
+
+    # Recalculate total score from source of truth (qa_votes table)
+    # This prevents drift and race conditions by always syncing with reality
+    from sqlalchemy import func
+    new_score = db.session.query(func.sum(QAVote.value)).filter_by(
+        target_type=target_type,
+        target_id=target_id
+    ).scalar() or 0
+
+    target.vote_score = new_score
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": "Transaction échouée."}), 500
+
+    return jsonify({"success": True, "new_score": target.vote_score, "user_vote": new_vote_val})
+
 
 
 @qa_bp.route("/api/questions/<int:qid>", methods=["DELETE"])
