@@ -120,6 +120,32 @@ APP_BUILD_ID = (
 ASSET_VERSION = os.environ.get('STATIC_ASSET_VERSION') or APP_BUILD_ID[:12]
 
 
+SECURITY_HONOREE_USER_ID = 29
+SECURITY_HONOREE_BADGE = {
+    'icon': 'fas fa-user-shield',
+    'label': 'Gardien de la securite',
+    'short_label': 'Securite',
+    'description': (
+        "Reconnu pour la securisation de la plateforme et l'amelioration "
+        "de la communaute AlgoCompiler."
+    ),
+}
+LEADERBOARD_TOP_STYLES = {
+    1: {'slug': 'gold', 'label': 'Gold', 'emoji': '\U0001F947'},
+    2: {'slug': 'silver', 'label': 'Silver', 'emoji': '\U0001F948'},
+    3: {'slug': 'bronze', 'label': 'Bronze', 'emoji': '\U0001F949'},
+}
+HALL_OF_FAME_ACKNOWLEDGMENT = (
+    "Reconnaissance officielle adressee a Abdelkafi Habbeddine 252 pour son "
+    "engagement exemplaire dans la securisation de la plateforme AlgoCompiler. "
+    "Son travail a contribue a renforcer la fiabilite de l environnement, a "
+    "proteger la communaute et a soutenir une experience plus sure pour tous "
+    "les membres. Cette distinction souligne egalement son role dans "
+    "l amelioration continue de la communaute, de ses standards et de sa "
+    "dynamique collaborative."
+)
+
+
 def is_truthy(value):
     return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
@@ -326,7 +352,6 @@ else:
 #     engine_options['statement_cache_size'] = 0
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
-
 # Production session security
 session_cookie_secure = os.environ.get('SESSION_COOKIE_SECURE')
 if session_cookie_secure is not None:
@@ -871,6 +896,133 @@ def get_default_level_badge():
         'icon': '🌟',
         'color': '#6c757d',
         'glow': 'rgba(108,117,125,0.5)'
+    }
+
+
+def has_rankable_leaderboard_score(entry):
+    try:
+        return float((entry or {}).get('score') or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def leaderboard_sort_key(item):
+    user_id, entry = item
+    entry = entry or {}
+    return (
+        0 if has_rankable_leaderboard_score(entry) else 1,
+        -float(entry.get('score') or 0),
+        -int(entry.get('challenges') or 0),
+        -int(entry.get('quizzes') or 0),
+        -int(entry.get('badges') or 0),
+        str(entry.get('name') or '').strip().lower(),
+        int(user_id)
+    )
+
+
+def decorate_leaderboard_entry(user_id, raw_entry, rank=None):
+    entry = dict(raw_entry or {})
+    entry['user_id'] = int(user_id)
+    entry['rank'] = rank
+    entry['is_ranked'] = rank is not None
+    entry['display_rank'] = rank if rank is not None else '--'
+
+    style = LEADERBOARD_TOP_STYLES.get(rank)
+    entry['rank_style'] = style['slug'] if style else None
+    entry['rank_badge'] = style['emoji'] if style else None
+    entry['security_badge'] = (
+        dict(SECURITY_HONOREE_BADGE)
+        if int(user_id) == SECURITY_HONOREE_USER_ID
+        else None
+    )
+    return entry
+
+
+def build_ranked_leaderboard_entries(stats_by_user):
+    sorted_items = sorted((stats_by_user or {}).items(), key=leaderboard_sort_key)
+    entries = []
+    ranked_position = 0
+
+    for user_id, raw_entry in sorted_items:
+        rank = None
+        if has_rankable_leaderboard_score(raw_entry):
+            ranked_position += 1
+            rank = ranked_position
+        entries.append(decorate_leaderboard_entry(user_id, raw_entry, rank=rank))
+
+    return entries
+
+
+def build_public_honoree_payload(user_id, entries_by_user=None):
+    user = db.session.get(User, int(user_id))
+    if not user:
+        return None
+
+    return {
+        'name': user.name,
+        'security_badge': (
+            dict(SECURITY_HONOREE_BADGE)
+            if int(user_id) == SECURITY_HONOREE_USER_ID
+            else None
+        ),
+    }
+
+
+def build_global_leaderboard_response_payload():
+    stats = get_bulk_users_stats(allow_stale=True, refresh_async=True)
+    with global_user_stats_cache_lock:
+        has_cached_payload = global_user_stats_cache.get('payload') is not None
+        refresh_status = dict(global_user_stats_refresh_state)
+
+    if stats is None:
+        fallback_stats = build_lightweight_leaderboard_payload()
+        if fallback_stats:
+            leaderboard = build_ranked_leaderboard_entries(fallback_stats)
+            ranked_count = sum(1 for entry in leaderboard if entry.get('is_ranked'))
+            return {
+                'success': True,
+                'leaderboard': leaderboard,
+                'loading': False,
+                'partial': True,
+                'refresh_status': refresh_status['status'],
+                'ranked_user_count': ranked_count,
+                'unranked_user_count': len(leaderboard) - ranked_count,
+            }
+
+        has_any_user = db.session.query(User.id).limit(1).first() is not None
+        if not has_any_user:
+            return {
+                'success': True,
+                'leaderboard': [],
+                'loading': False,
+                'partial': False,
+                'refresh_status': refresh_status['status'],
+                'ranked_user_count': 0,
+                'unranked_user_count': 0,
+            }
+
+    if stats is None and not has_cached_payload:
+        return {
+            'success': True,
+            'leaderboard': [],
+            'loading': True,
+            'partial': False,
+            'refresh_status': refresh_status['status'],
+            'ranked_user_count': 0,
+            'unranked_user_count': 0,
+        }
+
+    leaderboard = build_ranked_leaderboard_entries(stats or {})
+    ranked_count = sum(1 for entry in leaderboard if entry.get('is_ranked'))
+
+    return {
+        'success': True,
+        'leaderboard': leaderboard,
+        'loading': False,
+        'partial': False,
+        'refresh_status': refresh_status['status'],
+        'ranked_user_count': ranked_count,
+        'unranked_user_count': len(leaderboard) - ranked_count,
     }
 
 
@@ -2020,22 +2172,46 @@ def start_execution():
                         idx = int(index)
                         return s[idx] if 0 <= idx < len(s) else ""
 
-                    # Prepare builtins
+                    # VULN-002: Hardened builtins for interactive debugger
+                    _orig_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __builtins__['__import__']
+                    def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+                        if name not in ('math', 'random'):
+                            raise ImportError(f"Security Sandbox: Import of module '{name}' is prohibited in interactive mode.")
+                        return _orig_import(name, globals, locals, fromlist, level)
+
+                    allowed_builtins = [
+                        'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray', 'bytes', 'callable',
+                        'chr', 'dict', 'divmod', 'enumerate', 'filter', 'float', 'format', 'frozenset',
+                        'getattr', 'hasattr', 'setattr',
+                        'hash', 'hex', 'id', 'int', 'isinstance', 'issubclass', 'iter', 'len', 'list',
+                        'map', 'max', 'min', 'next', 'object', 'oct', 'ord', 'pow', 'range', 'repr',
+                        'reversed', 'round', 'set', 'slice', 'sorted', 'str', 'sum', 'tuple', 'type', 'zip',
+                        '__build_class__',
+                        'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException', 'EOFError', 
+                        'Exception', 'False', 'IndexError', 'KeyError', 'MemoryError', 'NameError', 'None', 
+                        'OSError', 'RuntimeError', 'StopIteration', 'SyntaxError', 'SystemExit', 'True', 'TypeError', 'ValueError'
+                    ]
+                    
+                    import builtins
                     safe_builtins = {}
-                    if isinstance(__builtins__, dict):
-                        safe_builtins = __builtins__.copy()
-                    else:
-                        safe_builtins = __builtins__.__dict__.copy()
+                    for k in allowed_builtins:
+                        if hasattr(builtins, k):
+                            safe_builtins[k] = getattr(builtins, k)
+                    
                     safe_builtins['print'] = custom_print
                     safe_builtins['input'] = mock_input
+                    safe_builtins['__import__'] = _restricted_import
 
                     exec_globals = {
+                        '__name__': '__main__',
                         '_algo_to_string': _algo_to_string,
                         '_algo_longueur': _algo_longueur,
                         '_algo_concat': _algo_concat,
                         '_algo_assign_fixed_string': _algo_assign_fixed_string,
                         '_algo_set_char': _algo_set_char,
                         '_algo_get_char': _algo_get_char,
+                        '_algo_read': _algo_read_typed,
+                        '_algo_ecrire': custom_print,
                         'print': custom_print,
                         'input': mock_input, 
                         '__builtins__': safe_builtins
@@ -2904,18 +3080,22 @@ def compute_user_leaderboard_bucket(stats_by_user, user_id):
             'bucket_label': 'Top 100%'
         }
 
-    ranked_users = sorted(
-        stats_by_user.items(),
-        key=lambda item: (
-            -item[1].get('score', 0),
-            -item[1].get('challenges', 0),
-            -item[1].get('quizzes', 0),
-            str(item[1].get('name', '')).lower(),
-            item[0]
-        )
-    )
+    ranked_users = [
+        item
+        for item in sorted(stats_by_user.items(), key=leaderboard_sort_key)
+        if has_rankable_leaderboard_score(item[1])
+    ]
 
     total_users = len(ranked_users)
+    if not has_rankable_leaderboard_score(stats_by_user.get(user_id)):
+        return {
+            'rank': None,
+            'total_users': total_users,
+            'top_percent': 100.0,
+            'bucket_percent': 100,
+            'bucket_label': 'Top 100%'
+        }
+
     user_rank = next((index for index, (uid, _) in enumerate(ranked_users, start=1) if uid == user_id), None)
     if user_rank is None:
         return {
@@ -3403,57 +3583,40 @@ def get_user_level():
 def leaderboard_page():
     return render_template('leaderboard.html')
 
+@app.route('/hall-of-fame')
+@app.route('/leaderboard/hall-of-fame')
+def hall_of_fame_page():
+    return render_template('hall_of_fame.html')
+
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
     try:
-        stats = get_bulk_users_stats(allow_stale=True, refresh_async=True)
-        with global_user_stats_cache_lock:
-            has_cached_payload = global_user_stats_cache.get('payload') is not None
-            refresh_status = dict(global_user_stats_refresh_state)
+        return jsonify(build_global_leaderboard_response_payload())
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-        if stats is None:
-            fallback_stats = build_lightweight_leaderboard_payload()
-            if fallback_stats:
-                leaderboard = list(fallback_stats.values())
-                leaderboard.sort(key=lambda x: x['score'], reverse=True)
-                return jsonify({
-                    'success': True,
-                    'leaderboard': leaderboard,
-                    'loading': False,
-                    'partial': True,
-                    'refresh_status': refresh_status['status']
-                })
-            has_any_user = db.session.query(User.id).limit(1).first() is not None
-            if not has_any_user:
-                return jsonify({
-                    'success': True,
-                    'leaderboard': [],
-                    'loading': False,
-                    'partial': False,
-                    'refresh_status': refresh_status['status']
-                })
 
-        if stats is None and not has_cached_payload:
-            return jsonify({
-                'success': True,
-                'leaderboard': [],
-                'loading': True,
-                'partial': False,
-                'refresh_status': refresh_status['status']
-            })
+@app.route('/api/hall-of-fame', methods=['GET'])
+def get_hall_of_fame():
+    try:
+        payload = build_global_leaderboard_response_payload()
+        entries = payload.get('leaderboard', [])
+        ranked_entries = [entry for entry in entries if entry.get('is_ranked')]
+        entries_by_user = {
+            int(entry['user_id']): entry
+            for entry in entries
+            if entry.get('user_id') is not None
+        }
 
-        leaderboard = list((stats or {}).values())
-        
-        # Sort by score descending
-        leaderboard.sort(key=lambda x: x['score'], reverse=True)
-        
-        return jsonify({
-            'success': True,
-            'leaderboard': leaderboard,
-            'loading': False,
-            'partial': False,
-            'refresh_status': refresh_status['status']
+        payload.update({
+            'podium': ranked_entries[:3],
+            'top_contributors': ranked_entries[:12],
+            'honoree': build_public_honoree_payload(SECURITY_HONOREE_USER_ID, entries_by_user),
+            'acknowledgment': HALL_OF_FAME_ACKNOWLEDGMENT,
         })
+        return jsonify(payload)
     except Exception as e:
         import traceback
         traceback.print_exc()

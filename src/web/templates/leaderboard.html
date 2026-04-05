@@ -10,138 +10,455 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        .leaderboard-container {
+        :root {
+            --lb-gold: #f6c453;
+            --lb-gold-soft: rgba(246, 196, 83, 0.16);
+            --lb-silver: #c7d2e0;
+            --lb-silver-soft: rgba(199, 210, 224, 0.16);
+            --lb-bronze: #d58a52;
+            --lb-bronze-soft: rgba(213, 138, 82, 0.16);
+            --lb-security: #3fd0c9;
+            --lb-security-soft: rgba(63, 208, 201, 0.14);
+        }
+
+        .leaderboard-shell {
             max-width: 1380px;
             margin: 40px auto;
             padding: 20px;
         }
 
-        .leaderboard-header {
-            text-align: center;
-            margin-bottom: 40px;
-            background: var(--panel-bg);
-            padding: 40px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        .leaderboard-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+            gap: 26px;
+            margin-bottom: 24px;
+            padding: 34px;
+            border-radius: 28px;
+            border: 1px solid color-mix(in srgb, var(--border-color) 58%, rgba(255, 255, 255, 0.12) 42%);
+            background:
+                radial-gradient(circle at top right, rgba(246, 196, 83, 0.18), transparent 30%),
+                radial-gradient(circle at bottom left, rgba(74, 110, 224, 0.22), transparent 42%),
+                linear-gradient(135deg, color-mix(in srgb, var(--panel-bg) 92%, #0b1221 8%), color-mix(in srgb, var(--panel-bg) 85%, #101b34 15%));
+            box-shadow: 0 26px 70px rgba(0, 0, 0, 0.22);
+            overflow: hidden;
+            position: relative;
         }
 
-        .leaderboard-header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #f1c40f, #e67e22);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .leaderboard-hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.07), transparent 35%, rgba(255, 255, 255, 0.04) 72%, transparent);
+            pointer-events: none;
+        }
+
+        .hero-copy,
+        .hero-aside {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .hero-copy h1 {
+            margin: 18px 0 14px;
+            font-size: clamp(2.4rem, 4vw, 3.9rem);
+            line-height: 0.98;
+            letter-spacing: -0.04em;
+            color: var(--text-color);
+        }
+
+        .hero-copy p {
+            max-width: 720px;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 26px;
+        }
+
+        .hall-of-fame-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 260px;
+            padding: 16px 22px;
+            border-radius: 20px;
+            text-decoration: none;
+            color: #1d1200;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffe08b 0%, #f6c453 47%, #ff9f54 100%);
+            box-shadow: 0 18px 36px rgba(246, 196, 83, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .hall-of-fame-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 24px 42px rgba(246, 196, 83, 0.34);
+        }
+
+        .hall-of-fame-btn i {
+            font-size: 1.25rem;
+        }
+
+        .hall-of-fame-btn span {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .hall-of-fame-btn small {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: rgba(29, 18, 0, 0.72);
+        }
+
+        .hero-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 18px;
+            padding: 10px 14px;
+            border-radius: 16px;
+            background: rgba(74, 110, 224, 0.12);
+            border: 1px solid rgba(74, 110, 224, 0.24);
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+
+        .hero-aside {
+            display: grid;
+            gap: 16px;
+            align-content: start;
+        }
+
+        .hero-stat-card {
+            padding: 20px;
+            border-radius: 22px;
+            background: rgba(8, 15, 28, 0.34);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        }
+
+        .hero-stat-card strong {
+            display: block;
+            font-size: 2rem;
+            color: var(--text-color);
+            margin-top: 4px;
+        }
+
+        .hero-stat-card span {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .hero-podium-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .legend-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--text-color);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .status-note {
+            display: none;
+            margin: 0 0 18px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(74, 110, 224, 0.25);
+            background: rgba(74, 110, 224, 0.08);
+            color: var(--text-secondary);
+        }
+
+        .leaderboard-table-wrap {
+            background: var(--panel-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: 0 22px 48px rgba(0, 0, 0, 0.16);
         }
 
         .leaderboard-table-container {
-            background: var(--panel-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
             overflow-x: auto;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
 
         .leaderboard-table {
             width: 100%;
-            border-collapse: collapse;
             min-width: 1120px;
+            border-collapse: collapse;
         }
 
         .leaderboard-table th {
-            background: rgba(0, 0, 0, 0.2);
-            padding: 20px;
+            padding: 18px 20px;
             text-align: left;
+            background: rgba(0, 0, 0, 0.16);
             color: var(--text-secondary);
-            font-weight: bold;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 0.8rem;
         }
 
         .leaderboard-table td {
-            padding: 20px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 18px 20px;
+            border-bottom: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent 12%);
             color: var(--text-color);
         }
 
-        .leaderboard-table tr:last-child td {
+        .leaderboard-table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        .leaderboard-table tr:hover {
-            background: rgba(74, 110, 224, 0.05);
+        .leaderboard-row {
+            transition: transform 0.18s ease, background 0.18s ease;
+        }
+
+        .leaderboard-row:hover {
+            background: rgba(74, 110, 224, 0.06);
+        }
+
+        .leaderboard-row.tier-gold {
+            background: linear-gradient(90deg, var(--lb-gold-soft), transparent 55%);
+        }
+
+        .leaderboard-row.tier-silver {
+            background: linear-gradient(90deg, var(--lb-silver-soft), transparent 55%);
+        }
+
+        .leaderboard-row.tier-bronze {
+            background: linear-gradient(90deg, var(--lb-bronze-soft), transparent 55%);
+        }
+
+        .leaderboard-row.tier-unranked td {
+            color: color-mix(in srgb, var(--text-secondary) 90%, var(--text-color) 10%);
         }
 
         .rank-cell {
-            font-weight: bold;
-            font-size: 1.2rem;
-            width: 80px;
+            width: 120px;
             text-align: center !important;
         }
 
-        .rank-1 {
-            color: #f1c40f;
-            font-size: 1.5rem;
+        .rank-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 84px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 0.94rem;
+            font-weight: 800;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .rank-2 {
-            color: #bdc3c7;
-            font-size: 1.4rem;
+        .rank-chip.gold {
+            color: #5f4100;
+            background: linear-gradient(135deg, #ffe89c, #f6c453);
+            border-color: rgba(246, 196, 83, 0.4);
         }
 
-        .rank-3 {
-            color: #cd7f32;
-            font-size: 1.3rem;
+        .rank-chip.silver {
+            color: #394655;
+            background: linear-gradient(135deg, #eef4fb, #c7d2e0);
+            border-color: rgba(199, 210, 224, 0.42);
+        }
+
+        .rank-chip.bronze {
+            color: #4e2c12;
+            background: linear-gradient(135deg, #f6c9aa, #d58a52);
+            border-color: rgba(213, 138, 82, 0.4);
+        }
+
+        .rank-chip.standard {
+            color: var(--text-color);
+        }
+
+        .rank-chip.unranked {
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
         }
 
         .user-cell {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 14px;
+            min-width: 0;
         }
 
         .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #4a6ee0;
-            color: white;
-            display: flex;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            border-radius: 16px;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
+            color: #fff;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .user-meta {
+            min-width: 0;
+        }
+
+        .user-name-line {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .user-name {
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text-color);
+            word-break: break-word;
+        }
+
+        .user-role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: var(--lb-security-soft);
+            color: var(--lb-security);
+            border: 1px solid rgba(63, 208, 201, 0.28);
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
 
         .score-cell {
-            font-weight: bold;
-            color: #4a6ee0;
-            font-size: 1.1rem;
+            font-weight: 800;
+            font-size: 1.06rem;
+            color: #8ab6ff;
         }
 
-        .stats-badges {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        .stat-item i {
-            margin-right: 5px;
-        }
-
+        .level-pill,
         .top-stat {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 46px;
-            padding: 6px 10px;
+            min-width: 48px;
+            padding: 7px 10px;
             border-radius: 999px;
-            background: rgba(255, 193, 7, 0.12);
-            color: #d4a100;
             font-weight: 800;
+        }
+
+        .level-pill {
+            gap: 8px;
+            font-size: 0.84rem;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .top-stat {
+            background: rgba(255, 193, 7, 0.12);
+            color: #d7a300;
+        }
+
+        .stats-badges {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .stat-item i {
+            margin-right: 6px;
+        }
+
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 20px;
+            border-top: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .pagination-bar button {
+            min-width: 128px;
+            border: 1px solid var(--border-color);
+        }
+
+        .page-info {
+            font-weight: 700;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 44px 20px !important;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 980px) {
+            .leaderboard-hero {
+                grid-template-columns: 1fr;
+                padding: 26px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .leaderboard-shell {
+                margin: 24px auto;
+                padding: 14px;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+            }
+
+            .hall-of-fame-btn {
+                min-width: 100%;
+            }
+
+            .pagination-bar {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -151,47 +468,87 @@
     {% include 'partials/navbar.html' %}
 
     <div style="flex: 1; overflow-y: auto; padding-bottom: 40px;">
-        <div class="leaderboard-container">
-            <div class="leaderboard-header">
-                <h1><i class="fas fa-trophy"></i> Panthéon des Algorithmes</h1>
-                <p>Découvrez les meilleurs contributeurs et experts en algorithmique.</p>
-            </div>
+        <div class="leaderboard-shell">
+            <section class="leaderboard-hero">
+                <div class="hero-copy">
+                    <div class="hero-kicker">
+                        <i class="fas fa-ranking-star"></i>
+                        Classement Global
+                    </div>
+                    <h1>Panthéon des Algorithmes</h1>
+                    <p>Repérez les meilleurs contributeurs, suivez les performances de la communauté et mettez en lumière les membres qui font progresser AlgoCompiler.</p>
 
-            <div id="leaderboard-status-note" style="display:none; margin: 0 0 18px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(74,110,224,0.25); background: rgba(74,110,224,0.08); color: var(--text-secondary);">
-            </div>
+                    <div class="hero-actions">
+                        <a href="/hall-of-fame" class="hall-of-fame-btn">
+                            <i class="fas fa-landmark"></i>
+                            <span>
+                                Hall of Fame
+                                <small>Voir le podium et la mention d'honneur</small>
+                            </span>
+                        </a>
+                    </div>
 
-            <div class="leaderboard-table-container">
-                <table class="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th class="rank-cell">Rang</th>
-                            <th>Étudiant</th>
-                            <th>Année</th>
-                            <th>Niveau</th>
-                            <th>Score Global</th>
-                            <th>Top 1</th>
-                            <th>Top 3</th>
-                            <th>Top 10</th>
-                            <th>Réalisations</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-body">
-                        <tr>
-                            <td colspan="9" style="text-align: center; padding: 40px;">
-                                <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Chargement du classement...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div id="leaderboard-pagination"
-                    style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.1);">
-                    <button id="prev-btn" class="course-theme-btn" disabled style="min-width: 120px; border: 1px solid var(--border-color);">
-                        <i class="fas fa-chevron-left"></i> Précédent
+                    <div class="hero-note">
+                        <i class="fas fa-circle-info"></i>
+                        Les utilisateurs sans score restent visibles mais ne reçoivent aucun rang et apparaissent avec <strong>--</strong>.
+                    </div>
+                </div>
+
+                <aside class="hero-aside">
+                    <div class="hero-stat-card">
+                        <span>Membres classes</span>
+                        <strong id="ranked-count">0</strong>
+                    </div>
+                    <div class="hero-stat-card">
+                        <span>Membres sans rang</span>
+                        <strong id="unranked-count">0</strong>
+                    </div>
+                    <div class="hero-stat-card">
+                        <span>Podium visuel</span>
+                        <div class="hero-podium-legend">
+                            <span class="legend-pill">🥇 Or</span>
+                            <span class="legend-pill">🥈 Argent</span>
+                            <span class="legend-pill">🥉 Bronze</span>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+
+            <div id="leaderboard-status-note" class="status-note"></div>
+
+            <div class="leaderboard-table-wrap">
+                <div class="leaderboard-table-container">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th class="rank-cell">Rang</th>
+                                <th>Etudiant</th>
+                                <th>Annee</th>
+                                <th>Niveau</th>
+                                <th>Score Global</th>
+                                <th>Top 1</th>
+                                <th>Top 3</th>
+                                <th>Top 10</th>
+                                <th>Realisations</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <tr>
+                                <td colspan="9" class="empty-state">
+                                    <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>
+                                    Chargement du classement...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="leaderboard-pagination" class="pagination-bar">
+                    <button id="prev-btn" class="course-theme-btn" disabled>
+                        <i class="fas fa-chevron-left"></i> Precedent
                     </button>
-                    <span id="page-info" style="font-weight: 600; color: var(--text-secondary); background: var(--panel-bg); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border-color);">
-                        Page 1 sur 1
-                    </span>
-                    <button id="next-btn" class="course-theme-btn" style="min-width: 120px; border: 1px solid var(--border-color);">
+                    <span id="page-info" class="page-info">Page 1 sur 1</span>
+                    <button id="next-btn" class="course-theme-btn">
                         Suivant <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -205,9 +562,19 @@
         const pageSize = 10;
         const LEADERBOARD_TIMEOUT_MS = 12000;
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
         function setLeaderboardStatusNote(message = '', tone = 'info') {
             const note = document.getElementById('leaderboard-status-note');
             if (!note) return;
+
             if (!message) {
                 note.style.display = 'none';
                 note.textContent = '';
@@ -226,12 +593,18 @@
                     color: '#d29922'
                 }
             };
+
             const styles = stylesByTone[tone] || stylesByTone.info;
             note.style.display = 'block';
             note.style.border = styles.border;
             note.style.background = styles.background;
             note.style.color = styles.color;
             note.textContent = message;
+        }
+
+        function updateHeroStats(payload) {
+            document.getElementById('ranked-count').textContent = Number(payload.ranked_user_count || 0).toLocaleString('fr-FR');
+            document.getElementById('unranked-count').textContent = Number(payload.unranked_user_count || 0).toLocaleString('fr-FR');
         }
 
         async function fetchLeaderboardPayload() {
@@ -250,9 +623,11 @@
 
         async function loadLeaderboard(body, attempt = 0) {
             const data = await fetchLeaderboardPayload();
+            updateHeroStats(data);
+
             if (data.loading) {
-                setLeaderboardStatusNote('Le classement complet est en préparation. Nouvel essai automatique...', 'info');
-                body.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Le classement est en cours de préparation. Nouvel essai...</td></tr>';
+                setLeaderboardStatusNote('Le classement complet est en preparation. Nouvel essai automatique...', 'info');
+                body.innerHTML = '<tr><td colspan="9" class="empty-state">Le classement est en cours de preparation. Nouvel essai...</td></tr>';
                 if (attempt < 3) {
                     setTimeout(() => loadLeaderboard(body, attempt + 1), 2500);
                 }
@@ -264,114 +639,99 @@
             }
 
             fullLeaderboard = data.leaderboard || [];
+            currentPage = 1;
+
             if (data.partial) {
-                setLeaderboardStatusNote('Affichage d’une version simplifiée du classement pendant la préparation des statistiques avancées.', 'warn');
+                setLeaderboardStatusNote("Affichage d'une version simplifiee du classement pendant la preparation des statistiques avancees.", 'warn');
             } else {
                 setLeaderboardStatusNote('');
             }
+
             updatePaginationUI();
             renderLeaderboard();
         }
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            const body = document.getElementById('leaderboard-body');
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
-
-            try {
-                await loadLeaderboard(body);
-            } catch (err) {
-                setLeaderboardStatusNote('Le classement n’a pas pu être chargé complètement.', 'warn');
-                const message = err.name === 'AbortError'
-                    ? 'Le chargement du classement a pris trop de temps.'
-                    : 'Erreur lors du chargement du classement.';
-                body.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">${message}</td></tr>`;
-            }
-
-            prevBtn.addEventListener('click', () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    renderLeaderboard();
-                    updatePaginationUI();
-                }
-            });
-
-            nextBtn.addEventListener('click', () => {
-                const totalPages = Math.ceil(fullLeaderboard.length / pageSize);
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    renderLeaderboard();
-                    updatePaginationUI();
-                }
-            });
-        });
 
         function updatePaginationUI() {
             const prevBtn = document.getElementById('prev-btn');
             const nextBtn = document.getElementById('next-btn');
             const pageInfo = document.getElementById('page-info');
+            const pagination = document.getElementById('leaderboard-pagination');
             const totalPages = Math.ceil(fullLeaderboard.length / pageSize) || 1;
 
-            prevBtn.disabled = (currentPage === 1);
-            nextBtn.disabled = (currentPage === totalPages);
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
             pageInfo.textContent = `Page ${currentPage} sur ${totalPages}`;
-            
-            if (fullLeaderboard.length <= pageSize) {
-                document.getElementById('leaderboard-pagination').style.display = 'none';
-            } else {
-                document.getElementById('leaderboard-pagination').style.display = 'flex';
+            pagination.style.display = fullLeaderboard.length <= pageSize ? 'none' : 'flex';
+        }
+
+        function renderRankChip(entry) {
+            if (!entry.is_ranked) {
+                return '<span class="rank-chip unranked">--</span>';
             }
+
+            const rank = Number(entry.rank || 0);
+            const style = entry.rank_style || '';
+            if (rank >= 1 && rank <= 3 && entry.rank_badge) {
+                return `<span class="rank-chip ${style}"><span>${escapeHtml(entry.rank_badge)}</span><span>#${rank}</span></span>`;
+            }
+
+            return `<span class="rank-chip standard">#${rank}</span>`;
         }
 
         function renderLeaderboard() {
             const body = document.getElementById('leaderboard-body');
-            body.innerHTML = '';
-
             const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
-            const pageData = fullLeaderboard.slice(start, end);
+            const pageData = fullLeaderboard.slice(start, start + pageSize);
 
-            pageData.forEach((entry, index) => {
-                const rank = start + index + 1;
-                let rankClass = '';
-                let rankIcon = rank;
-                if (rank === 1) { rankClass = 'rank-1'; rankIcon = '<i class="fas fa-medal"></i>'; }
-                if (rank === 2) { rankClass = 'rank-2'; rankIcon = '<i class="fas fa-medal"></i>'; }
-                if (rank === 3) { rankClass = 'rank-3'; rankIcon = '<i class="fas fa-medal"></i>'; }
+            if (!pageData.length) {
+                body.innerHTML = '<tr><td colspan="9" class="empty-state">Aucune donnee de classement a afficher.</td></tr>';
+                return;
+            }
 
-                const level = entry.level || { name: 'Débutant', icon: '🌟', color: '#6c757d' };
+            body.innerHTML = pageData.map((entry) => {
+                const safeName = escapeHtml(entry.name || `Utilisateur #${entry.user_id}`);
+                const avatarText = escapeHtml((entry.name || '?').trim().charAt(0).toUpperCase() || '?');
+                const level = entry.level || { name: 'Debutant', icon: '🌟', color: '#6c757d' };
+                const rowClass = entry.rank_style ? `tier-${entry.rank_style}` : (!entry.is_ranked ? 'tier-unranked' : '');
+                const securityBadge = entry.security_badge
+                    ? `<span class="user-role-badge" title="${escapeHtml(entry.security_badge.description || '')}"><i class="${escapeHtml(entry.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(entry.security_badge.short_label || entry.security_badge.label || 'Securite')}</span>`
+                    : '';
 
-                body.innerHTML += `
-                    <tr>
-                        <td class="rank-cell ${rankClass}">${rankIcon}</td>
+                return `
+                    <tr class="leaderboard-row ${rowClass}">
+                        <td class="rank-cell">${renderRankChip(entry)}</td>
                         <td>
                             <div class="user-cell">
-                                <div class="user-avatar" style="background: ${getStableColor(entry.name)}">${entry.name[0].upper()}</div>
-                                <div>
-                                    <div style="font-weight: bold;">${entry.name}</div>
+                                <div class="user-avatar" style="background:${getStableColor(entry.name || safeName)}">${avatarText}</div>
+                                <div class="user-meta">
+                                    <div class="user-name-line">
+                                        <span class="user-name">${safeName}</span>
+                                        ${securityBadge}
+                                    </div>
                                 </div>
                             </div>
                         </td>
-                        <td>${entry.year_created ?? '—'}</td>
+                        <td>${entry.year_created ?? '--'}</td>
                         <td>
-                            <span class="level-badge" style="color: ${level.color}; border: 1px solid ${level.color}; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; background: rgba(0,0,0,0.1);">
-                                ${level.icon} ${level.name}
+                            <span class="level-pill" style="color:${escapeHtml(level.color || '#6c757d')}; border:1px solid ${escapeHtml(level.color || '#6c757d')};">
+                                <span>${escapeHtml(level.icon || '🌟')}</span>
+                                <span>${escapeHtml(level.name || 'Debutant')}</span>
                             </span>
                         </td>
-                        <td class="score-cell">${entry.score} pts</td>
-                        <td><span class="top-stat">${entry.top1 ?? 0}</span></td>
-                        <td><span class="top-stat">${entry.top3 ?? 0}</span></td>
-                        <td><span class="top-stat">${entry.top10 ?? 0}</span></td>
+                        <td class="score-cell">${Number(entry.score || 0).toLocaleString('fr-FR')} pts</td>
+                        <td><span class="top-stat">${Number(entry.top1 || 0).toLocaleString('fr-FR')}</span></td>
+                        <td><span class="top-stat">${Number(entry.top3 || 0).toLocaleString('fr-FR')}</span></td>
+                        <td><span class="top-stat">${Number(entry.top10 || 0).toLocaleString('fr-FR')}</span></td>
                         <td>
                             <div class="stats-badges">
-                                <span class="stat-item" title="Quiz réussis"><i class="fas fa-check-circle"></i> ${entry.quizzes}</span>
-                                <span class="stat-item" title="Défis réussis"><i class="fas fa-code"></i> ${entry.challenges}</span>
-                                <span class="stat-item" title="Badges obtenus"><i class="fas fa-award"></i> ${entry.badges}</span>
+                                <span class="stat-item" title="Quiz reussis"><i class="fas fa-check-circle"></i>${Number(entry.quizzes || 0).toLocaleString('fr-FR')}</span>
+                                <span class="stat-item" title="Defis reussis"><i class="fas fa-code"></i>${Number(entry.challenges || 0).toLocaleString('fr-FR')}</span>
+                                <span class="stat-item" title="Badges obtenus"><i class="fas fa-award"></i>${Number(entry.badges || 0).toLocaleString('fr-FR')}</span>
                             </div>
                         </td>
                     </tr>
                 `;
-            });
+            }).join('');
         }
 
         function getStableColor(str) {
@@ -382,7 +742,38 @@
             return `hsl(${Math.abs(hash) % 360}, 60%, 50%)`;
         }
 
-        String.prototype.upper = function () { return this.toUpperCase(); }
+        document.addEventListener('DOMContentLoaded', async () => {
+            const body = document.getElementById('leaderboard-body');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            try {
+                await loadLeaderboard(body);
+            } catch (err) {
+                setLeaderboardStatusNote("Le classement n'a pas pu etre charge completement.", 'warn');
+                const message = err.name === 'AbortError'
+                    ? 'Le chargement du classement a pris trop de temps.'
+                    : 'Erreur lors du chargement du classement.';
+                body.innerHTML = `<tr><td colspan="9" class="empty-state">${message}</td></tr>`;
+            }
+
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage -= 1;
+                    updatePaginationUI();
+                    renderLeaderboard();
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                const totalPages = Math.ceil(fullLeaderboard.length / pageSize);
+                if (currentPage < totalPages) {
+                    currentPage += 1;
+                    updatePaginationUI();
+                    renderLeaderboard();
+                }
+            });
+        });
     </script>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
     <script src="{{ url_for('static', filename='js/level_pill.js') }}"></script>

@@ -34,7 +34,8 @@ def _run_with_metrics(script_path, input_data, timeout_seconds):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
+        env={} # Clean environment to prevent sensitive variable leakage
     )
     start = time.perf_counter()
     peak_memory_kb = 0
@@ -86,7 +87,9 @@ def execute_code(python_code, test_cases, timeout_seconds=DEFAULT_TIMEOUT_SECOND
     # This prevents the user's generated python code from executing OS commands or reading arbitrary system files
     security_wrapper = '''
 import builtins
+import sys
 
+# Replace __import__ with a restricted version
 _orig_import = builtins.__import__
 def _secure_import(name, globals=None, locals=None, fromlist=(), level=0):
     if name not in ('math', 'random'):
@@ -94,9 +97,17 @@ def _secure_import(name, globals=None, locals=None, fromlist=(), level=0):
     return _orig_import(name, globals, locals, fromlist, level)
 
 builtins.__import__ = _secure_import
-for bad_func in ('open', 'eval', 'exec', 'compile'):
+
+# Remove dangerous builtins
+_delattr = delattr
+for bad_func in ('open', 'eval', 'exec', 'compile', 'delattr', 'help', 'copyright', 'credits', 'license'):
     if hasattr(builtins, bad_func):
-        delattr(builtins, bad_func)
+        _delattr(builtins, bad_func)
+
+# Prevent access to dangerous modules via sys.modules
+for mod in list(sys.modules.keys()):
+    if mod not in ('builtins', 'math', 'random', '__main__'):
+        sys.modules[mod] = None
 
 # --- END OF SANDBOX --- #
 '''

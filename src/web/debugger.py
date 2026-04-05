@@ -6,7 +6,9 @@ class TraceRunner:
         self.steps = []
         self.stdout_capture = None
         self.step_count = 0
-        self.max_steps = 1000000  # Protect against infinite loops
+        self.max_steps = 10000  # Hard limit on instructions to prevent DoS
+        self.max_steps_list_size = 1000 # Limit memory for debugger trace
+        self.max_output_length = 50000 # Limit stdout buffer size
     
     def trace_calls(self, frame, event, arg):
         if event != 'call':
@@ -16,10 +18,21 @@ class TraceRunner:
     def trace_lines(self, frame, event, arg):
         self.step_count += 1
         if self.step_count > self.max_steps:
-            raise TimeoutError("Boucle infinie détectée")
+            raise RuntimeError("Limite d'exécution dépassée (possible boucle infinie)")
             
         if event not in ['line', 'return']:
             return
+        
+        # Enforce memory limit for the trace list
+        if len(self.steps) >= self.max_steps_list_size:
+            # We don't raise an error here, but we stop accumulating steps to save memory
+            # The code still runs, but the debugger view won't update further
+            pass
+        
+        # Enforce output length limit
+        if self.stdout_capture and hasattr(self.stdout_capture, 'tell'):
+            if self.stdout_capture.tell() > self.max_output_length:
+                 raise RuntimeError("Sortie trop longue (limite de 50Ko dépassée)")
         
         # Skip internal helper functions (like _algo_read)
         if frame.f_code.co_name.startswith('_'):
@@ -287,15 +300,16 @@ class TraceRunner:
             if self.stdout_capture and hasattr(self.stdout_capture, 'getvalue'):
                  output_so_far = self.stdout_capture.getvalue()
             
-            step = {
-                'line': frame.f_lineno,
-                'variables': local_vars,
-                'output': output_so_far,
-                'event': event
-            }
-            self.steps.append(step)
-            if self.on_step:
-                self.on_step(step)
+            if len(self.steps) < self.max_steps_list_size:
+                step = {
+                    'line': frame.f_lineno,
+                    'variables': local_vars,
+                    'output': output_so_far,
+                    'event': event
+                }
+                self.steps.append(step)
+                if self.on_step:
+                    self.on_step(step)
             
         except Exception as e:
             import traceback

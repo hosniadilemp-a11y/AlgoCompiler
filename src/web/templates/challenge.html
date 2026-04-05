@@ -311,7 +311,7 @@
                     return `
                         <tr style="border-bottom: 1px solid var(--border-color, #333); background: ${bg}; transition: background 0.3s; color: ${color};">
                             <td style="padding:12px; font-weight:bold;">${idx + 1}</td>
-                            <td style="padding:12px; font-weight:bold;">${user.name}</td>
+                            <td style="padding:12px; font-weight:bold;">${escapeHtml(user.name)}</td>
                             <td style="padding:12px;">${user.score}%</td>
                             <td style="padding:12px;">${user.time_taken}s</td>
                             <td style="padding:12px;">${user.attempts}</td>

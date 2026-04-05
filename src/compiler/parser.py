@@ -352,7 +352,6 @@ def p_program(p):
     
     # Build the Python code - functions defined in dependency order
     code = f"# Algo: {algo_name}\n"
-    code += "import sys\nimport builtins\n"
     code += "\n# Helper functions (dependency order)\n"
 
     # 1. _algo_read - no deps

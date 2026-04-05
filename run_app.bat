@@ -11,5 +11,6 @@ echo Starting AlgoCompiler web server...
 echo Server will be available at: http://localhost:5000
 echo Press Ctrl+C to stop the server
 echo.
-python src\web\app.py
+set FLASK_DEBUG=1
+venv\Scripts\python.exe src\web\app.py
 pause

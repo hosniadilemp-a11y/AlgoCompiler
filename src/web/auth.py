@@ -37,7 +37,7 @@ oauth.register(
 )
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def generate_verification_code():
     return f"{random.randint(100000, 999999)}"
@@ -176,7 +176,7 @@ def login():
             flash('Adresse e-mail ou mot de passe incorrect.', 'danger')
             return redirect(url_for('auth.login'))
             
-        if user.lockout_until and user.lockout_until > datetime.utcnow():
+        if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
             flash('Votre compte est temporairement bloqué en raison de trop nombreuses tentatives. Réessayez plus tard.', 'danger')
             return redirect(url_for('auth.login'))
             
@@ -238,7 +238,7 @@ def signup():
         user = User.query.filter(func.lower(User.email) == email.lower()).first()
         if user:
             # If user exists but is locked out or has too many resend attempts, check lockout time
-            if user.lockout_until and user.lockout_until > datetime.utcnow():
+            if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
                 flash('Ce compte est temporairement bloqué. Réessayez plus tard.', 'danger')
                 return redirect(url_for('auth.signup'))
             flash('Un compte avec cet e-mail existe déjà.', 'danger')
@@ -326,7 +326,7 @@ def resend_code():
     
     if user and not user.email_verified:
         # Check lockout
-        if user.lockout_until and user.lockout_until > datetime.utcnow():
+        if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
             flash("Vous avez atteint la limite de renvoi. Veuillez revenir dans 6 heures.", "danger")
             return redirect(url_for('auth.verify'))
             
@@ -334,7 +334,7 @@ def resend_code():
         
         if user.resend_attempts > 2:
             # Lock out for 6 hours
-            user.lockout_until = datetime.utcnow() + timedelta(hours=6)
+            user.lockout_until = datetime.now(timezone.utc) + timedelta(hours=6)
             db.session.commit()
             flash("Nombre maximal de renvois atteint. Votre compte est bloqué pour 6 heures. Veuillez réessayer plus tard.", "danger")
             return redirect(url_for('auth.verify'))
@@ -370,7 +370,7 @@ def forgot_password():
         
         if user and user.password_hash:
             # Check if locked out
-            if user.lockout_until and user.lockout_until > datetime.utcnow():
+            if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
                 flash('Ce compte est temporairement bloqué. Réessayez plus tard.', 'danger')
                 return redirect(url_for('auth.forgot_password'))
                 
@@ -447,7 +447,7 @@ def oauth_auth(provider):
         user = User.query.filter_by(email=email).first()
         if user:
              # Check lockout
-             if user.lockout_until and user.lockout_until > datetime.utcnow():
+             if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
                  flash('Votre compte est temporairement bloqué. Réessayez plus tard.', 'danger')
                  return redirect(url_for('auth.login'))
                  
