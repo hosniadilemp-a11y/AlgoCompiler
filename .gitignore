@@ -58,6 +58,8 @@ script_*.js
 !OAUTH_SETUP_INSTRUCTIONS.md
 !README_DEPLOY.md
 # --- Database files ---
+instance/
+src/instance/
 src/web/algocompiler.db
 src/web/migrate_to_postgres.py
 

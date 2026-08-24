@@ -1219,7 +1219,22 @@ document.getElementById('gameArea').addEventListener('mousemove', e=>{
 // ════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════
-setScene(0);
+(function initSceneFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  let targetScene = 0;
+  if (params.has('scene')) {
+    const s = parseInt(params.get('scene'), 10);
+    if (!isNaN(s) && s >= 0 && s <= 3) targetScene = s;
+  } else if (window.location.hash) {
+    const h = window.location.hash.toLowerCase();
+    if (h.includes('game')) targetScene = 0;
+    else if (h.includes('login')) targetScene = 1;
+    else if (h.includes('search')) targetScene = 2;
+    else if (h.includes('undo')) targetScene = 3;
+  }
+  setScene(targetScene);
+})();
 </script>
 </body>
 </html>
+

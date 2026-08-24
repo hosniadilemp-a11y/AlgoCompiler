@@ -1,132 +1,392 @@
-[
-    {
-        "difficulty":  "Easy",
-        "concept":  "Définition",
-        "question":  "Qu\u0027est-ce qu\u0027un tableau ?",
-        "explanation":  "Structure regroupant des éléments du même type. Reponse correcte: Une collection d\u0027éléments de même type. Ici, la notion \u0027Définition\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "Une collection d\u0027éléments de même type",
-                        "Un recueil de types variés",
-                        "Un fichier texte",
-                        "Une variable simple"
-                    ],
-        "answer":  "Une collection d\u0027éléments de même type"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Indices",
-        "question":  "Le premier indice en pseudo-code classique est souvent ?",
-        "explanation":  "Index 1 en algo classique. Reponse correcte: 1. Ici, la notion \u0027Indices\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "1",
-                        "0",
-                        "-1",
-                        "NIL"
-                    ],
-        "answer":  "1"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Taille",
-        "question":  "Peut-on changer la taille d\u0027un tableau statique après déclaration ?",
-        "explanation":  "La taille est fixe à la compilation. Reponse correcte: Non, elle est fixe. Ici, la notion \u0027Taille\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "Non, elle est fixe",
-                        "Oui, avec redimensionner()",
-                        "Seulement si le tableau est vide",
-                        "Oui, à tout moment"
-                    ],
-        "answer":  "Non, elle est fixe"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Homogénéité",
-        "question":  "Un tableau peut contenir à la fois entiers et chaines ?",
-        "explanation":  "Il doit être homogène. Reponse correcte: Non, tableau homogène. Ici, la notion \u0027Homogénéité\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "Non, tableau homogène",
-                        "Oui, tableau hétérogène",
-                        "Seulement dans une matrice",
-                        "Oui, si on utilise des pointeurs"
-                    ],
-        "answer":  "Non, tableau homogène"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Accès",
-        "question":  "Complexité de l\u0027accès au i-ème élément ?",
-        "explanation":  "Accès direct. Reponse correcte: O(1). Ici, la notion \u0027Accès\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "O(1)",
-                        "O(N)",
-                        "O(log N)",
-                        "O(N^2)"
-                    ],
-        "answer":  "O(1)"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Matrice",
-        "question":  "Comment lire T[i, j] ?",
-        "explanation":  "Ligne i, colonne j. Reponse correcte: lément ligne i, colonne j. Ici, la notion \u0027Matrice\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "lément ligne i, colonne j",
-                        "lément ligne j, colonne i",
-                        "La somme de i et j",
-                        "L\u0027adresse de i*j"
-                    ],
-        "answer":  "lément ligne i, colonne j"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Déclaration",
-        "question":  "T : Tableau[1..10] de Entier. Combien d\u0027éléments ?",
-        "explanation":  "1 à 10 inclusivement. Reponse correcte: 10. Ici, la notion \u0027Déclaration\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "10",
-                        "9",
-                        "11",
-                        "Inconnu"
-                    ],
-        "answer":  "10"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Boucles",
-        "question":  "Boucle la plus adaptée pour parcourir un tableau de taille N ?",
-        "explanation":  "Pour i de 1 à N. Reponse correcte: Boucle Pour. Ici, la notion \u0027Boucles\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "Boucle Pour",
-                        "Boucle Tant Que",
-                        "Boucle Répéter",
-                        "Aucune boucle"
-                    ],
-        "answer":  "Boucle Pour"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Dépassement",
-        "question":  "Si on accède à T[N+1] pour un tableau de taille N ?",
-        "explanation":  "Erreur Out of bounds. Reponse correcte: Erreur d\u0027index hors limites. Ici, la notion \u0027Dépassement\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "Erreur d\u0027index hors limites",
-                        "Il retourne 0",
-                        "Il crée la case automatiquement",
-                        "Il accède au premier élément"
-                    ],
-        "answer":  "Erreur d\u0027index hors limites"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Recherche",
-        "question":  "Meilleur tri pour pouvoir faire une recherche dichotomique ?",
-        "explanation":  "Le tableau doit d\u0027abord être trié. Reponse correcte: Le tableau doit être trié. Ici, la notion \u0027Recherche\u0027 s\u0027applique: le resultat depend du nombre reel d\u0027iterations et du moment ou la condition est evaluee.",
-        "choices":  [
-                        "Le tableau doit être trié",
-                        "Aucune condition requise",
-                        "Le tableau doit être vide",
-                        "Le tableau doit être petit"
-                    ],
-        "answer":  "Le tableau doit être trié"
-    }
-]
+[
+    {
+        "difficulty": "Easy",
+        "concept": "Définition",
+        "question": "Qu'est-ce qu'un tableau ?",
+        "explanation": "Structure regroupant des éléments du même type. Reponse correcte: Une collection d'éléments de même type. Ici, la notion 'Définition' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "Une collection d'éléments de même type",
+            "Un recueil de types variés",
+            "Un fichier texte",
+            "Une variable simple"
+        ],
+        "answer": "Une collection d'éléments de même type"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Indices",
+        "question": "Le premier indice en pseudo-code classique est souvent ?",
+        "explanation": "Index 1 en algo classique. Reponse correcte: 1. Ici, la notion 'Indices' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "1",
+            "0",
+            "-1",
+            "NIL"
+        ],
+        "answer": "1"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Taille",
+        "question": "Peut-on changer la taille d'un tableau statique après déclaration ?",
+        "explanation": "La taille est fixe à la compilation. Reponse correcte: Non, elle est fixe. Ici, la notion 'Taille' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "Non, elle est fixe",
+            "Oui, avec redimensionner()",
+            "Seulement si le tableau est vide",
+            "Oui, à tout moment"
+        ],
+        "answer": "Non, elle est fixe"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Homogénéité",
+        "question": "Un tableau peut contenir à la fois entiers et chaines ?",
+        "explanation": "Il doit être homogène. Reponse correcte: Non, tableau homogène. Ici, la notion 'Homogénéité' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "Non, tableau homogène",
+            "Oui, tableau hétérogène",
+            "Seulement dans une matrice",
+            "Oui, si on utilise des pointeurs"
+        ],
+        "answer": "Non, tableau homogène"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Accès",
+        "question": "Complexité de l'accès au i-ème élément ?",
+        "explanation": "Accès direct. Reponse correcte: O(1). Ici, la notion 'Accès' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "O(1)",
+            "O(N)",
+            "O(log N)",
+            "O(N^2)"
+        ],
+        "answer": "O(1)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Matrice",
+        "question": "Comment lire T[i, j] ?",
+        "explanation": "Ligne i, colonne j. Reponse correcte: lément ligne i, colonne j. Ici, la notion 'Matrice' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "lément ligne i, colonne j",
+            "lément ligne j, colonne i",
+            "La somme de i et j",
+            "L'adresse de i*j"
+        ],
+        "answer": "lément ligne i, colonne j"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Déclaration",
+        "question": "T : Tableau[1..10] de Entier. Combien d'éléments ?",
+        "explanation": "1 à 10 inclusivement. Reponse correcte: 10. Ici, la notion 'Déclaration' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "10",
+            "9",
+            "11",
+            "Inconnu"
+        ],
+        "answer": "10"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Boucles",
+        "question": "Boucle la plus adaptée pour parcourir un tableau de taille N ?",
+        "explanation": "Pour i de 1 à N. Reponse correcte: Boucle Pour. Ici, la notion 'Boucles' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "Boucle Pour",
+            "Boucle Tant Que",
+            "Boucle Répéter",
+            "Aucune boucle"
+        ],
+        "answer": "Boucle Pour"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Dépassement",
+        "question": "Si on accède à T[N+1] pour un tableau de taille N ?",
+        "explanation": "Erreur Out of bounds. Reponse correcte: Erreur d'index hors limites. Ici, la notion 'Dépassement' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "Erreur d'index hors limites",
+            "Il retourne 0",
+            "Il crée la case automatiquement",
+            "Il accède au premier élément"
+        ],
+        "answer": "Erreur d'index hors limites"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Recherche",
+        "question": "Meilleur tri pour pouvoir faire une recherche dichotomique ?",
+        "explanation": "Le tableau doit d'abord être trié. Reponse correcte: Le tableau doit être trié. Ici, la notion 'Recherche' s'applique: le resultat depend du nombre reel d'iterations et du moment ou la condition est evaluee.",
+        "choices": [
+            "Le tableau doit être trié",
+            "Aucune condition requise",
+            "Le tableau doit être vide",
+            "Le tableau doit être petit"
+        ],
+        "answer": "Le tableau doit être trié"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Indice Tableau",
+        "question": "Quel est l'indice du premier élément d'un tableau déclarée T[100] de taille N ?",
+        "explanation": "Selon les conventions usuelles du cours, les indices commencent soit à 1 (1..N) soit à 0 (0..N-1).",
+        "choices": [
+            "0 ou 1 selon la convention du cours",
+            "Toujours -1",
+            "100",
+            "N"
+        ],
+        "answer": "0 ou 1 selon la convention du cours"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Recherche Linéaire",
+        "question": "Dans le pire des cas, combien de comparaisons nécessite la recherche séquentielle sur N éléments ?",
+        "explanation": "Dans le pire des cas (élément en dernière position ou absent), on doit tester les N cases du tableau.",
+        "choices": [
+            "N comparaisons",
+            "Log2(N) comparaisons",
+            "1 comparaison",
+            "N^2 comparaisons"
+        ],
+        "answer": "N comparaisons"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Complexité Dichotomie",
+        "question": "Quelle est la complexité temporelle optimale d'une recherche dichotomique sur un tableau trié de 1024 éléments ?",
+        "explanation": "La recherche dichotomique divisant l'espace par 2 à chaque étape, log2(1024) = 10 étapes au pire cas.",
+        "choices": [
+            "10 comparaisons au maximum",
+            "1024 comparaisons",
+            "512 comparaisons",
+            "1 comparaison"
+        ],
+        "answer": "10 comparaisons au maximum"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Tri Sélection",
+        "question": "Combien d'échanges d'éléments au maximum effectue le tri par sélection sur N éléments ?",
+        "explanation": "Le tri par sélection fait N-1 échanges au maximum (un échange par position principale i).",
+        "choices": [
+            "O(N) échanges",
+            "O(N^2) échanges",
+            "O(Log N) échanges",
+            "Aucun échange"
+        ],
+        "answer": "O(N) échanges"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Tableau 2D",
+        "question": "Comment déclare-t-on une matrice de 5 lignes et 10 colonnes d'entiers ?",
+        "explanation": "On indique les deux dimensions : T[1..5, 1..10] : Entier.",
+        "choices": [
+            "Var M[5, 10] : Entier;",
+            "Var M[50] : Entier;",
+            "Var M : Entier[5][10];",
+            "Var M : Matrix(5,10);"
+        ],
+        "answer": "Var M[5, 10] : Entier;"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Tri à Bulles Optimisé",
+        "question": "Comment le tri à bulles optimisé détecte-t-il qu'un tableau est déjà trié ?",
+        "explanation": "Si lors d'un passage complet sur le tableau aucun échange n'a été effectué (booléen permute = Faux), le tableau est trié.",
+        "choices": [
+            "Si un passage s'effectue sans aucun échange d'éléments",
+            "En comparant la première et dernière case",
+            "En calculant la somme des éléments",
+            "Le tri à bulles ne peut pas s'arrêter plus tôt"
+        ],
+        "answer": "Si un passage s'effectue sans aucun échange d'éléments"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Tri par Insertion",
+        "question": "Quelle est la complexité du tri par insertion sur un tableau DÉJÀ trié ?",
+        "explanation": "Si le tableau est déjà trié, la condition de la boucle interne est immédiatement fausse : complexité linéaire O(N).",
+        "choices": [
+            "O(N) (linéaire)",
+            "O(N^2) (quadratique)",
+            "O(N log N)",
+            "O(1)"
+        ],
+        "answer": "O(N) (linéaire)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Accès Mémoire",
+        "question": "Pourquoi l'accès à un élément `T[i]` d'un tableau est-il en temps constant O(1) ?",
+        "explanation": "Grâce à la mémoire contiguë : Adresse(T[i]) = Adresse(T[0]) + i * Taille(Element).",
+        "choices": [
+            "Car la mémoire est contiguë et l'adresse est calculable directement",
+            "Parce que l'ordinateur devine l'élément",
+            "Car les tableaux sont stockés dans le CPU",
+            "C'est O(N) et non O(1)"
+        ],
+        "answer": "Car la mémoire est contiguë et l'adresse est calculable directement"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Matrice Diagonale",
+        "question": "Dans une matrice M[N, N], quelle est la condition d'appartenance à la diagonale principale ?",
+        "explanation": "Un élément appartient à la diagonale principale si son indice de ligne égale son indice de colonne (i = j).",
+        "choices": [
+            "i = j",
+            "i + j = N + 1",
+            "i > j",
+            "i < j"
+        ],
+        "answer": "i = j"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Matrice Transposée",
+        "question": "Si M est une matrice de taille N x M, quelle est la taille de sa transposée M^T ?",
+        "explanation": "La transposée échange les lignes et les colonnes, sa taille est donc M x N.",
+        "choices": [
+            "Taille M x N",
+            "Taille N x N",
+            "Taille M x M",
+            "Taille N * M"
+        ],
+        "answer": "Taille M x N"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Initialisation",
+        "question": "Que contient un tableau local qui vient d'être déclaré sans initialisation ?",
+        "explanation": "Un tableau non initialisé contient des valeurs arbitraires dites 'valeurs poubelles' (garbage values).",
+        "choices": [
+            "Des valeurs indéterminées (contenu antérieur de la RAM)",
+            "Toujours des zéros",
+            "Des valeurs NIL",
+            "Une erreur de compilation"
+        ],
+        "answer": "Des valeurs indéterminées (contenu antérieur de la RAM)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Recherche Min/Max",
+        "question": "Pour trouver le minimum d'un tableau non trié de N éléments, combien de comparaisons sont nécessaires ?",
+        "explanation": "Il faut comparer chaque élément avec le minimum courant, soit exactement N - 1 comparaisons.",
+        "choices": [
+            "N - 1 comparaisons",
+            "N / 2 comparaisons",
+            "Log2(N) comparaisons",
+            "N^2 comparaisons"
+        ],
+        "answer": "N - 1 comparaisons"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Inversion de Tableau",
+        "question": "Pour inverser sur place (in-place) un tableau de N éléments, quelle est la condition de la boucle de permutation ?",
+        "explanation": "On échange T[i] avec T[N - i + 1] pour i allant de 1 jusqu'à N div 2.",
+        "choices": [
+            "Pour i de 1 à N div 2",
+            "Pour i de 1 à N",
+            "Pour i de 1 à N - 1",
+            "Tant que i <> N"
+        ],
+        "answer": "Pour i de 1 à N div 2"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Taille Réelle vs Maximale",
+        "question": "Quelle est la différence entre taille maximale et taille réelle d'un tableau ?",
+        "explanation": "La taille maximale est la capacité réservée en mémoire (ex: 100), la taille réelle N est le nombre de cases réellement utilisées (ex: 15).",
+        "choices": [
+            "La taille maximale est la capacité allouée, la taille réelle est le nombre d'éléments occupés",
+            "C'est la même chose",
+            "La taille réelle est toujours plus grande",
+            "La taille maximale varie pendant l'exécution"
+        ],
+        "answer": "La taille maximale est la capacité allouée, la taille réelle est le nombre d'éléments occupés"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Produit Matriciel",
+        "question": "Pour multiplier une matrice A(N x P) par B(P x M), quelle est la taille de la matrice résultat C ?",
+        "explanation": "Le produit produit une matrice de taille N x M avec P multiplications par élément de C.",
+        "choices": [
+            "Taille N x M",
+            "Taille P x P",
+            "Taille N x P",
+            "Taille M x N"
+        ],
+        "answer": "Taille N x M"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Stabilité d'un Tri",
+        "question": "Que signifie qu'un algorithme de tri est 'stable' ?",
+        "explanation": "Un tri est stable s'il préserve l'ordre relatif initial des éléments ayant des clés égales.",
+        "choices": [
+            "Il préserve l'ordre relatif des éléments ayant des clés identiques",
+            "Il ne plante jamais pendant l'exécution",
+            "Il utilise O(1) mémoire supplémentaire",
+            "Sa complexité est toujours O(N log N)"
+        ],
+        "answer": "Il préserve l'ordre relatif des éléments ayant des clés identiques"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Vecteur",
+        "question": "En algorithmique, qu'appelle-t-on un 'Vecteur' ?",
+        "explanation": "Un vecteur est la dénomination usuelle pour un tableau à une seule dimension (1D).",
+        "choices": [
+            "Un tableau à une dimension (1D)",
+            "Un pointeur vers une fonction",
+            "Une matrice 3D",
+            "Une constante numérique"
+        ],
+        "answer": "Un tableau à une dimension (1D)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Recherche Dichotomique",
+        "question": "Si la cible x est inférieure à l'élément du milieu T[m] dans un tableau trié croissant, comment ajuste-t-on la borne droite d ?",
+        "explanation": "On sait que x se trouve dans la partie gauche, donc d := m - 1.",
+        "choices": [
+            "d := m - 1",
+            "d := m + 1",
+            "g := m + 1",
+            "g := m - 1"
+        ],
+        "answer": "d := m - 1"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Tri par Sélection",
+        "question": "Quelle est la complexité du tri par sélection sur un tableau DÉJÀ trié ?",
+        "explanation": "Le tri par sélection parcourt toujours toutes les paires pour trouver le minimum : complexité O(N^2) dans TOUS les cas.",
+        "choices": [
+            "O(N^2) dans tous les cas",
+            "O(N) si trié",
+            "O(N log N)",
+            "O(1)"
+        ],
+        "answer": "O(N^2) dans tous les cas"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Parcours Matrice",
+        "question": "Combien de boucles imbriquées sont nécessaires pour parcourir une matrice 2D N x M ?",
+        "explanation": "Une boucle externe pour les lignes et une boucle interne pour les colonnes (2 boucles).",
+        "choices": [
+            "2 boucles imbriquées (ligne et colonne)",
+            "1 seule boucle",
+            "3 boucles imbriquées",
+            "Autant de boucles que d'éléments"
+        ],
+        "answer": "2 boucles imbriquées (ligne et colonne)"
+    }
+]

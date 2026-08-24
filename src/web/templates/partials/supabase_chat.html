@@ -433,9 +433,11 @@
             if (status === 'SUBSCRIBED') {
                 await loadHistory();
                 appendSystemMessage("Connecté au chat temps réel. ✅");
-            } else if (status === 'CHANNEL_ERROR') {
-                appendSystemMessage("Erreur de connexion Realtime.");
-                if (err) console.error("Supabase Channel Error:", err);
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                appendSystemMessage("Chat temps réel indisponible (mode hors ligne).");
+                try {
+                    supabaseClient.removeChannel(room);
+                } catch (_) {}
             } else if (status === 'CLOSED') {
                 appendSystemMessage("Connexion fermée.");
             }

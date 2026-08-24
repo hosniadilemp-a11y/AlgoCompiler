@@ -921,13 +921,13 @@
                     <div class="stat-card-head">
                         <div class="stat-card-copy">
                             <div class="stat-kicker"><i class="fas fa-chart-line"></i> Moyenne</div>
-                            <div class="stat-value" id="stat-score">0%</div>
+                            <div class="stat-value" id="stat-score">0 / 20</div>
                             <div class="stat-label">Score Moyen aux Quiz</div>
                         </div>
                         <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
                     </div>
                     <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-score-scale">Couleur: 0% -> 100%</span><strong id="stat-score-state">Départ</strong></div>
+                    <div class="stat-caption"><span id="stat-score-scale">Couleur: 0 -> 20</span><strong id="stat-score-state">Départ</strong></div>
                 </div>
                 <div class="stat-card xp-card" id="xp-stat-card" title="Cliquer pour voir le détail des points"
                     onclick="document.getElementById('xp-modal-overlay').classList.add('active')">
@@ -1283,23 +1283,38 @@
                 const totalChallenges = stats.total_available_challenges || 0;
                 const chapters = stats.chapter_stats || {};
 
-                let totalScore = 0;
-                let count = 0;
-                for (const chapStats of Object.values(chapters)) {
-                    if (!chapStats.taken) continue;
-                    totalScore += (chapStats.score / chapStats.total) * 100;
-                    count++;
+                let avgPct = 0;
+                if (stats.avg_quiz_score_pct !== undefined) {
+                    avgPct = stats.avg_quiz_score_pct;
+                } else {
+                    let totalAttemptPerc = 0;
+                    let totalAttempts = 0;
+                    for (const chapStats of Object.values(chapters)) {
+                        if (!chapStats.taken) continue;
+                        if (chapStats.total_perc !== undefined && chapStats.attempts_count) {
+                            totalAttemptPerc += chapStats.total_perc;
+                            totalAttempts += chapStats.attempts_count;
+                        } else if (chapStats.total) {
+                            totalAttemptPerc += (chapStats.score / chapStats.total) * 100;
+                            totalAttempts += 1;
+                        }
+                    }
+                    avgPct = totalAttempts > 0 ? (totalAttemptPerc / totalAttempts) : 0;
                 }
-                const avg = count > 0 ? Math.round(totalScore / count) : 0;
+                const avg20 = Math.round((avgPct * 0.2) * 10) / 10;
 
                 const xpTotal = stats.xp_total || 0;
                 const level = stats.level || { num: 1, name: 'Débutant', color: '#6c757d', glow: 'rgba(108,117,125,0.5)', icon: '🌟', min_xp: 0, next_xp: 50 };
                 const breakdown = stats.xp_breakdown || [];
 
+                const passedQuizzes = stats.total_quizzes_passed !== undefined 
+                    ? stats.total_quizzes_passed 
+                    : (stats.passed_quizzes !== undefined ? stats.passed_quizzes : (stats.total_quizzes_taken || 0));
+
                 applyStatCard({
                     cardId: 'card-quizzes',
                     valueId: 'stat-quizzes',
-                    value: stats.total_quizzes_taken,
+                    value: passedQuizzes,
                     max: 10,
                     scaleText: 'Couleur: 0 -> 10'
                 });
@@ -1313,10 +1328,11 @@
                 applyStatCard({
                     cardId: 'card-score',
                     valueId: 'stat-score',
-                    value: avg,
-                    max: 100,
-                    suffix: '%',
-                    scaleText: 'Couleur: 0% -> 100%'
+                    value: avg20,
+                    max: 20,
+                    suffix: ' / 20',
+                    decimals: Number.isInteger(avg20) ? 0 : 1,
+                    scaleText: 'Couleur: 0 -> 20'
                 });
                 applyStatCard({
                     cardId: 'xp-stat-card',
@@ -1516,7 +1532,7 @@
                 });
 
                 const dailyLabels = adv.daily_avg_quiz_score.map(d => d.day);
-                const dailyValues = adv.daily_avg_quiz_score.map(d => d.avg);
+                const dailyValues = adv.daily_avg_quiz_score.map(d => Number(d.avg) > 20 ? Math.round(d.avg * 0.2 * 10) / 10 : d.avg);
                 const dailyCtx = document.getElementById('dailyScoreChart').getContext('2d');
                 const dailyGrad = dailyCtx.createLinearGradient(0, 0, 0, 300);
                 dailyGrad.addColorStop(0, 'rgba(74, 110, 224, 0.35)');
@@ -1526,7 +1542,7 @@
                     data: {
                         labels: dailyLabels,
                         datasets: [{
-                            label: 'Moyenne Journalière (%)',
+                            label: 'Moyenne Journalière (/20)',
                             data: dailyValues,
                             borderColor: '#4a6ee0',
                             backgroundColor: dailyGrad,
@@ -1542,7 +1558,7 @@
                     options: {
                         responsive: true,
                         scales: {
-                            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            y: { beginAtZero: true, max: 20, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Moyenne (/20)' } },
                             x: { grid: { display: false } }
                         },
                         plugins: { legend: { display: false } }
@@ -1573,25 +1589,55 @@
                     if (evolutionChart) evolutionChart.destroy();
 
                     const datasets = [];
-                    Object.entries(adv.quiz_evolution_per_chapter).forEach(([chap, entries]) => {
+                    const allDatesSet = new Set();
+
+                    Object.entries(adv.quiz_evolution_per_chapter || {}).forEach(([chap, entries]) => {
                         if (filter !== 'all' && filter !== chap) return;
+                        (entries || []).forEach(e => {
+                            if (e.ts) {
+                                const d = new Date(e.ts);
+                                const label = `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                                allDatesSet.add(label);
+                            }
+                        });
+                    });
+
+                    const labels = Array.from(allDatesSet);
+
+                    Object.entries(adv.quiz_evolution_per_chapter || {}).forEach(([chap, entries]) => {
+                        if (filter !== 'all' && filter !== chap) return;
+
+                        const dataByLabel = {};
+                        (entries || []).forEach(e => {
+                            if (e.ts) {
+                                const d = new Date(e.ts);
+                                const label = `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                                const val = Number(e.score) > 20 ? Math.round((e.score * 0.2) * 10) / 10 : e.score;
+                                dataByLabel[label] = val;
+                            }
+                        });
+
+                        const dataPoints = labels.map(l => dataByLabel[l] !== undefined ? dataByLabel[l] : null);
+
                         datasets.push({
                             label: chap.toUpperCase(),
-                            data: entries.map(e => ({ x: new Date(e.ts), y: e.score })),
+                            data: dataPoints,
                             borderColor: getStableColor(chap),
-                            tension: 0.2,
+                            backgroundColor: getStableColor(chap),
+                            tension: 0.3,
+                            spanGaps: true,
                             fill: false
                         });
                     });
 
                     evolutionChart = new Chart(chapterEvolutionCtx, {
                         type: 'line',
-                        data: { datasets },
+                        data: { labels, datasets },
                         options: {
                             responsive: true,
                             scales: {
-                                x: { type: 'time', time: { unit: 'day' }, title: { display: true, text: 'Date' } },
-                                y: { beginAtZero: true, max: 100, title: { display: true, text: 'Score (%)' } }
+                                x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                                y: { beginAtZero: true, max: 20, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Score (/20)' } }
                             }
                         }
                     });

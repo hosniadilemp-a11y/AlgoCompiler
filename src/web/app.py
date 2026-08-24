@@ -40,7 +40,7 @@ from compiler.parser import parser, compile_algo
 print(">>> [DEBUG] PARSER IMPORTED", flush=True)
 
 from web.debugger import TraceRunner
-from web.models import db, Chapter, Question, Choice, Problem, TestCase, User, QuizAttempt, ChallengeSubmission, ChallengeAttemptSession, UserBadge, CourseChapter, CourseSection
+from web.models import db, get_current_academic_year, Chapter, Question, Choice, Problem, TestCase, User, QuizAttempt, ChallengeSubmission, ChallengeAttemptSession, UserBadge, CourseChapter, CourseSection
 from web.extensions import login_manager, oauth, mail
 from web.sandbox.runner import execute_code
 print(">>> [DEBUG] MODELS AND EXTENSIONS IMPORTED", flush=True)
@@ -331,11 +331,8 @@ engine_options = {
     'pool_recycle': 300,
     'pool_pre_ping': True,
 }
-if use_psycopg3:
-    # Avoid prepared statement conflicts with PgBouncer / pooled connections
-    # prepare_threshold=None disables server-side statements in psycopg3
+if use_psycopg3 and database_url and database_url.startswith('postgresql'):
     engine_options['connect_args'] = {
-        'prepare_threshold': None,
         'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT_SECONDS', '5'))
     }
 
@@ -408,15 +405,16 @@ try:
         )
         if should_auto_seed_on_empty and not os.environ.get('SKIP_SEED'):
             if Question.query.count() == 0:
-                print(">>> [DEBUG] DB EMPTY. SEEDING FROM JSON...", flush=True)
+                print(">>> [DEBUG] DB EMPTY. SEEDING QUESTIONS FROM JSON...", flush=True)
                 try:
                     from web.seed_from_json import seed_from_json
                     seed_from_json()
-                    print(">>> [DEBUG] SEEDING COMPLETED", flush=True)
+                    print(">>> [DEBUG] QUESTION SEEDING COMPLETED", flush=True)
                 except Exception as seed_err:
-                    print(f">>> [DEBUG] SEEDING FAILED (NON-FATAL): {seed_err}", flush=True)
+                    print(f">>> [DEBUG] QUESTION SEEDING FAILED (NON-FATAL): {seed_err}", flush=True)
         else:
             print(">>> [DEBUG] SKIPPING AUTO-SEED CHECK FOR MANAGED REMOTE DATABASE", flush=True)
+
 except Exception as e:
     print(f">>> [CRITICAL] DB SETUP FAILED: {e}", flush=True)
     import traceback
@@ -483,8 +481,17 @@ EXAMPLES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'fixtures'))
 
 @app.route('/')
+@app.route('/home')
 def index():
     return render_template('index.html')
+
+@app.route('/quiz')
+def quiz_redirect():
+    return redirect('/course')
+
+@app.route('/challenges')
+def challenges_redirect():
+    return redirect('/problems')
 
 @app.route('/announcement')
 def announcement():
@@ -645,7 +652,7 @@ def get_cached_course_outline_payload():
     now_ts = time.time()
     with course_cache_lock:
         cached_payload = course_outline_cache.get('payload')
-        if cached_payload is not None and course_outline_cache['expires_at'] > now_ts:
+        if cached_payload is not None and cached_payload.get('chapters') and course_outline_cache['expires_at'] > now_ts:
             return cached_payload
 
     chapters = (
@@ -708,7 +715,29 @@ def get_cached_course_chapter_payload(identifier):
             'expires_at': now_ts + COURSE_CONTENT_CACHE_TTL_SECONDS,
             'payload': payload
         }
+
     return payload
+
+
+def prewarm_course_cache_in_background():
+    def _prewarm_job():
+        try:
+            with app.app_context():
+                get_cached_course_outline_payload()
+                chapters = CourseChapter.query.filter_by(is_published=True).all()
+                for ch in chapters:
+                    get_cached_course_chapter_payload(ch.identifier)
+                print(">>> [DEBUG] COURSE CONTENT PRE-WARMED IN BACKGROUND", flush=True)
+        except Exception as pe:
+            print(f">>> [DEBUG] PREWARM FAILED (NON-FATAL): {pe}", flush=True)
+
+    background_task_executor.submit(_prewarm_job)
+
+
+try:
+    prewarm_course_cache_in_background()
+except Exception as e:
+    pass
 
 
 def invalidate_quiz_bank_cache(chapter_identifier=None):
@@ -940,8 +969,16 @@ def decorate_leaderboard_entry(user_id, raw_entry, rank=None):
     return entry
 
 
-def build_ranked_leaderboard_entries(stats_by_user):
-    sorted_items = sorted((stats_by_user or {}).items(), key=leaderboard_sort_key)
+def build_ranked_leaderboard_entries(stats_by_user, year=None):
+    items = list((stats_by_user or {}).items())
+    if year is not None and str(year).lower() not in {'overall', 'all'}:
+        target_year = str(year)
+        items = [
+            (uid, entry) for uid, entry in items
+            if str(entry.get('study_year') or '') == target_year
+        ]
+
+    sorted_items = sorted(items, key=leaderboard_sort_key)
     entries = []
     ranked_position = 0
 
@@ -970,7 +1007,7 @@ def build_public_honoree_payload(user_id, entries_by_user=None):
     }
 
 
-def build_global_leaderboard_response_payload():
+def build_global_leaderboard_response_payload(year=None):
     stats = get_bulk_users_stats(allow_stale=True, refresh_async=True)
     with global_user_stats_cache_lock:
         has_cached_payload = global_user_stats_cache.get('payload') is not None
@@ -979,7 +1016,7 @@ def build_global_leaderboard_response_payload():
     if stats is None:
         fallback_stats = build_lightweight_leaderboard_payload()
         if fallback_stats:
-            leaderboard = build_ranked_leaderboard_entries(fallback_stats)
+            leaderboard = build_ranked_leaderboard_entries(fallback_stats, year=year)
             ranked_count = sum(1 for entry in leaderboard if entry.get('is_ranked'))
             return {
                 'success': True,
@@ -1014,7 +1051,7 @@ def build_global_leaderboard_response_payload():
             'unranked_user_count': 0,
         }
 
-    leaderboard = build_ranked_leaderboard_entries(stats or {})
+    leaderboard = build_ranked_leaderboard_entries(stats or {}, year=year)
     ranked_count = sum(1 for entry in leaderboard if entry.get('is_ranked'))
 
     return {
@@ -1307,7 +1344,7 @@ def build_problem_leaderboard_rows(problem_id, year=None):
 
     rows = list(base_payload['rows'])
     if year is not None:
-        rows = [row for row in rows if row.get('joined_year') == year]
+        rows = [row for row in rows if row.get('joined_year') == year or str(row.get('study_year')) == str(year)]
 
     solve_values = [row.get('time_taken_seconds') for row in rows if row.get('time_taken_seconds') is not None]
     exec_values = [row.get('avg_execution_time_ms') for row in rows if row.get('avg_execution_time_ms') is not None]
@@ -1659,6 +1696,20 @@ def get_quiz(chapter_identifier):
                 'choices': final_choices
             })
 
+        # Auto-finalize any previously unfinished quiz attempt for this chapter
+        if current_user.is_authenticated:
+            unfinished = QuizAttempt.query.filter_by(
+                user_id=current_user.id,
+                chapter_id=quiz_question_bank['chapter_id'],
+                status='in_progress'
+            ).first()
+            if unfinished:
+                unfinished.status = 'auto_finalized'
+                unfinished.timestamp = datetime.datetime.utcnow()
+                db.session.commit()
+                invalidate_global_user_stats_cache()
+                invalidate_user_progress_cache(current_user.id)
+
         return jsonify({'questions': quiz_data})
     except Exception as e:
         import traceback
@@ -1670,9 +1721,10 @@ def save_quiz_progress():
     try:
         data = request.json
         chapter_identifier = data.get('chapter_identifier')
-        score = data.get('score')
-        total = data.get('total')
+        score = data.get('score', 0)
+        total = data.get('total', 0)
         details = data.get('details', '{}') 
+        status = data.get('status', 'completed')
 
         quiz_question_bank = get_cached_quiz_question_bank(chapter_identifier)
         if not quiz_question_bank:
@@ -1681,19 +1733,38 @@ def save_quiz_progress():
 
         if current_user.is_authenticated:
             # Check interpretation
-            all_correct = (score == total)
+            all_correct = (score == total and total > 0)
             none_correct = (score == 0)
 
-            attempt = QuizAttempt(
+            # Check if updating an existing in_progress attempt
+            existing_in_progress = QuizAttempt.query.filter_by(
                 user_id=current_user.id,
                 chapter_id=chapter_id,
-                score=score,
-                total_questions=total,
-                all_correct=all_correct,
-                none_correct=none_correct,
-                details=json.dumps(details)
-            )
-            db.session.add(attempt)
+                status='in_progress'
+            ).first()
+
+            if existing_in_progress:
+                existing_in_progress.score = score
+                existing_in_progress.total_questions = total
+                existing_in_progress.status = status
+                existing_in_progress.all_correct = all_correct
+                existing_in_progress.none_correct = none_correct
+                existing_in_progress.details = json.dumps(details)
+                existing_in_progress.timestamp = datetime.datetime.utcnow()
+                attempt = existing_in_progress
+            else:
+                attempt = QuizAttempt(
+                    user_id=current_user.id,
+                    chapter_id=chapter_id,
+                    score=score,
+                    total_questions=total,
+                    status=status,
+                    all_correct=all_correct,
+                    none_correct=none_correct,
+                    details=json.dumps(details)
+                )
+                db.session.add(attempt)
+
             db.session.commit()
             invalidate_global_user_stats_cache()
             invalidate_user_progress_cache(current_user.id)
@@ -2188,6 +2259,7 @@ def start_execution():
                         'hash', 'hex', 'id', 'int', 'isinstance', 'issubclass', 'iter', 'len', 'list',
                         'map', 'max', 'min', 'next', 'object', 'oct', 'ord', 'pow', 'range', 'repr',
                         'reversed', 'round', 'set', 'slice', 'sorted', 'str', 'sum', 'tuple', 'type', 'zip',
+                        'globals', 'locals',
                         '__build_class__',
                         'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException', 'EOFError', 
                         'Exception', 'False', 'IndexError', 'KeyError', 'MemoryError', 'NameError', 'None', 
@@ -2360,28 +2432,19 @@ def get_problems():
         solved_submissions = ChallengeSubmission.query.filter_by(user_id=current_user.id, passed=True).all()
         solved_ids = {s.problem_id for s in solved_submissions}
 
-    # Count distinct users who attempted each problem
-    attempt_counts = (
+    from sqlalchemy import case, distinct
+    # Count distinct users who attempted and solved each problem in a single query
+    stats_query = (
         db.session.query(
             ChallengeSubmission.problem_id,
-            func.count(distinct(ChallengeSubmission.user_id))
+            func.count(distinct(ChallengeSubmission.user_id)).label('attempted'),
+            func.count(distinct(case((ChallengeSubmission.passed.is_(True), ChallengeSubmission.user_id), else_=None))).label('solvers')
         )
         .group_by(ChallengeSubmission.problem_id)
         .all()
     )
-    attempt_map = {prob_id: count for prob_id, count in attempt_counts}
-
-    # Count distinct users who solved each problem
-    solver_counts = (
-        db.session.query(
-            ChallengeSubmission.problem_id,
-            func.count(distinct(ChallengeSubmission.user_id))
-        )
-        .filter(ChallengeSubmission.passed == True)
-        .group_by(ChallengeSubmission.problem_id)
-        .all()
-    )
-    solver_map = {prob_id: count for prob_id, count in solver_counts}
+    attempt_map = {row[0]: row[1] for row in stats_query}
+    solver_map = {row[0]: row[2] for row in stats_query}
     
     problems_data = [
         {
@@ -2449,13 +2512,18 @@ def get_problem_leaderboard(problem_id):
     if not problem.is_published:
         return jsonify({'success': False, 'error': 'Problem not published'}), 403
 
-    year_param = (request.args.get('year') or '').strip()
+    year_param = (request.args.get('year') or '').strip().lower()
     year = None
-    if year_param:
-        try:
-            year = int(year_param)
-        except ValueError:
-            return jsonify({'success': False, 'error': 'Invalid year filter'}), 400
+    if year_param and year_param not in {'overall', 'all'}:
+        if year_param in {'current', 'default'}:
+            year = get_current_academic_year()
+        else:
+            try:
+                year = int(year_param)
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Invalid year filter'}), 400
+    elif not year_param:
+        year = get_current_academic_year()
 
     sort_key = (request.args.get('sort') or 'final_score').strip()
     allowed_sorts = {'final_score', 'time_taken_seconds', 'avg_execution_time_ms', 'avg_memory_kb'}
@@ -2863,7 +2931,7 @@ def compute_xp_and_level(user_id):
 
 def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
     now_ts = time.time()
-    all_users = db.session.query(User.id, User.name, User.created_at).all()
+    all_users = db.session.query(User.id, User.name, User.created_at, User.study_year).all()
     if not all_users:
         if write_cache:
             with global_user_stats_cache_lock:
@@ -3000,6 +3068,8 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
             'challenges': total_challenges,
             'badges': len(u_badges),
             'year_created': user.created_at.year if user.created_at else None,
+            'study_year': str(user.study_year) if user.study_year else None,
+            'joined_year': user.created_at.year if user.created_at else None,
             'top1': placement_counts[uid]['top1'],
             'top3': placement_counts[uid]['top3'],
             'top10': placement_counts[uid]['top10']
@@ -3235,6 +3305,10 @@ def build_user_progress_summary_payload(user_id):
     challenge_stats = build_challenge_stats_map(submissions)
 
     total_quizzes = len(quiz_attempts)
+    passed_quizzes = sum(1 for qa in quiz_attempts if qa.total_questions > 0 and (qa.score / qa.total_questions) >= 0.5)
+    valid_attempts = [qa for qa in quiz_attempts if qa.total_questions > 0]
+    avg_quiz_score_pct = sum((qa.score / qa.total_questions) * 100 for qa in valid_attempts) / len(valid_attempts) if valid_attempts else 0.0
+
     total_challenges_attempted = len(set(sub.problem_id for sub in submissions))
     total_available_challenges = Problem.query.filter_by(is_published=True).count()
     if total_available_challenges == 0:
@@ -3269,6 +3343,9 @@ def build_user_progress_summary_payload(user_id):
         'chapter_stats': frontend_chapter_stats,
         'challenge_stats': challenge_stats,
         'total_quizzes_taken': total_quizzes,
+        'total_quizzes_passed': passed_quizzes,
+        'passed_quizzes': passed_quizzes,
+        'avg_quiz_score_pct': avg_quiz_score_pct,
         'total_challenges_attempted': total_challenges_attempted,
         'total_available_challenges': total_available_challenges,
         'challenges_completed': passed_challenges,
@@ -3424,7 +3501,7 @@ def build_user_progress_advanced_payload(user_id):
     for qa in quiz_attempts:
         day = qa.timestamp.date().isoformat()
         day_stats = daily_stats.setdefault(day, {'total_score': 0, 'count': 0})
-        day_stats['total_score'] += (qa.score / qa.total_questions) * 100
+        day_stats['total_score'] += ((qa.score / qa.total_questions) * 20) if qa.total_questions > 0 else 0
         day_stats['count'] += 1
     daily_avg_quiz_score = [
         {'day': day, 'avg': round(stats['total_score'] / stats['count'], 1)}
@@ -3438,7 +3515,7 @@ def build_user_progress_advanced_payload(user_id):
             continue
         quiz_evolution_per_chapter.setdefault(identifier, []).append({
             'ts': qa.timestamp.isoformat(),
-            'score': round((qa.score / qa.total_questions) * 100, 1)
+            'score': round(((qa.score / qa.total_questions) * 20), 1) if qa.total_questions > 0 else 0
         })
 
     activity_map = {}
@@ -3593,7 +3670,20 @@ def hall_of_fame_page():
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
     try:
-        return jsonify(build_global_leaderboard_response_payload())
+        year_param = (request.args.get('year') or '').strip().lower()
+        year = None
+        if year_param and year_param not in {'overall', 'all'}:
+            if year_param in {'current', 'default'}:
+                year = get_current_academic_year()
+            else:
+                try:
+                    year = int(year_param)
+                except ValueError:
+                    return jsonify({'success': False, 'error': 'Invalid year filter'}), 400
+        elif not year_param:
+            year = get_current_academic_year()
+
+        return jsonify(build_global_leaderboard_response_payload(year=year))
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -26,6 +26,7 @@ def decrease_indent():
 symbol_table = {'global': {}}
 scope_stack = ['global']
 function_return_types = {}
+subprogram_var_param_indices = {}
 globals_modified_in_subprogram = {}
 
 def push_scope(name):
@@ -190,6 +191,7 @@ class Pointer:
         self.index = index
         self.base_var = base_var
         self.alloc_name = alloc_name if alloc_name is not None else var_name
+        self._heap_addr = None
 
     def _get_target_container(self):
         # base_var takes priority — used for record-backed pointers from _algo_allouer_record
@@ -245,42 +247,41 @@ class Pointer:
             self.index = other.index
             self.base_var = other.base_var
             self.alloc_name = getattr(other, 'alloc_name', other.var_name)
-            if hasattr(other, '_heap_addr'):
-                self._heap_addr = getattr(other, '_heap_addr')
-            elif hasattr(self, '_heap_addr'):
-                delattr(self, '_heap_addr')
+            self._heap_addr = getattr(other, '_heap_addr', None)
         elif other is None:
             self.var_name = None
             self.namespace = {}
             self.index = 0
             self.base_var = None
             self.alloc_name = None
-            if hasattr(self, '_heap_addr'):
-                delattr(self, '_heap_addr')
+            self._heap_addr = None
         else:
              raise TypeError("Cannot assign non-pointer to pointer via _assign")
 
     def _clone(self):
         new_ptr = Pointer(self.var_name, self.namespace, self.index, self.base_var, getattr(self, 'alloc_name', self.var_name))
-        if hasattr(self, '_heap_addr'):
-            new_ptr._heap_addr = self._heap_addr
+        new_ptr._heap_addr = self._heap_addr
         return new_ptr
 
     def __add__(self, offset):
-        return Pointer(self.var_name, self.namespace, self.index + int(offset), self.base_var, getattr(self, 'alloc_name', self.var_name))
+        new_ptr = Pointer(self.var_name, self.namespace, self.index + int(offset), self.base_var, getattr(self, 'alloc_name', self.var_name))
+        new_ptr._heap_addr = self._heap_addr
+        return new_ptr
 
     def __sub__(self, offset):
-        return Pointer(self.var_name, self.namespace, self.index - int(offset), self.base_var, getattr(self, 'alloc_name', self.var_name))
+        new_ptr = Pointer(self.var_name, self.namespace, self.index - int(offset), self.base_var, getattr(self, 'alloc_name', self.var_name))
+        new_ptr._heap_addr = self._heap_addr
+        return new_ptr
 
     def __eq__(self, other):
         if other is None:
             # If it has a heap address or base_var, it's not NIL
-            if hasattr(self, '_heap_addr') or self.base_var is not None:
+            if self._heap_addr is not None or self.base_var is not None:
                 return False
             return self.var_name is None
         if isinstance(other, Pointer):
             # Check for heap address equality if both have it
-            if hasattr(self, '_heap_addr') and hasattr(other, '_heap_addr'):
+            if self._heap_addr is not None and getattr(other, '_heap_addr', None) is not None:
                 return self._heap_addr + self.index == other._heap_addr + other.index
             return (self.var_name == other.var_name and 
                     self.index == other.index and 
@@ -288,7 +289,7 @@ class Pointer:
         return False
     
     def __str__(self):
-        if hasattr(self, '_heap_addr'):
+        if self._heap_addr is not None:
             return f"@{self._heap_addr + self.index}"
         if self.var_name is None:
             return "NIL"
@@ -310,9 +311,20 @@ class Pointer:
         return str(self)
 
     def __getitem__(self, i):
+        if isinstance(i, str):
+            target = self._get_target_container()
+            if isinstance(target, list) and len(target) == 1 and isinstance(target[0], dict):
+                target = target[0]
+            return target[i]
         return (self + i)._get()
 
     def __setitem__(self, i, value):
+        if isinstance(i, str):
+            target = self._get_target_container()
+            if isinstance(target, list) and len(target) == 1 and isinstance(target[0], dict):
+                target = target[0]
+            target[i] = value
+            return
         (self + i)._set(value)
 '''
 
@@ -357,6 +369,20 @@ def p_program(p):
     code = f"# Algo: {algo_name}\n"
     code += "\n# Helper functions (dependency order)\n"
 
+    # Helper aliases to avoid shadowing builtins without using 'import builtins' (which is blocked by sandboxes)
+    code += "_b_str = str\n"
+    code += "_b_int = int\n"
+    code += "_b_float = float\n"
+    code += "_b_len = len\n"
+    code += "_b_range = range\n"
+    code += "_b_isinstance = isinstance\n"
+    code += "_b_bool = bool\n"
+    code += "_b_list = list\n"
+    code += "_b_type = type\n"
+    code += "_b_input = input\n"
+    code += "_b_print = print\n"
+    code += "_b_enumerate = enumerate\n\n"
+
     # 1. _algo_read - no deps
     code += "_algo_input_buffer = []\n"
     code += "def _algo_read():\n"
@@ -365,12 +391,12 @@ def p_program(p):
     code += "        if _algo_input_buffer:\n"
     code += "            return _algo_input_buffer.pop(0)\n"
     code += "        try:\n"
-    code += "            line = input()\n"
+    code += "            line = _b_input()\n"
     code += "        except EOFError:\n"
     code += "            return ''\n"
     code += "        if line is None:\n"
     code += "            return ''\n"
-    code += "        parts = str(line).strip().split()\n"
+    code += "        parts = _b_str(line).strip().split()\n"
     code += "        if parts:\n"
     code += "            _algo_input_buffer.extend(parts)\n\n"
 
@@ -383,19 +409,19 @@ def p_program(p):
     code += "        s = s.replace('#0', chr(0))\n"
     code += "        s = s.replace('\\\\n', '\\n').replace('\\\\t', '\\t')\n"
     code += "        parts.append(s)\n"
-    code += "    print(' '.join(parts), end='')\n\n"
+    code += "    _b_print(' '.join(parts), end='')\n\n"
 
     # 2. _algo_to_string - no deps; MUST come before assign/concat/longueur
     code += "def _algo_to_string(val):\n"
     code += "    if val is None: return 'NIL'\n"
-    code += "    if isinstance(val, bool): return 'Vrai' if val else 'Faux'\n"
-    code += "    if isinstance(val, list):\n"
+    code += "    if _b_isinstance(val, _b_bool): return 'Vrai' if val else 'Faux'\n"
+    code += "    if _b_isinstance(val, _b_list):\n"
     code += "        res = ''\n"
     code += "        for char in val:\n"
     code += "            if char is None or char == '\\0' or char == '#0': break\n"
-    code += "            res += str(char)\n"
+    code += "            res += _b_str(char)\n"
     code += "        return res\n"
-    code += "    return str(val)\n\n"
+    code += "    return _b_str(val)\n\n"
 
     # 3. _algo_assign_fixed_string - depends on _algo_to_string
     code += "def _algo_deref_to_list(target):\n"
@@ -409,14 +435,14 @@ def p_program(p):
 
     code += "def _algo_assign_fixed_string(target_list, source_val):\n"
     code += "    target_list = _algo_deref_to_list(target_list)\n"
-    code += "    if not isinstance(target_list, list):\n"
+    code += "    if not _b_isinstance(target_list, _b_list):\n"
     code += "        raise TypeError('Variable Chaine non initialisee. Declarez avec s[N]: Chaine.')\n"
-    code += "    limit = len(target_list)\n"
+    code += "    limit = _b_len(target_list)\n"
     code += "    s_val = ''\n"
     code += "    if hasattr(source_val, '_get_target_container'):\n"
     code += "        targ = source_val._get_target_container()\n"
     code += "        while hasattr(targ, '_get_target_container'): targ = targ._get_target_container()\n"
-    code += "        if isinstance(targ, list):\n"
+    code += "        if _b_isinstance(targ, _b_list):\n"
     code += "            s_val = _algo_to_string(targ[source_val.index:])\n"
     code += "        else:\n"
     code += "            s_val = _algo_to_string(source_val._get_string() if hasattr(source_val, '_get_string') else source_val._get())\n"
@@ -424,42 +450,42 @@ def p_program(p):
     code += "        s_val = _algo_to_string(source_val)\n"
     code += "    if limit > 0:\n"
     code += "        s_val = s_val[:limit-1]\n"
-    code += "        for i in range(len(s_val)):\n"
+    code += "        for i in _b_range(_b_len(s_val)):\n"
     code += "            target_list[i] = s_val[i]\n"
-    code += "        target_list[len(s_val)] = '#0'\n"
-    code += "        for i in range(len(s_val)+1, limit):\n"
+    code += "        target_list[_b_len(s_val)] = '#0'\n"
+    code += "        for i in _b_range(_b_len(s_val)+1, limit):\n"
     code += "            target_list[i] = None\n"
     code += "    return target_list\n\n"
 
     # 4. _algo_longueur - depends on _algo_to_string
     code += "def _algo_longueur(val):\n"
-    code += "    return len(_algo_to_string(val))\n\n"
+    code += "    return _b_len(_algo_to_string(val))\n\n"
 
     # 4b. _algo_set_char - set a character at 0-based index in a fixed string
     code += "def _algo_set_char(target_list, index, char_val):\n"
     code += "    target_list = _algo_deref_to_list(target_list)\n"
-    code += "    if not isinstance(target_list, list):\n"
-    code += "        raise TypeError(f\'Cannot set char: not a list (got {type(target_list).__name__})\')\n"
-    code += "    idx = int(index)  # 0-based index\n"
-    code += "    if 0 <= idx < len(target_list):\n"
+    code += "    if not _b_isinstance(target_list, _b_list):\n"
+    code += "        raise TypeError(f\'Cannot set char: not a list (got {_b_type(target_list).__name__})\')\n"
+    code += "    idx = _b_int(index)  # 0-based index\n"
+    code += "    if 0 <= idx < _b_len(target_list):\n"
     code += "        if char_val == '#0' or char_val is None:\n"
     code += "            target_list[idx] = '#0'\n"
     code += "        else:\n"
-    code += "            target_list[idx] = str(char_val)[0]\n"
+    code += "            target_list[idx] = _b_str(char_val)[0]\n"
     code += "    return target_list\n\n"
 
     # 4c. _algo_get_char - get a character at 0-based index from a fixed string
     code += "def _algo_get_char(target_list, index):\n"
     code += "    target_list = _algo_deref_to_list(target_list)\n"
-    code += "    if isinstance(target_list, list):\n"
-    code += "        idx = int(index)  # 0-based index\n"
-    code += "        if 0 <= idx < len(target_list):\n"
+    code += "    if _b_isinstance(target_list, _b_list):\n"
+    code += "        idx = _b_int(index)  # 0-based index\n"
+    code += "        if 0 <= idx < _b_len(target_list):\n"
     code += "            c = target_list[idx]\n"
     code += "            return c if c is not None and c != '#0' else '#0'\n"
     code += "        return ''\n"
-    code += "    s = str(target_list)\n"
-    code += "    idx = int(index)\n"
-    code += "    return s[idx] if 0 <= idx < len(s) else ''\n\n"
+    code += "    s = _b_str(target_list)\n"
+    code += "    idx = _b_int(index)\n"
+    code += "    return s[idx] if 0 <= idx < _b_len(s) else ''\n\n"
 
     # 5. _algo_concat - depends on _algo_to_string; stops at #0
     code += "def _algo_concat(val1, val2):\n"
@@ -472,12 +498,12 @@ def p_program(p):
 
     # 5b. _algo_make_string - create a fresh char-list from a string (for ^^Caractere slot)
     code += "def _algo_make_string(s, max_size=256):\n"
-    code += "    s = str(s) if not isinstance(s, str) else s\n"
+    code += "    s = _b_str(s) if not _b_isinstance(s, _b_str) else s\n"
     code += "    s = s[:max_size - 1]  # leave room for #0\n"
     code += "    arr = [None] * max_size\n"
-    code += "    for i, c in enumerate(s):\n"
+    code += "    for i, c in _b_enumerate(s):\n"
     code += "        arr[i] = c\n"
-    code += "    arr[len(s)] = '#0'\n"
+    code += "    arr[_b_len(s)] = '#0'\n"
     code += "    return arr\n\n"
 
     # 6. _algo_read_typed - depends on _algo_assign_fixed_string, _algo_read
@@ -485,22 +511,24 @@ def p_program(p):
     code += "    if input_val is None: input_val = _algo_read()\n"
     code += "    t = target_type_name.upper()\n"
     code += "    if 'CHAINE' in t:\n"
-    code += "        if isinstance(current_val, list):\n"
+    code += "        if _b_isinstance(current_val, _b_list):\n"
     code += "            _algo_assign_fixed_string(current_val, input_val)\n"
     code += "            return current_val\n"
-    code += "        return str(input_val)\n"
-    code += "    if 'BOOLEEN' in t or isinstance(current_val, bool):\n"
-    code += "        s = str(input_val).lower()\n"
+    code += "        return _b_str(input_val)\n"
+    code += "    if 'BOOLEEN' in t or _b_isinstance(current_val, _b_bool):\n"
+    code += "        s = _b_str(input_val).lower()\n"
     code += "        if s in ['vrai', 'true', '1']: return True\n"
     code += "        if s in ['faux', 'false', '0']: return False\n"
     code += "        raise ValueError(f\"Type mismatch: '{input_val}' n'est pas un Booleen valide.\")\n"
-    code += "    elif 'ENTIER' in t or isinstance(current_val, int):\n"
-    code += "        try: return int(input_val)\n"
+    code += "    elif 'ENTIER' in t or _b_isinstance(current_val, _b_int):\n"
+    code += "        try: return _b_int(input_val)\n"
     code += "        except:\n"
+    code += "            if input_val == '' or input_val is None: return 0\n"
     code += "            raise ValueError(f\"Type mismatch: '{input_val}' n'est pas un Entier valide.\")\n"
-    code += "    elif 'REEL' in t or isinstance(current_val, float):\n"
-    code += "        try: return float(input_val)\n"
+    code += "    elif 'REEL' in t or _b_isinstance(current_val, _b_float):\n"
+    code += "        try: return _b_float(input_val)\n"
     code += "        except:\n"
+    code += "            if input_val == '' or input_val is None: return 0.0\n"
     code += "            raise ValueError(f\"Type mismatch: '{input_val}' n'est pas un Reel valide.\")\n"
 
     code += "    return input_val\n\n"
@@ -510,6 +538,20 @@ def p_program(p):
     code += "_algo_heap_next_addr = 50000\n\n"
     code += "def _algo_allouer(size_in_bytes, element_size=1):\n"
     code += "    global _algo_heap_next_addr\n"
+    code += "    if hasattr(size_in_bytes, '_assign') or isinstance(size_in_bytes, Pointer):\n"
+    code += "        target_ptr = size_in_bytes\n"
+    code += "        sz = 4\n"
+    code += "        el_sz = 1\n"
+    code += "        addr = _algo_heap_next_addr\n"
+    code += "        _algo_heap_next_addr += sz\n"
+    code += "        allocated_list = [None]\n"
+    code += "        _algo_heap[addr] = allocated_list\n"
+    code += "        _algo_vars_info[f'_heap_{addr}'] = {'addr': addr, 'size': sz, 'element_size': el_sz}\n"
+    code += "        new_ptr = Pointer(var_name=f'_heap_{addr}', namespace=_algo_heap, index=0, base_var=allocated_list)\n"
+    code += "        new_ptr._heap_addr = addr\n"
+    code += "        target_ptr._assign(new_ptr)\n"
+    code += "        return new_ptr\n"
+    code += "    size_in_bytes = int(size_in_bytes)\n"
     code += "    addr = _algo_heap_next_addr\n"
     code += "    _algo_heap_next_addr += size_in_bytes\n"
     code += "    num_elements = size_in_bytes // element_size if element_size > 0 else size_in_bytes\n"
@@ -841,7 +883,7 @@ def p_var_list_matrix_multiple(p):
     cols = int(p[6])
     prev_code, type_name = p[9]
     
-    mat_type = f"MATRICE_{type_name}"
+    mat_type = f"MATRICE_{type_name}_{rows}_{cols}"
     add_variable(var_name, mat_type)
     
     # Allocate memory for matrix (rows * cols)
@@ -858,7 +900,7 @@ def p_var_list_matrix(p):
     '''var_list : ID LBRACKET NUMBER RBRACKET LBRACKET NUMBER RBRACKET COLON type'''
     var_name = p[1]
     var_type = p[9]
-    mat_type = f"MATRICE_{var_type}"
+    mat_type = f"MATRICE_{var_type}_{p[3]}_{p[6]}"
     add_variable(var_name, mat_type)
     
     # Allocate memory for matrix (rows * cols)
@@ -969,10 +1011,14 @@ def p_function_definition(p):
     global current_subprogram_var_params
     
     clone_stmts = ""
-    for param_name, param_type in param_list:
+    var_indices = set()
+    for idx, (param_name, param_type) in enumerate(param_list):
+        if param_name in current_subprogram_var_params:
+            var_indices.add(idx)
         if ('POINTEUR' in param_type or param_type == 'POINTEUR') and param_name not in current_subprogram_var_params:
             clone_stmts += f"    {param_name} = {param_name}._clone() if hasattr({param_name}, '_clone') else {param_name}\n"
             
+    subprogram_var_param_indices[name] = var_indices
     current_subprogram_var_params = set()
     
     global_vars = globals_modified_in_subprogram.get(name, set())
@@ -992,10 +1038,14 @@ def p_procedure_definition(p):
     global current_subprogram_var_params
     
     clone_stmts = ""
-    for param_name, param_type in param_list:
+    var_indices = set()
+    for idx, (param_name, param_type) in enumerate(param_list):
+        if param_name in current_subprogram_var_params:
+            var_indices.add(idx)
         if ('POINTEUR' in param_type or param_type == 'POINTEUR') and param_name not in current_subprogram_var_params:
             clone_stmts += f"    {param_name} = {param_name}._clone() if hasattr({param_name}, '_clone') else {param_name}\n"
             
+    subprogram_var_param_indices[name] = var_indices
     current_subprogram_var_params = set()
     
     global_vars = globals_modified_in_subprogram.get(name, set())
@@ -1041,30 +1091,20 @@ def p_parameter_declaration_array(p):
                              | VAR ID LBRACKET NUMBER RBRACKET COLON type'''
     if len(p) == 7:
         name = p[1]
-        size = p[3]
-        type_name = p[6]
+        size = int(p[3])
+        type_name = f"TABLEAU_{p[6]}_{size}"
     else:
-        # VAR branch
         name = p[2]
-        size = p[4]
-        type_name = p[7]
+        size = int(p[4])
+        type_name = f"TABLEAU_{p[7]}_{size}"
         global current_subprogram_var_params
         if 'current_subprogram_var_params' not in globals() or current_subprogram_var_params is None:
              current_subprogram_var_params = set()
         current_subprogram_var_params.add(name)
         
-    if type_name.upper() in ('CHAINE', 'CHAINE_TYPE'):
-        arr_type = 'CHAINE'
-    else:
-        arr_type = f"TABLEAU_{type_name}_{size}"
-    
-    add_variable(name, arr_type)
+    add_variable(name, type_name)
     alloc_name = f"{scope_stack[-1]}.{name}"
-    if isinstance(size, int):
-        mem_alloc.allocate(alloc_name, type_name, count=size)
-        mem_alloc.vars_info[alloc_name]['type'] = f"TABLEAU_{size}"
-    else:
-        mem_alloc.allocate(alloc_name, type_name)
+    mem_alloc.allocate(alloc_name, type_name, count=size)
     p[0] = (name, (name, type_name))
 
 def p_parameter_declaration_matrix(p):
@@ -1072,24 +1112,25 @@ def p_parameter_declaration_matrix(p):
                              | VAR ID LBRACKET NUMBER RBRACKET LBRACKET NUMBER RBRACKET COLON type'''
     if len(p) == 10:
         name = p[1]
-        rows = p[3]
-        cols = p[6]
+        rows = int(p[3])
+        cols = int(p[6])
         type_name = p[9]
     else:
-        # VAR branch
         name = p[2]
-        rows = p[4]
-        cols = p[7]
+        rows = int(p[4])
+        cols = int(p[7])
         type_name = p[10]
-
-    add_variable(name, type_name)
+        global current_subprogram_var_params
+        if 'current_subprogram_var_params' not in globals() or current_subprogram_var_params is None:
+             current_subprogram_var_params = set()
+        current_subprogram_var_params.add(name)
+        
+    mat_type = f"MATRICE_{type_name}_{rows}_{cols}"
+    add_variable(name, mat_type)
     alloc_name = f"{scope_stack[-1]}.{name}"
-    if isinstance(rows, int) and isinstance(cols, int):
-        total_size = rows * cols
-        mem_alloc.allocate(alloc_name, type_name, count=total_size)
-        mem_alloc.vars_info[alloc_name]['type'] = f"MATRICE_{rows}x{cols}"
-    else:
-        mem_alloc.allocate(alloc_name, type_name)
+    total_size = rows * cols
+    mem_alloc.allocate(alloc_name, type_name, count=total_size)
+    mem_alloc.vars_info[alloc_name]['type'] = f"MATRICE_{rows}x{cols}"
     p[0] = (name, (name, type_name))
 
 def p_sub_program_body_start(p):
@@ -1130,21 +1171,45 @@ def p_statement_return(p):
 def p_expression_call(p):
     '''expression : ID LPAREN argument_list RPAREN'''
     name = p[1]
-    args_code, _ = p[3]
+    args_exprs, args_types = p[3]
+    var_indices = subprogram_var_param_indices.get(name, set())
+    
+    transformed_args = []
+    pre_exprs = []
+    post_exprs = []
+    
+    ns = "locals()" if is_local_scope() else "globals()"
+    import re
+    
+    for idx, (arg_code, arg_type) in enumerate(zip(args_exprs, args_types)):
+        if idx in var_indices and re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', arg_code):
+            ref_var = f"_ref_{arg_code}"
+            pre_exprs.append(f"({ref_var} := [{arg_code}])")
+            transformed_args.append(f"(Pointer('{arg_code}', {ns}, base_var={ref_var}) if not isinstance({arg_code}, Pointer) else {arg_code})")
+            post_exprs.append(f"({arg_code} := {ref_var}[0] if not isinstance({arg_code}, Pointer) else {arg_code})")
+        else:
+            transformed_args.append(arg_code)
+            
+    call_code = f"{name}({', '.join(transformed_args)})"
     ret_type = function_return_types.get(name, 'UNKNOWN')
-    p[0] = (f"{name}({args_code})", ret_type)
+    
+    if pre_exprs:
+        full_tuple = f"({', '.join(pre_exprs)}, {call_code}, {', '.join(post_exprs)})[{len(pre_exprs)}]"
+        p[0] = (full_tuple, ret_type)
+    else:
+        p[0] = (call_code, ret_type)
 
 def p_argument_list_empty(p):
     '''argument_list : '''
-    p[0] = ("", [])
+    p[0] = ([], [])
 
 def p_argument_list_single(p):
     '''argument_list : expression'''
-    p[0] = (p[1][0], [p[1][1]])
+    p[0] = ([p[1][0]], [p[1][1]])
 
 def p_argument_list_multiple(p):
     '''argument_list : expression COMMA argument_list'''
-    p[0] = (f"{p[1][0]}, {p[3][0]}", [p[1][1]] + p[3][1])
+    p[0] = ([p[1][0]] + p[3][0], [p[1][1]] + p[3][1])
 
 def p_type(p):
     '''type : ENTIER_TYPE
@@ -1361,7 +1426,17 @@ def p_statement_assign(p):
             
     check_allocation_semantic(p, var_name, expr_code, is_array_access=False)
             
-    p[0] = f"{get_indent()}{var_name} = {expr_code}"
+    is_var_param = ('current_subprogram_var_params' in globals() and 
+                    current_subprogram_var_params is not None and 
+                    var_name in current_subprogram_var_params)
+    
+    if is_var_param:
+        val_expr = f"_b_int({expr_code})" if var_type.upper() == 'ENTIER' else f"{expr_code}"
+        p[0] = f"{get_indent()}if hasattr({var_name}, '_set'):\n{get_indent()}    {var_name}._set({val_expr})\n{get_indent()}else:\n{get_indent()}    {var_name} = {val_expr}"
+    elif var_type.upper() == 'ENTIER':
+        p[0] = f"{get_indent()}{var_name} = _b_int({expr_code})"
+    else:
+        p[0] = f"{get_indent()}{var_name} = {expr_code}"
     
     # Special handling for fixed strings to preserve list reference and enforce size
     if var_type == 'CHAINE':
@@ -1450,19 +1525,24 @@ def p_id_or_array_access(p):
         base_code, base_type = p[1]
         idx_code = p[3][0]
         elem_type = 'UNKNOWN'
-        if base_type.startswith('TABLEAU_'):
+        if base_type.startswith('MATRICE_'):
+            parts = base_type.split('_')
+            if len(parts) >= 4:
+                t_name = '_'.join(parts[1:-2])
+            else:
+                t_name = base_type.replace('MATRICE_', '')
+            elem_type = f"TABLEAU_{t_name}"
+        elif base_type.startswith('TABLEAU_'):
             elem_type = _extract_array_element_type(base_type)
             if elem_type.upper() in ('CHAINE', 'CHAINE_TYPE'):
-                elem_type = 'CARACTERE' # Indexing a string within an array returns a char? 
-                                        # Wait, if it's an array of strings, S[i] is a string.
-                                        # But fixed strings are TABLEAU_CHAINE_N.
+                elem_type = 'CARACTERE' # Indexing a string within an array returns a char
         elif base_type.upper() in ('CHAINE', 'CHAINE_TYPE'):
-            elem_type = 'CARACTERE' # Fix #9: String index returns Character
+            elem_type = 'CARACTERE' # String index returns Character
         
         if base_code.endswith('._DEREF'):
             base_code = f"({base_code[:-7]})._get()"
             
-        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+        p[0] = (f"{base_code}[int({idx_code})]", elem_type)
     else: # CARET
         base_code, base_type = p[1]
         # Resolve the type being pointed to
@@ -1567,7 +1647,7 @@ def p_statement_for(p):
         })
     start_expr = p[4][0]
     end_expr = p[6][0]
-    p[0] = f"{get_indent()}for {p[2]} in range({start_expr}, {end_expr} + 1):\n{p[9]}"
+    p[0] = f"{get_indent()}for {p[2]} in range(int({start_expr}), int({end_expr}) + 1):\n{p[9]}"
 
 def p_condition(p):
     '''condition : expression'''
@@ -1633,10 +1713,12 @@ def p_expression_binop(p):
 
     if op in ['+', '-', '*', '/', 'mod', 'div']:
         if type1 in ['ENTIER', 'REEL'] and type2 in ['ENTIER', 'REEL']:
-            if type1 == 'REEL' or type2 == 'REEL' or op == '/':
-                 res_type = 'REEL'
+            if type1 == 'REEL' or type2 == 'REEL':
+                res_type = 'REEL'
             else:
-                 res_type = 'ENTIER'
+                res_type = 'ENTIER'
+                if op == '/':
+                    op = '//'
         # NOTE: String concatenation via + is NOT allowed.
         # Use Concat(s1, s2) function instead.
     elif op in ['=', '<>', '<', '<=', '>', '>=', 'et', 'ou', 'non']:
@@ -1649,6 +1731,7 @@ def p_expression_binop(p):
     if op_lower == 'ou': op = 'or'
     if op_lower == 'mod': op = '%'
     if op_lower == 'div': op = '//'
+    if op_lower == '/' and res_type == 'ENTIER': op = '//'
     
     p[0] = (f"{code1} {op} {code2}", res_type)
 
@@ -1712,7 +1795,7 @@ def p_expression_address_array(p):
         elem_type = 'CARACTERE_TYPE'
     ns = "locals()" if is_local_scope() else "globals()"
     alloc_name = f"{scope_stack[-1]}.{var_name}" if is_local_scope() else var_name
-    p[0] = (f"Pointer(\"{var_name}\", {ns}, index={idx_code}, base_var={var_name}, alloc_name=\"{alloc_name}\")", f"POINTEUR_{elem_type}")
+    p[0] = (f"Pointer(\"{var_name}\", {ns}, index=int({idx_code}), base_var={var_name}, alloc_name=\"{alloc_name}\")", f"POINTEUR_{elem_type}")
 
 def p_expression_address_matrix(p):
     '''expression : AMPERSAND ID LBRACKET expression RBRACKET LBRACKET expression RBRACKET'''
@@ -1726,7 +1809,7 @@ def p_expression_address_matrix(p):
     ns = "locals()" if is_local_scope() else "globals()"
     alloc_name = f"{scope_stack[-1]}.{var_name}" if is_local_scope() else var_name
     # To point to mat[i][j], the base_var is the specific row, index is j
-    p[0] = (f"Pointer(\"{var_name}_row_\" + str({idx1}), {ns}, index={idx2}, base_var={var_name}[{idx1}], alloc_name=\"{alloc_name}\")", f"POINTEUR_{elem_type}")
+    p[0] = (f"Pointer(\"{var_name}_row_\" + str({idx1}), {ns}, index=int({idx2}), base_var={var_name}[int({idx1})], alloc_name=\"{alloc_name}\")", f"POINTEUR_{elem_type}")
 
 def p_expression_dereference(p):
     '''expression : expression CARET'''
@@ -1804,16 +1887,16 @@ def p_expression_array_access(p):
     elem_type = 'UNKNOWN'
     if base_type.startswith('TABLEAU_'):
         elem_type = _extract_array_element_type(base_type)
-        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+        p[0] = (f"{base_code}[int({idx_code})]", elem_type)
     elif base_type.upper().startswith('MATRICE_CHAINE'):
         elem_type = 'CHAINE'
-        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+        p[0] = (f"{base_code}[int({idx_code})]", elem_type)
     elif base_type == 'CHAINE':
         elem_type = 'CARACTERE_TYPE'
-        p[0] = (f"_algo_get_char({base_code}, {idx_code})", elem_type)
+        p[0] = (f"_algo_get_char({base_code}, int({idx_code}))", elem_type)
     else:
         # Fallback for unknown types or pointers used as arrays (decay)
-        p[0] = (f"{base_code}[{idx_code}]", elem_type)
+        p[0] = (f"{base_code}[int({idx_code})]", elem_type)
 
 def p_expression_matrix_access(p):
     '''expression : expression LBRACKET expression RBRACKET LBRACKET expression RBRACKET'''
@@ -1823,12 +1906,16 @@ def p_expression_matrix_access(p):
     elem_type = 'UNKNOWN'
     if mat_type.upper().startswith('MATRICE_CHAINE'):
         elem_type = 'CARACTERE_TYPE'
-        p[0] = (f"_algo_get_char({base_code}[{idx1}], {idx2})", elem_type)
+        p[0] = (f"_algo_get_char({base_code}[int({idx1})], int({idx2}))", elem_type)
     elif mat_type.startswith('MATRICE_'):
-        elem_type = mat_type.replace('MATRICE_', '')
-        p[0] = (f"{base_code}[{idx1}][{idx2}]", elem_type)
+        parts = mat_type.split('_')
+        if len(parts) >= 4:
+            elem_type = '_'.join(parts[1:-2])
+        else:
+            elem_type = mat_type.replace('MATRICE_', '')
+        p[0] = (f"{base_code}[int({idx1})][int({idx2})]", elem_type)
     else:
-        p[0] = (f"{base_code}[{idx1}][{idx2}]", elem_type)
+        p[0] = (f"{base_code}[int({idx1})][int({idx2})]", elem_type)
 
 def p_statement_assign_array(p):
     '''statement : expression LBRACKET expression RBRACKET ASSIGN expression SEMICOLON'''
@@ -1860,16 +1947,16 @@ def p_statement_assign_array(p):
                 "type": "Semantic Error",
                 "error_code": "E3.3"
             })
-        p[0] = f"{get_indent()}{base_code} = _algo_set_char({base_code}, {idx_code}, {val_code})"
+        p[0] = f"{get_indent()}{base_code} = _algo_set_char({base_code}, int({idx_code}), {val_code})"
     elif var_type.upper().startswith('MATRICE_CHAINE'):
-        p[0] = f"{get_indent()}_algo_assign_fixed_string({base_code}[{idx_code}], {val_code})"
+        p[0] = f"{get_indent()}_algo_assign_fixed_string({base_code}[int({idx_code})], {val_code})"
     elif 'POINTEUR_POINTEUR_CARACTERE' in var_type.upper() or 'POINTEUR_POINTEUR_CARACTERE_TYPE' in var_type.upper():
         if val_type in ('CHAINE', 'CHAINE_TYPE'):
-            p[0] = f"{get_indent()}_algo_assign_fixed_string({base_code}[{idx_code}], {val_code})"
+            p[0] = f"{get_indent()}_algo_assign_fixed_string({base_code}[int({idx_code})], {val_code})"
         else:
-            p[0] = f"{get_indent()}{base_code}[{idx_code}] = ({val_code})._clone() if hasattr({val_code}, '_clone') else {val_code}"
+            p[0] = f"{get_indent()}{base_code}[int({idx_code})] = ({val_code})._clone() if hasattr({val_code}, '_clone') else {val_code}"
     else:
-        p[0] = f"{get_indent()}_tmp_val = {val_code}\n{get_indent()}{base_code}[{idx_code}] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
+        p[0] = f"{get_indent()}_tmp_val = {val_code}\n{get_indent()}{base_code}[int({idx_code})] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
 
 def p_statement_assign_matrix(p):
     '''statement : expression LBRACKET expression RBRACKET LBRACKET expression RBRACKET ASSIGN expression SEMICOLON'''
@@ -1888,7 +1975,7 @@ def p_statement_assign_matrix(p):
             })
             p[0] = f"{get_indent()}pass"
         else:
-            p[0] = f"{get_indent()}_algo_set_char({base_code}[{idx1}], {idx2}, {val})"
+            p[0] = f"{get_indent()}_algo_set_char({base_code}[int({idx1})], int({idx2}), {val})"
 
     elif 'POINTEUR_POINTEUR_CARACTERE' in mat_type:
         if val_type in ('CHAINE', 'CHAINE_TYPE'):
@@ -1901,9 +1988,9 @@ def p_statement_assign_matrix(p):
             })
             p[0] = f"{get_indent()}pass"
         else:
-            p[0] = f"{get_indent()}_algo_set_char({base_code}[{idx1}], {idx2}, {val})"
+            p[0] = f"{get_indent()}_algo_set_char({base_code}[int({idx1})], int({idx2}), {val})"
     else:
-        p[0] = f"{get_indent()}_tmp_val = {val}\n{get_indent()}{base_code}[{idx1}][{idx2}] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
+        p[0] = f"{get_indent()}_tmp_val = {val}\n{get_indent()}{base_code}[int({idx1})][int({idx2})] = _tmp_val._clone() if hasattr(_tmp_val, '_clone') else _tmp_val"
 
 # Error tracking
 parser_errors = []
@@ -1964,14 +2051,15 @@ def p_statement_error(p):
 
 
 # Build the parser
-parser = yacc.yacc(debug=True)
+parser = yacc.yacc(debug=False, write_tables=False)
 
 def compile_algo(code):
-    global indent_level, symbol_table, scope_stack, parser_errors, current_subprogram_type, function_return_types
+    global indent_level, symbol_table, scope_stack, parser_errors, current_subprogram_type, function_return_types, subprogram_var_param_indices
     indent_level = 0
     symbol_table = {'global': {}}
     scope_stack = ['global']
     function_return_types = {}
+    subprogram_var_param_indices = {}
     current_subprogram_type = None
     parser_errors = []
     record_types.clear()   # Reset record type registry for each new compilation

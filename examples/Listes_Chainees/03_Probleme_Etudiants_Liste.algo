@@ -38,14 +38,9 @@ Debut
         // Insertion triee par ID croissant
         curr := L^;
         prev := NIL;
-         Ecrire(curr->data.id,id_v);
-         lire(i);
         TantQue curr <> NIL Et curr->data.id < id_v Faire
-             
-            lire(i);
             prev := curr;
             curr := curr->suiv;
-            Ecrire(curr->data.id,id_v);
         FinTantQue
 
         Si prev = NIL Alors

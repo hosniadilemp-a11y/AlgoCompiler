@@ -5,6 +5,13 @@ from flask_login import UserMixin
 db = SQLAlchemy()
 attempt_session_pk_type = db.BigInteger().with_variant(db.Integer, 'sqlite')
 
+def get_current_academic_year(dt=None):
+    if dt is None:
+        dt = datetime.utcnow()
+    if dt.month >= 9:
+        return dt.year + 1
+    return dt.year
+
 class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -103,6 +110,11 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False) # Pseudo
     date_of_birth = db.Column(db.Date, nullable=True)
     study_year = db.Column(db.String(50), nullable=True)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.study_year or not str(self.study_year).strip():
+            self.study_year = str(get_current_academic_year())
     
     # Security Questions
     security_question = db.Column(db.String(200), nullable=True)
@@ -144,7 +156,8 @@ class QuizAttempt(db.Model):
     score = db.Column(db.Integer, nullable=False)
     total_questions = db.Column(db.Integer, nullable=False)
     
-    # Status interpretation
+    # Status interpretation: 'in_progress', 'completed', 'auto_finalized'
+    status = db.Column(db.String(20), default='completed', nullable=False)
     all_correct = db.Column(db.Boolean, default=False)
     none_correct = db.Column(db.Boolean, default=False)
     

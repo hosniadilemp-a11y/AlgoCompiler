@@ -209,6 +209,7 @@ def login():
     return render_template('auth/login.html')
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
+@auth_bp.route('/register', methods=['GET', 'POST'])
 def signup():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -259,6 +260,11 @@ def signup():
             except ValueError:
                 pass
                 
+        # Determine default study_year if not specified
+        from web.models import get_current_academic_year
+        if not study_year or not str(study_year).strip():
+            study_year = str(get_current_academic_year())
+
         # Create user
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = User(

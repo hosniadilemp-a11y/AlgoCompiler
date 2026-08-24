@@ -59,9 +59,17 @@ def import_course(reset=True):
             icon = ch.get('icon') or 'fas fa-book'
             if not identifier or not title:
                 continue
-            chapter = CourseChapter(identifier=identifier, title=title, icon=icon, order_index=idx, is_published=True)
-            db.session.add(chapter)
-            db.session.flush()
+
+            chapter = CourseChapter.query.filter_by(identifier=identifier).first()
+            if not chapter:
+                chapter = CourseChapter(identifier=identifier, title=title, icon=icon, order_index=idx, is_published=True)
+                db.session.add(chapter)
+                db.session.flush()
+            else:
+                chapter.title = title
+                chapter.icon = icon
+                chapter.order_index = idx
+                chapter.is_published = True
 
             chapter_path = resolve_chapter_path(ch.get('file', ''))
             if chapter_path and chapter_path.exists():

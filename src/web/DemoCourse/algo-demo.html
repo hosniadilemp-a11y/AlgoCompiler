@@ -1344,9 +1344,26 @@ function initSearch(){ srNewArray(); }
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-initSearch();
-applySortMeta('bubble');
-sortShuffle();
+(function initAlgoFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  let algo = params.get('algo') || params.get('scene');
+  if (!algo && window.location.hash) {
+    algo = window.location.hash.replace('#', '').toLowerCase();
+  }
+  if (algo) {
+    algo = algo.toLowerCase();
+    if (algo === 'search' || algo === 'recherche') {
+      showSection('search', 'search');
+      return;
+    } else if (['bubble', 'insertion', 'selection', 'bogo', 'merge', 'quick'].includes(algo)) {
+      showSection('sort', algo);
+      return;
+    }
+  }
+  initSearch();
+  applySortMeta('bubble');
+  sortShuffle();
+})();
 </script>
 </body>
 </html>

@@ -301,6 +301,21 @@ class QuizController {
             isCorrect: isCorrect
         };
 
+        // Persist in_progress attempt state to DB in background so quitting early saves score
+        this.fetchJson('/api/quiz/save_progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chapter_identifier: this.chapterIdentifier,
+                score: this.score,
+                total: this.quizData.length,
+                status: 'in_progress',
+                details: {
+                    userAnswers: this.userAnswers.filter(a => a !== null)
+                }
+            })
+        }).catch(() => {});
+
         this.updateBubblesUI();
 
         // Enable Next/Finish btn if disabled

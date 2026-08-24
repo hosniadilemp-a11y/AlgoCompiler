@@ -62,7 +62,7 @@
     },
     {
       "title": "14. Algorithme : évaluation postfixée",
-      "code": "Algorithme EvaluerPostfixe;\nVar\n    P : PileEntiers;\n    T : Tableau[1..100] de Caractere;\n    i, x, y, res : Entier;\nDebut\n    InitialiserPile(P);\n\n    Pour i := 1 a N Faire\n        Si Operande(T[i]) Alors\n            Empiler(P, Valeur(T[i]));\n        Sinon\n            Depiler(P, y);\n            Depiler(P, x);\n            res := Evaluer(x, y, T[i]);\n            Empiler(P, res);\n        Fin Si;\n    Fin Pour;\n\n    Depiler(P, res);\n    Ecrire('Résultat=', res);\nFin.",
+      "code": "Algorithme EvaluerPostfixe;\nVar\n    P : PileEntiers;\n    T[100] : Caractere;\n    i, x, y, res : Entier;\nDebut\n    InitialiserPile(P);\n\n    Pour i := 1 a N Faire\n        Si Operande(T[i]) Alors\n            Empiler(P, Valeur(T[i]));\n        Sinon\n            Depiler(P, y);\n            Depiler(P, x);\n            res := Evaluer(x, y, T[i]);\n            Empiler(P, res);\n        Fin Si;\n    Fin Pour;\n\n    Depiler(P, res);\n    Ecrire('Résultat=', res);\nFin.",
       "content": "Algorithme d'évaluation postfixée.\nChaque opérande est empilé, puis chaque opérateur dépile deux valeurs, calcule le résultat et l'empile de nouveau.\nCe schéma donne une évaluation linéaire de l'expression."
     },
     {

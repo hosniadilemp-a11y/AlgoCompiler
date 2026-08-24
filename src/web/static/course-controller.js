@@ -536,11 +536,12 @@ class CourseController {
         if (!text) return '';
         const escapeLabel = (value) => this.escapeHtml(value);
         const sanitizeLink = (value) => this.sanitizeLinkUrl(value);
+
         const calloutBlock = (label, css) => {
             const re = new RegExp(`\\[\\[${label}\\]\\]([\\s\\S]*?)(?:\\n\\s*\\n|$)`, 'g');
             return (input) => input.replace(re, (_, body) => {
                 const content = String(body || '').trim();
-                return `<div class="course-callout ${css}"><div class="course-callout-title">${label === 'DEF' ? 'Définition' : label === 'ALERT' ? 'Alerte' : label === 'NOTE' ? 'Note' : 'Fun Fact'}</div>${content ? `<div>${content}</div>` : ''}</div>`;
+                return `<div class="course-callout ${css}"><div class="course-callout-title">${label === 'DEF' ? 'Définition' : label === 'ALERT' ? 'Alerte' : label === 'NOTE' ? 'Note' : 'Fun Fact'}</div>${content ? `<div>${content}</div>` : ''}</div>\n\n`;
             });
         };
 
@@ -549,9 +550,18 @@ class CourseController {
         html = calloutBlock('ALERT', 'course-callout-alert')(html);
         html = calloutBlock('NOTE', 'course-callout-note')(html);
         html = calloutBlock('FUN', 'course-callout-fun')(html);
+
         html = html
-            .replace(/\[\[STYLISH_EX\]\]/g, '<div class="stylish-lesson-intro"><i class="fas fa-star"></i> Objectifs pédagogiques</div>')
-            .replace(/### (.*?)\n/g, '<h4 class="course-h4">$1</h4>')
+            .replace(/\[\[STYLISH_EX\]\]/g, '<div class="stylish-lesson-intro"><i class="fas fa-star"></i> Objectifs pédagogiques</div>\n\n')
+            .replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, (match, code) => {
+                const safeCode = escapeLabel(code.trim());
+                return `<pre class="course-solution-code">${safeCode}</pre>\n\n`;
+            })
+            .replace(/^#### (.*?)$/gm, '<h5 class="course-h5">$1</h5>\n\n')
+            .replace(/^### (.*?)$/gm, '<h4 class="course-h4">$1</h4>\n\n')
+            .replace(/^## (.*?)$/gm, '<h3 class="course-h3">$1</h3>\n\n')
+            .replace(/^# (.*?)$/gm, '<h2 class="course-h2">$1</h2>\n\n')
+            .replace(/^[-*]{3,}$/gm, '<hr class="course-divider">\n\n')
             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
                 const safeUrl = sanitizeLink(url);
                 const safeLabel = escapeLabel(label);
@@ -563,27 +573,33 @@ class CourseController {
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/`(.*?)`/g, '<code class="course-inline-code">$1</code>')
-            .replace(/^- (.*?)(\n|$)/gm, '<li>$1</li>');
+            .replace(/^[ \t]*[-*] (.*?)$/gm, '<li>$1</li>');
 
         if (html.includes('<li>')) {
-            html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
+            html = html.replace(/(?:<li>.*?<\/li>\s*)+/gs, '<ul>$&</ul>\n\n');
         }
 
-        // Protect data-code attribute newlines from being flattened to spaces by the browser DOM
+        // Protect data-code attribute newlines from being flattened
         html = html.replace(/data-code="([^"]*)"/g, (match, p1) => {
             return 'data-code="' + p1.replace(/\n/g, '&#10;').replace(/\\n/g, '&#10;') + '"';
+        });
+
+        // Protect course-diagram and SVG blocks from double newline splitting
+        html = html.replace(/<div class="course-diagram">[\s\S]*?<\/div>/g, (match) => {
+            return match.replace(/\n\s*\n/g, '\n');
+        });
+        html = html.replace(/<svg[\s\S]*?<\/svg>/g, (match) => {
+            return match.replace(/\n\s*\n/g, '\n');
         });
 
         return html.split(/\n\n+/).map(block => {
             const normalized = block.trim();
             if (!normalized) return '';
-            // Keep any HTML fragment intact (not only a small whitelist),
-            // otherwise SVG blocks get split and wrapped in <p>, which breaks figures.
-            if (normalized.startsWith('<')) {
+            if (/^<(div|section|article|h[1-6]|ul|ol|pre|table|hr|blockquote|svg|details|p|defs|g|path|rect|text|line|polygon)/i.test(normalized)) {
                 return normalized;
             }
             return `<p>${normalized.replace(/\n/g, '<br>')}</p>`;
-        }).join('');
+        }).join('\n\n');
     }
 
     sanitizeLinkUrl(rawUrl) {
@@ -629,13 +645,17 @@ class CourseController {
     }
 
     highlightAlgoCode(code) {
-        const escaped = this.escapeHtml(code);
-        return escaped
-            .replace(/(\/\/.*)$/gm, '<span class="algo-cmt">$1</span>')
-            .replace(/(\"(?:[^\"\\\\]|\\\\.)*\")/g, '<span class="algo-str">$1</span>')
-            .replace(/('(?:[^'\\\\]|\\\\.)*')/g, '<span class="algo-str">$1</span>')
+        if (!code) return '';
+        let safe = String(code)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        return safe
+            .replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span class="algo-str">$1</span>')
             .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="algo-num">$1</span>')
-            .replace(/\b(Algorithme|Const|Var|Type|Enregistrement|Debut|Fin|Fonction|Procedure|Retourner|Si|Sinon|Alors|Fin Si|Pour|Fin Pour|Tantque|Fin Tantque|Repeter|Jusqua|Lire|Ecrire|Vrai|Faux|NIL|allouer|liberer|taille|Entier|Reel|Chaine|Caractere|Booleen|Tableau|De|Et|Ou|Non)\b/g, '<span class="algo-kw">$1</span>');
+            .replace(/\b(Algorithme|Const|Var|Type|Enregistrement|Debut|Fin|Fonction|Procedure|Retourner|Si|Sinon|Alors|Fin Si|Pour|Fin Pour|Tantque|Fin Tantque|Repeter|Jusqua|Lire|Ecrire|Vrai|Faux|NIL|allouer|liberer|taille|Entier|Reel|Chaine|Caractere|Booleen|Tableau|De|Et|Ou|Non)\b/g, '<span class="algo-kw">$1</span>')
+            .replace(/(\/\/.*)$/gm, '<span class="algo-cmt">$1</span>');
     }
 
     decodeCourseCode(rawCode) {

@@ -1,132 +1,392 @@
-[
-    {
-        "difficulty":  "Easy",
-        "concept":  "Définition",
-        "question":  "Différence Fonction / Procédure ?",
-        "explanation":  "Fonction retourne une valeur, procédure non. Reponse correcte: Une fonction retourne un résultat, la procédure effectue juste une action. Ici, la notion \u0027Définition\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "Une fonction retourne un résultat, la procédure effectue juste une action",
-                        "Aucune différence",
-                        "Une procédure est plus rapide",
-                        "Une fonction ne prend pas de paramètres"
-                    ],
-        "answer":  "Une fonction retourne un résultat, la procédure effectue juste une action"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Paramètre Valeur",
-        "question":  "Passage par valeur : la fonction modifie-t-elle l\u0027original ?",
-        "explanation":  "Non, c\u0027est une copie. Reponse correcte: Non, elle modifie une copie locale. Ici, la notion \u0027Paramètre Valeur\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "Non, elle modifie une copie locale",
-                        "Oui, elle modifie l\u0027original",
-                        "Seulement si c\u0027est un entier",
-                        "Oui, à la fin de l\u0027exécution"
-                    ],
-        "answer":  "Non, elle modifie une copie locale"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Paramètre Variable",
-        "question":  "Passage par variable : modification de l\u0027original ?",
-        "explanation":  "Oui, via son adresse. Reponse correcte: Oui, car on passe l\u0027adresse mémoire de l\u0027original. Ici, la notion \u0027Paramètre Variable\u0027 s\u0027applique: l\u0027affectation copie une valeur vers une variable; elle n\u0027est pas un test d\u0027egalite.",
-        "choices":  [
-                        "Oui, car on passe l\u0027adresse mémoire de l\u0027original",
-                        "Non",
-                        "Seulement si on utilise le mot-clé global",
-                        "Jamais en algorithmique"
-                    ],
-        "answer":  "Oui, car on passe l\u0027adresse mémoire de l\u0027original"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Retour",
-        "question":  "Mot-clé pour quitter une fonction avec résultat ?",
-        "explanation":  "Retourner. Reponse correcte: Retourner (Return). Ici, la notion \u0027Retour\u0027 s\u0027applique: le resultat depend du nombre reel d\u0027iterations et du moment ou la condition est evaluee.",
-        "choices":  [
-                        "Retourner (Return)",
-                        "Finir",
-                        "Quitter",
-                        "Donner"
-                    ],
-        "answer":  "Retourner (Return)"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Portée",
-        "question":  "Variable déclarée dans une fonction ?",
-        "explanation":  "Variable locale. Reponse correcte: Variable locale (invisible dehors). Ici, la notion \u0027Portée\u0027 s\u0027applique: l\u0027affectation copie une valeur vers une variable; elle n\u0027est pas un test d\u0027egalite.",
-        "choices":  [
-                        "Variable locale (invisible dehors)",
-                        "Variable globale",
-                        "Variable persistante",
-                        "Constante"
-                    ],
-        "answer":  "Variable locale (invisible dehors)"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Récursivité",
-        "question":  "Une fonction qui s\u0027appelle elle-même ?",
-        "explanation":  "Récursive. Reponse correcte: Fonction récursive. Ici, la notion \u0027Récursivité\u0027 s\u0027applique: une condition execute une branche precise selon la valeur booleenne du test.",
-        "choices":  [
-                        "Fonction récursive",
-                        "Fonction itérative",
-                        "Fonction infinie",
-                        "Fonction miroir"
-                    ],
-        "answer":  "Fonction récursive"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Pile d\u0027appels",
-        "question":  "Où sont stockés les appels imbriqués ?",
-        "explanation":  "Dans le Call Stack. Reponse correcte: Dans la pile d\u0027exécution (Call Stack). Ici, la notion \u0027Pile d\u0027appels\u0027 s\u0027applique: une pile suit LIFO: le dernier element ajoute est le premier retire, et les operations se font au sommet.",
-        "choices":  [
-                        "Dans la pile d\u0027exécution (Call Stack)",
-                        "Dans le tas (Heap)",
-                        "Sur le disque dur",
-                        "Dans le registre d\u0027état"
-                    ],
-        "answer":  "Dans la pile d\u0027exécution (Call Stack)"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Modularité",
-        "question":  "Avantage des sous-programmes ?",
-        "explanation":  "Réutiliser et structurer. Reponse correcte: Réutilisation de code et clarté. Ici, la notion \u0027Modularité\u0027 s\u0027applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
-        "choices":  [
-                        "Réutilisation de code et clarté",
-                        "Plus rapide à exécuter",
-                        "Moins de mémoire utilisée",
-                        "Supprime les bugs automatiquement"
-                    ],
-        "answer":  "Réutilisation de code et clarté"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Signature",
-        "question":  "Qu\u0027est-ce que l\u0027en-tête d\u0027une procédure ?",
-        "explanation":  "Nom et paramètres. Reponse correcte: Son nom et la liste de ses paramètres types. Ici, la notion \u0027Signature\u0027 s\u0027applique: une condition execute une branche precise selon la valeur booleenne du test.",
-        "choices":  [
-                        "Son nom et la liste de ses paramètres types",
-                        "Son code interne",
-                        "Ses variables locales",
-                        "Son commentaire de fin"
-                    ],
-        "answer":  "Son nom et la liste de ses paramètres types"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Effet de bord",
-        "question":  "C\u0027est quoi un effet de bord ?",
-        "explanation":  "Modification de global depuis une fonction. Reponse correcte: Une fonction qui modifie une variable globale. Ici, la notion \u0027Effet de bord\u0027 s\u0027applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
-        "choices":  [
-                        "Une fonction qui modifie une variable globale",
-                        "Une division par zéro",
-                        "Un écran bleu",
-                        "Une boucle infinie"
-                    ],
-        "answer":  "Une fonction qui modifie une variable globale"
-    }
-]
+[
+    {
+        "difficulty": "Easy",
+        "concept": "Définition",
+        "question": "Différence Fonction / Procédure ?",
+        "explanation": "Fonction retourne une valeur, procédure non. Reponse correcte: Une fonction retourne un résultat, la procédure effectue juste une action. Ici, la notion 'Définition' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "Une fonction retourne un résultat, la procédure effectue juste une action",
+            "Aucune différence",
+            "Une procédure est plus rapide",
+            "Une fonction ne prend pas de paramètres"
+        ],
+        "answer": "Une fonction retourne un résultat, la procédure effectue juste une action"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Paramètre Valeur",
+        "question": "Passage par valeur : la fonction modifie-t-elle l'original ?",
+        "explanation": "Non, c'est une copie. Reponse correcte: Non, elle modifie une copie locale. Ici, la notion 'Paramètre Valeur' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "Non, elle modifie une copie locale",
+            "Oui, elle modifie l'original",
+            "Seulement si c'est un entier",
+            "Oui, à la fin de l'exécution"
+        ],
+        "answer": "Non, elle modifie une copie locale"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Paramètre Variable",
+        "question": "Passage par variable : modification de l'original ?",
+        "explanation": "Oui, via son adresse. Reponse correcte: Oui, car on passe l'adresse mémoire de l'original. Ici, la notion 'Paramètre Variable' s'applique: l'affectation copie une valeur vers une variable; elle n'est pas un test d'egalite.",
+        "choices": [
+            "Oui, car on passe l'adresse mémoire de l'original",
+            "Non",
+            "Seulement si on utilise le mot-clé global",
+            "Jamais en algorithmique"
+        ],
+        "answer": "Oui, car on passe l'adresse mémoire de l'original"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Retour",
+        "question": "Mot-clé pour quitter une fonction avec résultat ?",
+        "explanation": "Retourner. Reponse correcte: Retourner (Return). Ici, la notion 'Retour' s'applique: le resultat depend du nombre reel d'iterations et du moment ou la condition est evaluee.",
+        "choices": [
+            "Retourner (Return)",
+            "Finir",
+            "Quitter",
+            "Donner"
+        ],
+        "answer": "Retourner (Return)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Portée",
+        "question": "Variable déclarée dans une fonction ?",
+        "explanation": "Variable locale. Reponse correcte: Variable locale (invisible dehors). Ici, la notion 'Portée' s'applique: l'affectation copie une valeur vers une variable; elle n'est pas un test d'egalite.",
+        "choices": [
+            "Variable locale (invisible dehors)",
+            "Variable globale",
+            "Variable persistante",
+            "Constante"
+        ],
+        "answer": "Variable locale (invisible dehors)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Récursivité",
+        "question": "Une fonction qui s'appelle elle-même ?",
+        "explanation": "Récursive. Reponse correcte: Fonction récursive. Ici, la notion 'Récursivité' s'applique: une condition execute une branche precise selon la valeur booleenne du test.",
+        "choices": [
+            "Fonction récursive",
+            "Fonction itérative",
+            "Fonction infinie",
+            "Fonction miroir"
+        ],
+        "answer": "Fonction récursive"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Pile d'appels",
+        "question": "Où sont stockés les appels imbriqués ?",
+        "explanation": "Dans le Call Stack. Reponse correcte: Dans la pile d'exécution (Call Stack). Ici, la notion 'Pile d'appels' s'applique: une pile suit LIFO: le dernier element ajoute est le premier retire, et les operations se font au sommet.",
+        "choices": [
+            "Dans la pile d'exécution (Call Stack)",
+            "Dans le tas (Heap)",
+            "Sur le disque dur",
+            "Dans le registre d'état"
+        ],
+        "answer": "Dans la pile d'exécution (Call Stack)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Modularité",
+        "question": "Avantage des sous-programmes ?",
+        "explanation": "Réutiliser et structurer. Reponse correcte: Réutilisation de code et clarté. Ici, la notion 'Modularité' s'applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
+        "choices": [
+            "Réutilisation de code et clarté",
+            "Plus rapide à exécuter",
+            "Moins de mémoire utilisée",
+            "Supprime les bugs automatiquement"
+        ],
+        "answer": "Réutilisation de code et clarté"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Signature",
+        "question": "Qu'est-ce que l'en-tête d'une procédure ?",
+        "explanation": "Nom et paramètres. Reponse correcte: Son nom et la liste de ses paramètres types. Ici, la notion 'Signature' s'applique: une condition execute une branche precise selon la valeur booleenne du test.",
+        "choices": [
+            "Son nom et la liste de ses paramètres types",
+            "Son code interne",
+            "Ses variables locales",
+            "Son commentaire de fin"
+        ],
+        "answer": "Son nom et la liste de ses paramètres types"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Effet de bord",
+        "question": "C'est quoi un effet de bord ?",
+        "explanation": "Modification de global depuis une fonction. Reponse correcte: Une fonction qui modifie une variable globale. Ici, la notion 'Effet de bord' s'applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
+        "choices": [
+            "Une fonction qui modifie une variable globale",
+            "Une division par zéro",
+            "Un écran bleu",
+            "Une boucle infinie"
+        ],
+        "answer": "Une fonction qui modifie une variable globale"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Structure Procédure",
+        "question": "Quelle est la structure d'entête d'une procédure en algorithmique ?",
+        "explanation": "Une procédure s'entête avec `Procedure NomProc(paramètres);` et n'a pas de type de retour.",
+        "choices": [
+            "Procedure NomProc(param1 : Type1);",
+            "Fonction NomProc() : Vide;",
+            "Action NomProc() : Boolean;",
+            "Programme NomProc;"
+        ],
+        "answer": "Procedure NomProc(param1 : Type1);"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Passage de Paramètre VAR",
+        "question": "En algorithmique, quel mot-clé devant un paramètre indique un passage par référence/adresse ?",
+        "explanation": "Le mot-clé `VAR` (ou `Ref`) devant un paramètre indique un passage par adresse.",
+        "choices": [
+            "VAR",
+            "VAL",
+            "REF",
+            "OUT"
+        ],
+        "answer": "VAR"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Effet de Bord",
+        "question": "Qu'appelle-t-on un 'Effet de Bord' (Side Effect) dans une fonction ?",
+        "explanation": "C'est lorsqu'une fonction modifie une variable globale ou un état extérieur en plus de retourner son résultat.",
+        "choices": [
+            "Une modification d'état extérieur ou variable globale par la fonction",
+            "Une erreur de division par zéro",
+            "Une boucle infinie dans la fonction",
+            "Un retour de type flottant"
+        ],
+        "answer": "Une modification d'état extérieur ou variable globale par la fonction"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Variable Globale",
+        "question": "Où est déclarée une variable globale et quelle est sa portée ?",
+        "explanation": "Déclarée au niveau de l'algorithme principal, elle est accessible dans tout le programme et toutes ses sous-actions.",
+        "choices": [
+            "Dans l'algorithme principal, accessible partout",
+            "Dans une procédure, accessible dans cette procédure uniquement",
+            "Dans une boucle uniquement",
+            "Dans un fichier externe"
+        ],
+        "answer": "Dans l'algorithme principal, accessible partout"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Variable Locale",
+        "question": "Que se passe-t-il si une variable locale porte le MÊME nom qu'une variable globale ?",
+        "explanation": "La variable locale masquera (masquage/shadowing) la variable globale dans le corps de l'action.",
+        "choices": [
+            "La variable locale masque la variable globale dans l'action",
+            "Une erreur de compilation survient",
+            "La variable globale est effacée",
+            "Les deux variables fusionnent"
+        ],
+        "answer": "La variable locale masque la variable globale dans l'action"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Récursivité",
+        "question": "Quelle est la condition indispensable dans toute fonction récursive pour éviter un blocage ?",
+        "explanation": "Un cas de base (condition d'arrêt) sans appel récursif.",
+        "choices": [
+            "Un cas de base (condition d'arrêt) non récursif",
+            "Une boucle Pour",
+            "Au moins 3 paramètres VAR",
+            "Une variable globale"
+        ],
+        "answer": "Un cas de base (condition d'arrêt) non récursif"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Appel de Procédure",
+        "question": "Comment appelle-t-on une procédure `AfficherMsg(m)` dans le programme principal ?",
+        "explanation": "Directement comme une instruction autonome : `AfficherMsg(\"Bonjour\");`.",
+        "choices": [
+            "AfficherMsg(\"Bonjour\");",
+            "x := AfficherMsg(\"Bonjour\");",
+            "Ecrire(AfficherMsg(\"Bonjour\"));",
+            "Retourner AfficherMsg;"
+        ],
+        "answer": "AfficherMsg(\"Bonjour\");"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Paramètres Effectifs vs Formels",
+        "question": "Quelle est la différence entre paramètres formels et paramètres effectifs ?",
+        "explanation": "Les paramètres formels sont les noms dans la définition de la sous-action, les effectifs sont les valeurs transmises lors de l'appel.",
+        "choices": [
+            "Formels = à la définition, Effectifs = à l'appel",
+            "Formels = entiers, Effectifs = réels",
+            "Formels = globaux, Effectifs = locaux",
+            "C'est la même chose"
+        ],
+        "answer": "Formels = à la définition, Effectifs = à l'appel"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Dépassement de Pile Récursive",
+        "question": "Que provoque une fonction récursive sans condition d'arrêt (récursion infinie) ?",
+        "explanation": "Un dépassement de la pile d'exécution (Stack Overflow / RecursionError).",
+        "choices": [
+            "Un dépassement de pile (Stack Overflow)",
+            "Une fuite mémoire RAM",
+            "Un résultat valant zéro",
+            "Une boucle infinie CPU sans erreur"
+        ],
+        "answer": "Un dépassement de pile (Stack Overflow)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Type de Retour",
+        "question": "Combien de valeurs une fonction standard peut-elle retourner directement via `Retourner` ?",
+        "explanation": "Une fonction retourne UNE SEULE valeur directe. Pour en retourner plusieurs, on utilise des paramètres VAR.",
+        "choices": [
+            "Une seule valeur",
+            "Plusieurs valeurs séparées par virgule",
+            "Autant qu'on veut",
+            "Aucune valeur"
+        ],
+        "answer": "Une seule valeur"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Procédure d'Échange",
+        "question": "Pour écrire une procédure `Echanger(a, b)` qui permute 2 variables du programme principal, quel doit être le mode des paramètres ?",
+        "explanation": "Les deux paramètres a et b doivent impérativement être transmis par adresse (`VAR a, b : Entier`).",
+        "choices": [
+            "Les deux par adresse (VAR a, b : Entier)",
+            "Les deux par valeur",
+            "Seulement le premier par VAR",
+            "Peu importe"
+        ],
+        "answer": "Les deux par adresse (VAR a, b : Entier)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Passage de Tableau à une Action",
+        "question": "En algorithmique et en C, comment un tableau est-il transmis par défaut à une fonction ?",
+        "explanation": "Un tableau est toujours transmis par adresse (adresse de son premier élément T[0]).",
+        "choices": [
+            "Toujours par adresse (pointeur vers le premier élément)",
+            "Par copie intégrale de toutes les cases",
+            "Par valeur uniquement",
+            "Impossible de passer un tableau"
+        ],
+        "answer": "Toujours par adresse (pointeur vers le premier élément)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Signature de Fonction",
+        "question": "Qu'appelle-t-on la 'signature' ou 'prototype' d'une action paramétrée ?",
+        "explanation": "La combinaison de son nom, du nombre et types de ses paramètres et de son type de retour.",
+        "choices": [
+            "Son nom, la liste et le type de ses paramètres et son type de retour",
+            "Le code source complet de son corps",
+            "Sa vitesse d'exécution",
+            "L'auteur qui l'a écrite"
+        ],
+        "answer": "Son nom, la liste et le type de ses paramètres et son type de retour"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Procédure vs Fonction",
+        "question": "Quand faut-il choisir une Procédure plutôt qu'une Fonction ?",
+        "explanation": "Lorsqu'on doit modifier plusieurs variables sortantes ou réaliser une action d'affichage/E/S sans valeur de retour unique.",
+        "choices": [
+            "Lorsqu'on doit modifier plusieurs variables ou faire des E/S",
+            "Quand la vitesse est prioritaire",
+            "Quand il n'y a aucun paramètre",
+            "Toujours"
+        ],
+        "answer": "Lorsqu'on doit modifier plusieurs variables ou faire des E/S"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Pile d'Appel",
+        "question": "Quelle structure de données le système utilise-t-il pour gérer les empilements d'appels de fonctions et variables locales ?",
+        "explanation": "Le système d'exploitation et l'exécuteur utilisent une Pile d'Appel (Call Stack).",
+        "choices": [
+            "La Pile d'Appel (Call Stack)",
+            "Une File FIFO",
+            "Un Tableau 2D",
+            "Un Arbre binaire"
+        ],
+        "answer": "La Pile d'Appel (Call Stack)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Mot-clé Fonction",
+        "question": "Quelle est la syntaxe d'entête d'une fonction de calcul de carré d'un entier ?",
+        "explanation": "`Fonction Carre(x : Entier) : Entier;`.",
+        "choices": [
+            "Fonction Carre(x : Entier) : Entier;",
+            "Procedure Carre(x : Entier);",
+            "Fonction Carre(x);",
+            "Carre(x : Entier) -> Entier;"
+        ],
+        "answer": "Fonction Carre(x : Entier) : Entier;"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Modularité",
+        "question": "Quel est le principal avantage de la programmation modulaire avec fonctions ?",
+        "explanation": "La réutilisabilité du code, la lisibilité et la facilité de débogage ciblé.",
+        "choices": [
+            "Réutilisabilité, lisibilité et débogage simplifié",
+            "Augmentation du nombre de lignes",
+            "Suppression des variables",
+            "Rendre le code secret"
+        ],
+        "answer": "Réutilisabilité, lisibilité et débogage simplifié"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Transparence Référentielle",
+        "question": "Qu'est-ce qu'une fonction 'pure' (transparence référentielle) ?",
+        "explanation": "Une fonction sans effet de bord qui retourne TOUJOURS le même résultat pour les mêmes arguments.",
+        "choices": [
+            "Une fonction sans effet de bord retournant le même résultat pour les mêmes arguments",
+            "Une fonction écrite en C",
+            "Une fonction sans paramètre",
+            "Une fonction qui ne contient pas de boucles"
+        ],
+        "answer": "Une fonction sans effet de bord retournant le même résultat pour les mêmes arguments"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Appel de Fonction",
+        "question": "Où peut-on placer l'appel d'une fonction `Somme(a, b)` ?",
+        "explanation": "Dans toute expression de calcul, d'affectation ou d'affichage : `s := Somme(a, b);`.",
+        "choices": [
+            "Dans une expression ou une affectation `s := Somme(a, b);`",
+            "Uniquement seule sur une ligne",
+            "Dans la section Var",
+            "Uniquement dans une boucle"
+        ],
+        "answer": "Dans une expression ou une affectation `s := Somme(a, b);`"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Durée de Vie",
+        "question": "Quelle est la durée de vie d'une variable locale déclarée dans une fonction ?",
+        "explanation": "Sa durée de vie commence à l'entrée de la fonction et se termine dès que la fonction s'achève.",
+        "choices": [
+            "Du début à la fin de l'exécution de la fonction",
+            "Pendant toute la durée du programme",
+            "1 seconde",
+            "Jusqu'au prochain redémarrage"
+        ],
+        "answer": "Du début à la fin de l'exécution de la fonction"
+    }
+]

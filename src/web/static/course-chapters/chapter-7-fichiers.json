@@ -3,29 +3,29 @@
   "title": "Chapitre 7: Les Fichiers",
   "sections": [
     {
-      "title": "Pourquoi les fichiers ?",
-      "content": "Les fichiers assurent la persistance des données entre exécutions.\n\nIls sont utiles pour l'archivage, l'import/export et le traitement de lots."
+      "title": "1. Pourquoi les Fichiers ? (Persistance Mémoire)",
+      "content": "[[DEF]] Un **fichier** est une structure de données conservée sur un support de stockage **non-volatile** (Disque Dur, SSD).\n\n### Mémoire Volatile (RAM) vs Mémoire Persistante (Fichier)\n- **La Mémoire RAM (Variables & Tableaux)** : Ultra-rapide, mais totalement **effacée à la fermeture du programme** ou à l'extinction de l'ordinateur.\n- **Le Fichier Disque** : Permet de **sauvegarder durablement** les données entre plusieurs exécutions du programme, de partager des données entre applications et d'archiver des historiques."
     },
     {
-      "title": "Cycle de traitement",
-      "content": "Séquence obligatoire : `ouvrir` -> `lire/ecrire` -> `fermer`.\n\nNe pas fermer un fichier peut corrompre le flux de travail."
+      "title": "2. Organisation des Fichiers : Texte vs Binaire Typé",
+      "content": "En algorithmique, on distingue deux grandes catégories de fichiers selon l'organisation de leurs données :\n\n1. **Les Fichiers Texte (`Fichier de Chaine`)** :\n   - Contiennent des lignes de caractères lisibles par un humain (`.txt`, `.csv`).\n   - Idéaux pour la saisie utilisateur et la lisibilité direct dans un éditeur de texte.\n\n2. **Les Fichiers Binaires / Typés (`Fichier de Etudiant`)** :\n   - Contiennent des enregistrements complets écrits directement en binaire tel qu'ils existent en RAM.\n   - Idéaux pour la rapidité de traitement et la conservation de structures complexes sans conversion texte."
     },
     {
-      "title": "Exemple d'écriture",
-      "content": "Écriture simple d'une valeur entière dans un fichier.",
-      "code": "Algorithme GestionFichier;\nVar\n    f : Fichier;\n    n : Entier;\nDebut\n    f := ouvrir(\"scores.dat\", \"ecriture\");\n    n := 100;\n    ecrire(f, n);\n    fermer(f);\nFin."
+      "title": "3. Modes d'Accès aux Fichiers : Séquentiel vs Direct",
+      "content": "<div class=\"course-table-wrap\">\n<table class=\"course-table\">\n  <thead>\n    <tr>\n      <th>Mode d'Accès</th>\n      <th>Principe de Fonctionnement</th>\n      <th>Avantages & Inconvénients</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td><strong>Accès Séquentiel</strong></td>\n      <td>On lit/écrit les éléments un par un, du début vers la fin (comme une bande magnétique).</td>\n      <td>Simple, idéal pour parcourir et traiter tout le fichier. Impossible d'accéder directement à la case 500 sans lire les 499 premières.</td>\n    </tr>\n    <tr>\n      <td><strong>Accès Direct (Aléatoire)</strong></td>\n      <td>On se positionne instantanément sur le N-ième enregistrement via le pointeur de fichier (<code>Seek</code>).</td>\n      <td>Ultra-rapide pour la mise à jour d'un enregistrement précis. Exige des enregistrements de taille fixe.</td>\n    </tr>\n  </tbody>\n</table>\n</div>"
     },
     {
-      "title": "Lecture jusqu'à fin de fichier",
-      "content": "`fin(f)` indique si la fin du fichier est atteinte.\n\nSchéma classique : ouvrir, boucle tant que non fin, lire, traiter, fermer."
+      "title": "4. Le Cycle de Vie Obligatoire : Ouvrir ➔ Traiter ➔ Fermer",
+      "content": "Toute manipulation de fichier suit scrupuleusement ces 3 étapes :\n\n1. **Ouverture (`f := Ouvrir(nom_fichier, mode)`)** :\n   - Mode `\"Lecture\"` : Ouvre un fichier existant pour lire ses données.\n   - Mode `\"Écriture\"` : Crée un fichier neuf (écrase le contenu existant).\n   - Mode `\"Ajout\"` (Append) : Ouvre le fichier et se positionne à la fin pour ajouter de nouvelles données.\n2. **Traitement (`Lire(f, v)`, `Ecrire(f, v)`)** :\n   - On vérifie à chaque tour si la fin du fichier est atteinte grâce à la fonction **`FinFichier(f)`** (ou `EOF(f)`).\n3. **Fermeture (`Fermer(f)`)** :\n   - OBLIGATOIRE ! Libère les verrous système et force l'écriture physique des buffers sur le disque.",
+      "code": "Algorithme EcritureEtLectureFichier;\nVar\n    f : Fichier de Entier;\n    n, val : Entier;\nDebut\n    // 1. ÉCRITURE DE 5 NOMBRES DANS LE FICHIER\n    f := Ouvrir(\"scores.dat\", \"Écriture\");\n    Pour n := 1 a 5 Faire\n        Ecrire(f, n * 10);\n    Fin Pour;\n    Fermer(f); // Validation physique sur le disque\n\n    // 2. LECTURE SÉQUENTIELLE DU FICHIER\n    f := Ouvrir(\"scores.dat\", \"Lecture\");\n    TantQue (Non(FinFichier(f))) Faire\n        Lire(f, val);\n        Ecrire(\"Valeur lue sur disque : \", val);\n    Fin TantQue;\n    Fermer(f);\nFin."
     },
     {
-      "title": "Erreurs fréquentes",
-      "content": "- Mauvais mode d'ouverture.\n- Type lu différent du type écrit.\n- Oubli de `fermer`.\n- Fichier absent non géré.\n\nToujours prévoir des messages d'erreur explicites."
+      "title": "5. Pièges et Erreurs Classiques sur les Fichiers",
+      "content": "1. ❌ **Oublier de fermer le fichier (`Fermer(f)`)** : Les données restent bloquées dans les tampons RAM et ne sont pas enregistrées sur le disque !\n2. ❌ **Lire un fichier inexistant** : Tenter d'ouvrir en mode `\"Lecture\"` un fichier qui n'existe pas provoque un crash.\n3. ❌ **Boucle infinie sur `FinFichier(f)`** : Oublier l'instruction `Lire(f, v)` à l'intérieur de la boucle `TantQue`.\n4. ❌ **Incompatibilité de Type** : Tenter de lire un `Reel` dans un `Fichier de Entier`."
     },
     {
-      "title": "Mini-exercice",
-      "content": "Écrire les 10 premiers entiers dans un fichier, puis les relire pour calculer leur somme.\n\n### Extension\nFiltrer les enregistrements selon une condition (ex: moyenne >= 10)."
+      "title": "6. Exercices Pratiques du Chapitre 7",
+      "content": "<div class=\"course-exercise\">\n    <div class=\"course-exercise-title\"><i class=\"fas fa-file-alt\"></i> Exo 1 : Écriture et Lecture d'Entiers</div>\n    <p>Écrivez un algorithme qui remplit un fichier de 5 nombres entiers, puis le relit pour calculer leur somme.</p>\n    <button class=\"course-try-btn\" data-code=\"Algorithme ExoFichierSomme;\\nVar\\n    f : Fichier de Entier;\\n    i, val, s : Entier;\\nDebut\\n    f := Ouvrir('data.dat', 'Écriture');\\n    Pour i := 1 a 5 Faire Ecrire(f, i * 2); Fin Pour;\\n    Fermer(f);\\n    f := Ouvrir('data.dat', 'Lecture'); s := 0;\\n    TantQue (Non(FinFichier(f))) Faire Lire(f, val); s := s + val; Fin TantQue;\\n    Fermer(f); Ecrire('Somme du fichier = ', s);\\nFin.\">Lancer dans l'éditeur</button>\n    <details class=\"course-solution-details\"><summary>Voir la solution complète</summary>\n    <pre class=\"course-solution-code\">Algorithme ExoFichierSomme;\nVar\n    f : Fichier de Entier;\n    i, val, s : Entier;\nDebut\n    f := Ouvrir(\"data.dat\", \"Écriture\");\n    Pour i := 1 a 5 Faire\n        Ecrire(f, i * 2);\n    Fin Pour;\n    Fermer(f);\n\n    f := Ouvrir(\"data.dat\", \"Lecture\");\n    s := 0;\n    TantQue (Non(FinFichier(f))) Faire\n        Lire(f, val);\n        s := s + val;\n    Fin TantQue;\n    Fermer(f);\n\n    Ecrire(\"Somme des entiers du fichier = \", s);\nFin.</pre>\n<button class=\"course-solution-run\" data-code=\"Algorithme ExoFichierSomme;&#10;Var&#10;    f : Fichier de Entier;&#10;    i, val, s : Entier;&#10;Debut&#10;    f := Ouvrir('data.dat', 'Écriture');&#10;    Pour i := 1 a 5 Faire Ecrire(f, i * 2); Fin Pour;&#10;    Fermer(f);&#10;    f := Ouvrir('data.dat', 'Lecture'); s := 0;&#10;    TantQue (Non(FinFichier(f))) Faire Lire(f, val); s := s + val; Fin TantQue;&#10;    Fermer(f); Ecrire('Somme du fichier = ', s);&#10;Fin.\">Exécuter cette solution</button>\n    </details>\n</div>"
     }
   ]
 }

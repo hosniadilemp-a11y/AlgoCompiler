@@ -1,132 +1,392 @@
-[
-    {
-        "difficulty":  "Easy",
-        "concept":  "Définition",
-        "question":  "Qu\u0027est-ce qu\u0027une chaîne de caractères ?",
-        "explanation":  "Un tableau de caractères. Reponse correcte: Une suite de caractères (Type structuré). Ici, la notion \u0027Définition\u0027 s\u0027applique: une chaine manipule du texte: concatenation, longueur et comparaison se font sur des caracteres, pas sur des valeurs numeriques.",
-        "choices":  [
-                        "Une suite de caractères (Type structuré)",
-                        "Un nombre décimal",
-                        "Un seul caractère",
-                        "Une adresse mémoire"
-                    ],
-        "answer":  "Une suite de caractères (Type structuré)"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Conventions",
-        "question":  "Les chaînes sont souvent entourées de ?",
-        "explanation":  "Guillemets doubles. Reponse correcte: Guillemets (\"). Ici, la notion \u0027Conventions\u0027 s\u0027applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
-        "choices":  [
-                        "Guillemets (\")",
-                        "Apostrophes (\u0027)",
-                        "Rien",
-                        "Parenthèses"
-                    ],
-        "answer":  "Guillemets (\")"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Opérateur",
-        "question":  "L\u0027opération de concaténation sert à ?",
-        "explanation":  "Coller deux chaînes. Reponse correcte: Joindre deux chaînes bout à bout. Ici, la notion \u0027Opérateur\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "Joindre deux chaînes bout à bout",
-                        "Soustraire deux chaînes",
-                        "Comparer deux chaînes",
-                        "Diviser une chaîne"
-                    ],
-        "answer":  "Joindre deux chaînes bout à bout"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Taille",
-        "question":  "Fonction classique pour avoir la longueur ?",
-        "explanation":  "Longueur() Reponse correcte: Longueur(Ch). Ici, la notion \u0027Taille\u0027 s\u0027applique: le resultat depend du nombre reel d\u0027iterations et du moment ou la condition est evaluee.",
-        "choices":  [
-                        "Longueur(Ch)",
-                        "Taille(Ch)",
-                        "Nb(Ch)",
-                        "Size(Ch)"
-                    ],
-        "answer":  "Longueur(Ch)"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Comparaison",
-        "question":  "Si \u0027A\u0027 \u003c \u0027B\u0027, alors \u0027AA\u0027 \u003c \u0027AB\u0027 ?",
-        "explanation":  "Ordre lexicographique. Reponse correcte: Vrai, ordre lexicographique. Ici, la notion \u0027Comparaison\u0027 s\u0027applique: une condition execute une branche precise selon la valeur booleenne du test.",
-        "choices":  [
-                        "Vrai, ordre lexicographique",
-                        "Faux, basé sur la longueur",
-                        "Cela dépend de la langue",
-                        "Erreur de syntaxe"
-                    ],
-        "answer":  "Vrai, ordre lexicographique"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Accès",
-        "question":  "Comment accéder au 3ème caractère de Ch ?",
-        "explanation":  "Ch[3] Reponse correcte: Ch[3]. Ici, la notion \u0027Accès\u0027 s\u0027applique: une chaine manipule du texte: concatenation, longueur et comparaison se font sur des caracteres, pas sur des valeurs numeriques.",
-        "choices":  [
-                        "Ch[3]",
-                        "Ch-\u003e3",
-                        "Ch.3",
-                        "Get(Ch, 3)"
-                    ],
-        "answer":  "Ch[3]"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Caractère de fin",
-        "question":  "En C, une chaîne se termine par ?",
-        "explanation":  "Caractère nul. Reponse correcte: \\0 (Caractère nul). Ici, la notion \u0027Caractère de fin\u0027 s\u0027applique: une chaine manipule du texte: concatenation, longueur et comparaison se font sur des caracteres, pas sur des valeurs numeriques.",
-        "choices":  [
-                        "\\0 (Caractère nul)",
-                        "\\n",
-                        "Un espace",
-                        "Un point"
-                    ],
-        "answer":  "\\0 (Caractère nul)"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Sous-chaîne",
-        "question":  "Extraire une partie d\u0027une chaîne est une opération de ?",
-        "explanation":  "Sous-chaîne. Reponse correcte: Extraction de sous-chaîne. Ici, la notion \u0027Sous-chaîne\u0027 s\u0027applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
-        "choices":  [
-                        "Extraction de sous-chaîne",
-                        "Concaténation",
-                        "Division",
-                        "Soustraction"
-                    ],
-        "answer":  "Extraction de sous-chaîne"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Typage",
-        "question":  "Différence entre \u0027A\u0027 and \"A\" ?",
-        "explanation":  "Caractère vs Chaîne. Reponse correcte: Caractère vs Chaîne (Tableau). Ici, la notion \u0027Typage\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "Caractère vs Chaîne (Tableau)",
-                        "Valeur numérique vs Texte",
-                        "Aucune différence",
-                        "Différence de police"
-                    ],
-        "answer":  "Caractère vs Chaîne (Tableau)"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Immutabilité",
-        "question":  "Dans beaucoup de langages, les chaînes sont ?",
-        "explanation":  "Immuables en mémoire. Reponse correcte: Immutables (non modifiables directement). Ici, la notion \u0027Immutabilité\u0027 s\u0027applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
-        "choices":  [
-                        "Immutables (non modifiables directement)",
-                        "Totalement dynamiques",
-                        "Toujours modifiables",
-                        "Plus rapides que les entiers"
-                    ],
-        "answer":  "Immutables (non modifiables directement)"
-    }
-]
+[
+    {
+        "difficulty": "Easy",
+        "concept": "Définition",
+        "question": "Qu'est-ce qu'une chaîne de caractères ?",
+        "explanation": "Un tableau de caractères. Reponse correcte: Une suite de caractères (Type structuré). Ici, la notion 'Définition' s'applique: une chaine manipule du texte: concatenation, longueur et comparaison se font sur des caracteres, pas sur des valeurs numeriques.",
+        "choices": [
+            "Une suite de caractères (Type structuré)",
+            "Un nombre décimal",
+            "Un seul caractère",
+            "Une adresse mémoire"
+        ],
+        "answer": "Une suite de caractères (Type structuré)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Conventions",
+        "question": "Les chaînes sont souvent entourées de ?",
+        "explanation": "Guillemets doubles. Reponse correcte: Guillemets (\"). Ici, la notion 'Conventions' s'applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
+        "choices": [
+            "Guillemets (\")",
+            "Apostrophes (')",
+            "Rien",
+            "Parenthèses"
+        ],
+        "answer": "Guillemets (\")"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Opérateur",
+        "question": "L'opération de concaténation sert à ?",
+        "explanation": "Coller deux chaînes. Reponse correcte: Joindre deux chaînes bout à bout. Ici, la notion 'Opérateur' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "Joindre deux chaînes bout à bout",
+            "Soustraire deux chaînes",
+            "Comparer deux chaînes",
+            "Diviser une chaîne"
+        ],
+        "answer": "Joindre deux chaînes bout à bout"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Taille",
+        "question": "Fonction classique pour avoir la longueur ?",
+        "explanation": "Longueur() Reponse correcte: Longueur(Ch). Ici, la notion 'Taille' s'applique: le resultat depend du nombre reel d'iterations et du moment ou la condition est evaluee.",
+        "choices": [
+            "Longueur(Ch)",
+            "Taille(Ch)",
+            "Nb(Ch)",
+            "Size(Ch)"
+        ],
+        "answer": "Longueur(Ch)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Comparaison",
+        "question": "Si 'A' < 'B', alors 'AA' < 'AB' ?",
+        "explanation": "Ordre lexicographique. Reponse correcte: Vrai, ordre lexicographique. Ici, la notion 'Comparaison' s'applique: une condition execute une branche precise selon la valeur booleenne du test.",
+        "choices": [
+            "Vrai, ordre lexicographique",
+            "Faux, basé sur la longueur",
+            "Cela dépend de la langue",
+            "Erreur de syntaxe"
+        ],
+        "answer": "Vrai, ordre lexicographique"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Accès",
+        "question": "Comment accéder au 3ème caractère de Ch ?",
+        "explanation": "Ch[3] Reponse correcte: Ch[3]. Ici, la notion 'Accès' s'applique: une chaine manipule du texte: concatenation, longueur et comparaison se font sur des caracteres, pas sur des valeurs numeriques.",
+        "choices": [
+            "Ch[3]",
+            "Ch->3",
+            "Ch.3",
+            "Get(Ch, 3)"
+        ],
+        "answer": "Ch[3]"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Caractère de fin",
+        "question": "En C, une chaîne se termine par ?",
+        "explanation": "Caractère nul. Reponse correcte: \\0 (Caractère nul). Ici, la notion 'Caractère de fin' s'applique: une chaine manipule du texte: concatenation, longueur et comparaison se font sur des caracteres, pas sur des valeurs numeriques.",
+        "choices": [
+            "\\0 (Caractère nul)",
+            "\\n",
+            "Un espace",
+            "Un point"
+        ],
+        "answer": "\\0 (Caractère nul)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Sous-chaîne",
+        "question": "Extraire une partie d'une chaîne est une opération de ?",
+        "explanation": "Sous-chaîne. Reponse correcte: Extraction de sous-chaîne. Ici, la notion 'Sous-chaîne' s'applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
+        "choices": [
+            "Extraction de sous-chaîne",
+            "Concaténation",
+            "Division",
+            "Soustraction"
+        ],
+        "answer": "Extraction de sous-chaîne"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Typage",
+        "question": "Différence entre 'A' and \"A\" ?",
+        "explanation": "Caractère vs Chaîne. Reponse correcte: Caractère vs Chaîne (Tableau). Ici, la notion 'Typage' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "Caractère vs Chaîne (Tableau)",
+            "Valeur numérique vs Texte",
+            "Aucune différence",
+            "Différence de police"
+        ],
+        "answer": "Caractère vs Chaîne (Tableau)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Immutabilité",
+        "question": "Dans beaucoup de langages, les chaînes sont ?",
+        "explanation": "Immuables en mémoire. Reponse correcte: Immutables (non modifiables directement). Ici, la notion 'Immutabilité' s'applique: la logique booleenne suit des tables de verite strictes (ET, OU, NON), sans interpretation ambigue.",
+        "choices": [
+            "Immutables (non modifiables directement)",
+            "Totalement dynamiques",
+            "Toujours modifiables",
+            "Plus rapides que les entiers"
+        ],
+        "answer": "Immutables (non modifiables directement)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Sentinelle",
+        "question": "En langage C et systèmes bas niveau, quel caractère marque la fin d'une chaîne ?",
+        "explanation": "La sentinelle '\\0' (octet nul, code ASCII 0) marque la fin d'une chaîne de caractères.",
+        "choices": [
+            "'\\0' (octet nul)",
+            "' ' (espace)",
+            "'\\n' (retour ligne)",
+            "'.' (point)"
+        ],
+        "answer": "'\\0' (octet nul)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Code ASCII Chiffre",
+        "question": "Quel est le code ASCII du caractère chiffre '0' ?",
+        "explanation": "Le code ASCII de '0' est 48 (colonne 3, ligne 0 : 3 * 16 + 0 = 48).",
+        "choices": [
+            "48",
+            "0",
+            "65",
+            "32"
+        ],
+        "answer": "48"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Formule Table ASCII",
+        "question": "Si un caractère se situe à la colonne C (0-7) et ligne L (0-15) de la table ASCII, quel est son code ?",
+        "explanation": "La formule formelle est Code = (C * 16) + L.",
+        "choices": [
+            "(C * 16) + L",
+            "(L * 16) + C",
+            "C + L",
+            "C * L"
+        ],
+        "answer": "(C * 16) + L"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Conversion Casse",
+        "question": "Quelle est la différence numérique entre le code ASCII de 'a' (97) et 'A' (65) ?",
+        "explanation": "97 - 65 = 32. L'écart entre majuscule et minuscule est de 32.",
+        "choices": [
+            "32",
+            "10",
+            "26",
+            "16"
+        ],
+        "answer": "32"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Comparaison ASCII",
+        "question": "Quelle est la valeur de l'expression booleenne ('a' > 'Z') en ordre ASCII ?",
+        "explanation": "'a' a le code 97 et 'Z' a le code 90. Comme 97 > 90, l'expression est VRAI.",
+        "choices": [
+            "Vrai",
+            "Faux",
+            "Erreur de syntaxe",
+            "Indéterminé"
+        ],
+        "answer": "Vrai"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Calcul de Chiffre",
+        "question": "Comment convertir un caractère numérique '5' en valeur entière 5 en algorithmique ?",
+        "explanation": "En soustrayant le code de '0' : Ord('5') - Ord('0') = 53 - 48 = 5.",
+        "choices": [
+            "Ord(c) - Ord('0')",
+            "Ord(c) + 32",
+            "Val(c) * 10",
+            "Chr(c)"
+        ],
+        "answer": "Ord(c) - Ord('0')"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Fonction Longueur",
+        "question": "Que retourne l'appel `Longueur(\"Algorithme\")` ?",
+        "explanation": "La fonction `Longueur` compte le nombre de caractères (10 caractères dans \"Algorithme\").",
+        "choices": [
+            "10",
+            "11",
+            "9",
+            "8"
+        ],
+        "answer": "10"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Concaténation",
+        "question": "Quel est le résultat de `Concat(\"ENP\", \"EI\")` ?",
+        "explanation": "La concaténation assemble les deux chaînes pour former \"ENPEI\".",
+        "choices": [
+            "\"ENPEI\"",
+            "\"ENP EI\"",
+            "\"ENPEI\\0\"",
+            "\"ENP\""
+        ],
+        "answer": "\"ENPEI\""
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Comparaison Lexicographique",
+        "question": "Parmi les chaînes suivantes, laquelle est la plus PETITE selon l'ordre ASCII : \"ALGO\", \"Alpha\", \"algo\" ?",
+        "explanation": "Les majuscules ('A'=65, 'L'=76) viennent avant les minuscules ('a'=97). Pour \"ALGO\" et \"Alpha\", le 2ème caractère 'L' (76) < 'l' (108). Donc \"ALGO\" est la plus petite.",
+        "choices": [
+            "\"ALGO\"",
+            "\"Alpha\"",
+            "\"algo\"",
+            "Elles sont égales"
+        ],
+        "answer": "\"ALGO\""
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Guillemets",
+        "question": "Quelle est la convention entre 'A' et \"A\" en algorithmique ?",
+        "explanation": "'A' entre guillemets simples est un Caractere (1 octet), \"A\" entre guillemets doubles est une Chaine.",
+        "choices": [
+            "'A' est un Caractere, \"A\" est une Chaine",
+            "'A' et \"A\" sont identiques",
+            "'A' est un nombre, \"A\" est un texte",
+            "'A' n'est pas autorisé"
+        ],
+        "answer": "'A' est un Caractere, \"A\" est une Chaine"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Espace ASCII",
+        "question": "Quel est le code ASCII du caractère espace ' ' ?",
+        "explanation": "Le code ASCII du caractère espace est 32.",
+        "choices": [
+            "32",
+            "0",
+            "10",
+            "13"
+        ],
+        "answer": "32"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Test Palindrome",
+        "question": "Quelle condition vérifie qu'un mot de taille N est un palindrome pour la i-ème lettre (de 1 à N/2) ?",
+        "explanation": "La i-ème lettre depuis le début mot[i] doit être égale à la i-ème lettre depuis la fin mot[N - i + 1].",
+        "choices": [
+            "mot[i] = mot[N - i + 1]",
+            "mot[i] = mot[i + 1]",
+            "mot[i] = mot[N - i]",
+            "mot[i] = mot[1]"
+        ],
+        "answer": "mot[i] = mot[N - i + 1]"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Chaîne Vide",
+        "question": "Quelle est la longueur de la chaîne vide \"\" ?",
+        "explanation": "La chaîne vide ne contient aucun caractère, sa longueur est 0.",
+        "choices": [
+            "0",
+            "1",
+            "NIL",
+            "-1"
+        ],
+        "answer": "0"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Conversion Majuscule",
+        "question": "Si c est un caractère minuscule ('a'..'z'), quelle opération donne son équivalent majuscule ?",
+        "explanation": "Chr(Ord(c) - 32) convertit le code d'une minuscule vers sa majuscule.",
+        "choices": [
+            "Chr(Ord(c) - 32)",
+            "Chr(Ord(c) + 32)",
+            "Ord(c) - 32",
+            "c - 'A'"
+        ],
+        "answer": "Chr(Ord(c) - 32)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Recherche de Sous-chaîne",
+        "question": "Quelle est la complexité pire cas de la recherche d'un motif de taille M dans un texte de taille N (méthode naïve) ?",
+        "explanation": "La méthode naïve compare le motif à chaque position possible du texte : O(N * M).",
+        "choices": [
+            "O(N * M)",
+            "O(N + M)",
+            "O(N log M)",
+            "O(1)"
+        ],
+        "answer": "O(N * M)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Fonction Chr",
+        "question": "Que retourne la fonction `Chr(65)` ?",
+        "explanation": "La fonction `Chr(code)` retourne le caractère correspondant au code ASCII transmis (65 -> 'A').",
+        "choices": [
+            "Le caractère 'A'",
+            "Le nombre 65",
+            "La chaîne \"65\"",
+            "Une erreur"
+        ],
+        "answer": "Le caractère 'A'"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Fonction Ord",
+        "question": "Que retourne la fonction `Ord('B')` ?",
+        "explanation": "La fonction `Ord(caractere)` retourne le code ASCII ordinal du caractère ('B' -> 66).",
+        "choices": [
+            "66",
+            "65",
+            "2",
+            "'b'"
+        ],
+        "answer": "66"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Compteur de Mots",
+        "question": "Dans une chaîne sans espaces multiples, comment compter le nombre de mots ?",
+        "explanation": "Le nombre de mots est égal au nombre d'espaces + 1 (pour une chaîne non vide).",
+        "choices": [
+            "Nombre d'espaces + 1",
+            "Nombre de lettres div 5",
+            "Longueur de la chaîne",
+            "Nombre de voyelles"
+        ],
+        "answer": "Nombre d'espaces + 1"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Accès Caractère",
+        "question": "Comment accéder au 3ème caractère de la chaîne `ch` ?",
+        "explanation": "Par indexation directe : `ch[3]` (ou `ch[2]` selon l'index d'origine).",
+        "choices": [
+            "ch[3]",
+            "ch.3",
+            "Caractere(ch, 3)",
+            "ch(3)"
+        ],
+        "answer": "ch[3]"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Caractère Chiffre",
+        "question": "Quelle condition booléenne teste si un caractère c est un chiffre numérique ?",
+        "explanation": "Le test vérifie si son code ASCII se trouve dans la plage '0'..'9' : (c >= '0') Et (c <= '9').",
+        "choices": [
+            "(c >= '0') Et (c <= '9')",
+            "(c >= 48) Ou (c <= 57)",
+            "c = Chiffre",
+            "EstEntier(c)"
+        ],
+        "answer": "(c >= '0') Et (c <= '9')"
+    }
+]

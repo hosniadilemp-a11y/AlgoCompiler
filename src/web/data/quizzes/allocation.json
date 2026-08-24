@@ -1,132 +1,392 @@
-[
-    {
-        "difficulty":  "Easy",
-        "concept":  "Définition",
-        "question":  "Qu\u0027est-ce que l\u0027allocation dynamique ?",
-        "explanation":  "Réservez à l\u0027exécution. Reponse correcte: Réservation de mémoire pendant l\u0027exécution. Ici, la notion \u0027Définition\u0027 s\u0027applique: l\u0027allocation dynamique reserve de la memoire a l\u0027execution, et chaque zone allouee doit etre correctement liberee.",
-        "choices":  [
-                        "Réservation de mémoire pendant l\u0027exécution",
-                        "Réservation lors de la compilation",
-                        "Une façon de copier des fichiers",
-                        "Un type de boucle"
-                    ],
-        "answer":  "Réservation de mémoire pendant l\u0027exécution"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "Opération",
-        "question":  "Instruction pour allouer en Algo ?",
-        "explanation":  "allouer(P) Reponse correcte: allouer(P). Ici, la notion \u0027Opération\u0027 s\u0027applique: l\u0027allocation dynamique reserve de la memoire a l\u0027execution, et chaque zone allouee doit etre correctement liberee.",
-        "choices":  [
-                        "allouer(P)",
-                        "nouveau()",
-                        "creer()",
-                        "malloc()"
-                    ],
-        "answer":  "allouer(P)"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Libération",
-        "question":  "Si on ne libère pas la mémoire...",
-        "explanation":  "Fuite de mémoire. Reponse correcte: Fuite de mémoire (Memory Leak). Ici, la notion \u0027Libération\u0027 s\u0027applique: une condition execute une branche precise selon la valeur booleenne du test.",
-        "choices":  [
-                        "Fuite de mémoire (Memory Leak)",
-                        "Erreur de syntaxe",
-                        "Le PC s\u0027éteint",
-                        "Le programme s\u0027accélère"
-                    ],
-        "answer":  "Fuite de mémoire (Memory Leak)"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Zone de mémoire",
-        "question":  "Où se fait l\u0027allocation dynamique ?",
-        "explanation":  "Dans le Tas (Heap). Reponse correcte: Dans le Tas (Heap). Ici, la notion \u0027Zone de mémoire\u0027 s\u0027applique: l\u0027allocation dynamique reserve de la memoire a l\u0027execution, et chaque zone allouee doit etre correctement liberee.",
-        "choices":  [
-                        "Dans le Tas (Heap)",
-                        "Dans la Pile (Stack)",
-                        "Sur le disque dur",
-                        "Dans le registre CPU"
-                    ],
-        "answer":  "Dans le Tas (Heap)"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Pointeur",
-        "question":  "Que contient un pointeur après libération si non remis à NIL ?",
-        "explanation":  "Un pointeur fantôme (Dangling pointer). Reponse correcte: Un pointeur fantôme (Dangling pointer). Ici, la notion \u0027Pointeur\u0027 s\u0027applique: une liste chainee se manipule en ajustant correctement les pointeurs, sinon on perd des maillons ou on cree des fuites memoire.",
-        "choices":  [
-                        "Un pointeur fantôme (Dangling pointer)",
-                        "Zéro",
-                        "NIL",
-                        "La valeur 999"
-                    ],
-        "answer":  "Un pointeur fantôme (Dangling pointer)"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Pointeur",
-        "question":  "L\u0027opérateur ^ sert à ?",
-        "explanation":  "Déréférencer. Reponse correcte: Accéder à la valeur pointée (Déréférencement). Ici, la notion \u0027Pointeur\u0027 s\u0027applique: une liste chainee se manipule en ajustant correctement les pointeurs, sinon on perd des maillons ou on cree des fuites memoire.",
-        "choices":  [
-                        "Accéder à la valeur pointée (Déréférencement)",
-                        "Adresser la variable",
-                        "Multiplier par deux",
-                        "Calculer une puissance"
-                    ],
-        "answer":  "Accéder à la valeur pointée (Déréférencement)"
-    },
-    {
-        "difficulty":  "Easy",
-        "concept":  "NIL",
-        "question":  "Que vaut un pointeur non initialisé ou vide ?",
-        "explanation":  "NIL ou NULL. Reponse correcte: NIL (NULL). Ici, la notion \u0027NIL\u0027 s\u0027applique: une liste chainee se manipule en ajustant correctement les pointeurs, sinon on perd des maillons ou on cree des fuites memoire.",
-        "choices":  [
-                        "NIL (NULL)",
-                        "Zéro",
-                        "Un nombre aléatoire",
-                        "1"
-                    ],
-        "answer":  "NIL (NULL)"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Tableaux Dynamiques",
-        "question":  "Un tableau dynamique est géré via ?",
-        "explanation":  "Pointeurs et allocation. Reponse correcte: Un pointeur sur le premier élément alloué. Ici, la notion \u0027Tableaux Dynamiques\u0027 s\u0027applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d\u0027indexation.",
-        "choices":  [
-                        "Un pointeur sur le premier élément alloué",
-                        "Un tableau classique sans limite",
-                        "Un fichier texte",
-                        "Une variable globale"
-                    ],
-        "answer":  "Un pointeur sur le premier élément alloué"
-    },
-    {
-        "difficulty":  "Medium",
-        "concept":  "Taille",
-        "question":  "L\u0027opérateur taille() sert à ?",
-        "explanation":  "Taille de la donnée (sizeof). Reponse correcte: Connaître la taille en octets d\u0027un type. Ici, la notion \u0027Taille\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "Connaître la taille en octets d\u0027un type",
-                        "Compter le nombre de variables",
-                        "Mesurer la vitesse du CPU",
-                        "Allouer de la mémoire"
-                    ],
-        "answer":  "Connaître la taille en octets d\u0027un type"
-    },
-    {
-        "difficulty":  "Hard",
-        "concept":  "Erreur",
-        "question":  "Tentative d\u0027accès à P^ alors que P = NIL ?",
-        "explanation":  "Segfault. Reponse correcte: Erreur violente (Segmentation Fault). Ici, la notion \u0027Erreur\u0027 s\u0027applique: on applique ici la definition du concept demande et la regle de calcul associee.",
-        "choices":  [
-                        "Erreur violente (Segmentation Fault)",
-                        "P^ vaut zéro",
-                        "Le programme s\u0027arrête proprement",
-                        "Il crée la variable"
-                    ],
-        "answer":  "Erreur violente (Segmentation Fault)"
-    }
-]
+[
+    {
+        "difficulty": "Easy",
+        "concept": "Définition",
+        "question": "Qu'est-ce que l'allocation dynamique ?",
+        "explanation": "Réservez à l'exécution. Reponse correcte: Réservation de mémoire pendant l'exécution. Ici, la notion 'Définition' s'applique: l'allocation dynamique reserve de la memoire a l'execution, et chaque zone allouee doit etre correctement liberee.",
+        "choices": [
+            "Réservation de mémoire pendant l'exécution",
+            "Réservation lors de la compilation",
+            "Une façon de copier des fichiers",
+            "Un type de boucle"
+        ],
+        "answer": "Réservation de mémoire pendant l'exécution"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Opération",
+        "question": "Instruction pour allouer en Algo ?",
+        "explanation": "allouer(P) Reponse correcte: allouer(P). Ici, la notion 'Opération' s'applique: l'allocation dynamique reserve de la memoire a l'execution, et chaque zone allouee doit etre correctement liberee.",
+        "choices": [
+            "allouer(P)",
+            "nouveau()",
+            "creer()",
+            "malloc()"
+        ],
+        "answer": "allouer(P)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Libération",
+        "question": "Si on ne libère pas la mémoire...",
+        "explanation": "Fuite de mémoire. Reponse correcte: Fuite de mémoire (Memory Leak). Ici, la notion 'Libération' s'applique: une condition execute une branche precise selon la valeur booleenne du test.",
+        "choices": [
+            "Fuite de mémoire (Memory Leak)",
+            "Erreur de syntaxe",
+            "Le PC s'éteint",
+            "Le programme s'accélère"
+        ],
+        "answer": "Fuite de mémoire (Memory Leak)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Zone de mémoire",
+        "question": "Où se fait l'allocation dynamique ?",
+        "explanation": "Dans le Tas (Heap). Reponse correcte: Dans le Tas (Heap). Ici, la notion 'Zone de mémoire' s'applique: l'allocation dynamique reserve de la memoire a l'execution, et chaque zone allouee doit etre correctement liberee.",
+        "choices": [
+            "Dans le Tas (Heap)",
+            "Dans la Pile (Stack)",
+            "Sur le disque dur",
+            "Dans le registre CPU"
+        ],
+        "answer": "Dans le Tas (Heap)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Pointeur",
+        "question": "Que contient un pointeur après libération si non remis à NIL ?",
+        "explanation": "Un pointeur fantôme (Dangling pointer). Reponse correcte: Un pointeur fantôme (Dangling pointer). Ici, la notion 'Pointeur' s'applique: une liste chainee se manipule en ajustant correctement les pointeurs, sinon on perd des maillons ou on cree des fuites memoire.",
+        "choices": [
+            "Un pointeur fantôme (Dangling pointer)",
+            "Zéro",
+            "NIL",
+            "La valeur 999"
+        ],
+        "answer": "Un pointeur fantôme (Dangling pointer)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Pointeur",
+        "question": "L'opérateur ^ sert à ?",
+        "explanation": "Déréférencer. Reponse correcte: Accéder à la valeur pointée (Déréférencement). Ici, la notion 'Pointeur' s'applique: une liste chainee se manipule en ajustant correctement les pointeurs, sinon on perd des maillons ou on cree des fuites memoire.",
+        "choices": [
+            "Accéder à la valeur pointée (Déréférencement)",
+            "Adresser la variable",
+            "Multiplier par deux",
+            "Calculer une puissance"
+        ],
+        "answer": "Accéder à la valeur pointée (Déréférencement)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "NIL",
+        "question": "Que vaut un pointeur non initialisé ou vide ?",
+        "explanation": "NIL ou NULL. Reponse correcte: NIL (NULL). Ici, la notion 'NIL' s'applique: une liste chainee se manipule en ajustant correctement les pointeurs, sinon on perd des maillons ou on cree des fuites memoire.",
+        "choices": [
+            "NIL (NULL)",
+            "Zéro",
+            "Un nombre aléatoire",
+            "1"
+        ],
+        "answer": "NIL (NULL)"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Tableaux Dynamiques",
+        "question": "Un tableau dynamique est géré via ?",
+        "explanation": "Pointeurs et allocation. Reponse correcte: Un pointeur sur le premier élément alloué. Ici, la notion 'Tableaux Dynamiques' s'applique: un tableau offre un acces par indice et impose de respecter les bornes et la logique d'indexation.",
+        "choices": [
+            "Un pointeur sur le premier élément alloué",
+            "Un tableau classique sans limite",
+            "Un fichier texte",
+            "Une variable globale"
+        ],
+        "answer": "Un pointeur sur le premier élément alloué"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Taille",
+        "question": "L'opérateur taille() sert à ?",
+        "explanation": "Taille de la donnée (sizeof). Reponse correcte: Connaître la taille en octets d'un type. Ici, la notion 'Taille' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "Connaître la taille en octets d'un type",
+            "Compter le nombre de variables",
+            "Mesurer la vitesse du CPU",
+            "Allouer de la mémoire"
+        ],
+        "answer": "Connaître la taille en octets d'un type"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Erreur",
+        "question": "Tentative d'accès à P^ alors que P = NIL ?",
+        "explanation": "Segfault. Reponse correcte: Erreur violente (Segmentation Fault). Ici, la notion 'Erreur' s'applique: on applique ici la definition du concept demande et la regle de calcul associee.",
+        "choices": [
+            "Erreur violente (Segmentation Fault)",
+            "P^ vaut zéro",
+            "Le programme s'arrête proprement",
+            "Il crée la variable"
+        ],
+        "answer": "Erreur violente (Segmentation Fault)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Notion Pointeur",
+        "question": "Qu'est-ce qu'un pointeur en mémoire RAM ?",
+        "explanation": "Un pointeur est une variable qui contient l'adresse mémoire d'une autre variable.",
+        "choices": [
+            "Une variable contenant une adresse mémoire",
+            "Un nombre entier positif",
+            "Un tableau dynamique",
+            "Une instruction de boucle"
+        ],
+        "answer": "Une variable contenant une adresse mémoire"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Déclaration Pointeur",
+        "question": "Comment déclare-t-on un pointeur p vers un entier en algorithmique ?",
+        "explanation": "La syntaxe du cours est `p : ↑Entier;` (ou `p : ^Entier;`).",
+        "choices": [
+            "p : ↑Entier;",
+            "p : Pointeur(Entier);",
+            "p : &Entier;",
+            "p = new Entier;"
+        ],
+        "answer": "p : ↑Entier;"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Prise d'Adresse",
+        "question": "Si x est une variable entière, quelle opération extrait son adresse mémoire pour l'affecter à p ?",
+        "explanation": "L'opérateur d'adresse `&` extrait l'adresse : `p := &x;`.",
+        "choices": [
+            "p := &x;",
+            "p := x↑;",
+            "p := Allouer(x);",
+            "p := *x;"
+        ],
+        "answer": "p := &x;"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Déréférencement",
+        "question": "Que signifie la notation `p↑` (ou `*p`) ?",
+        "explanation": "Elle déréférence le pointeur, c'est-à-dire qu'elle accède à la valeur stockée à l'adresse pointée par p.",
+        "choices": [
+            "Accéder à la valeur située à l'adresse p",
+            "Multiplier p par lui-même",
+            "Libérer la mémoire de p",
+            "Augmenter l'adresse de p"
+        ],
+        "answer": "Accéder à la valeur située à l'adresse p"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Valeur NIL",
+        "question": "Que représente la valeur spéciale `NIL` (ou `NULL`) pour un pointeur ?",
+        "explanation": "NIL indique que le pointeur ne pointe vers aucun emplacement mémoire valide (pointeur nul).",
+        "choices": [
+            "Le pointeur ne pointe sur aucune adresse valide",
+            "L'adresse zéro de la ROM",
+            "Une valeur entière valant -1",
+            "Une erreur système"
+        ],
+        "answer": "Le pointeur ne pointe sur aucune adresse valide"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Segmentation Fault",
+        "question": "Que se passe-t-il si l'on tente d'exécuter `p↑ := 10;` alors que `p = NIL` ?",
+        "explanation": "Le déréférencement d'un pointeur NIL provoque un crash mémoire appelé Segmentation Fault (Access Violation).",
+        "choices": [
+            "Crash du programme (Segmentation Fault)",
+            "Le programme ignore l'instruction",
+            "p prend automatiquement une nouvelle adresse",
+            "10 est stocké dans la variable NIL"
+        ],
+        "answer": "Crash du programme (Segmentation Fault)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Primitive Allouer",
+        "question": "Que fait l'instruction `Allouer(p)` ?",
+        "explanation": "Elle réserve un bloc mémoire en RAM dynamique de la taille du type pointé et stocke son adresse dans p.",
+        "choices": [
+            "Elle réserve un bloc mémoire dynamique et affecte son adresse à p",
+            "Elle détruit la variable p",
+            "Elle remet p à zéro",
+            "Elle affiche l'adresse de p"
+        ],
+        "answer": "Elle réserve un bloc mémoire dynamique et affecte son adresse à p"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Primitive Liberer",
+        "question": "Que fait l'instruction `Liberer(p)` ?",
+        "explanation": "Elle restitue le bloc mémoire pointé par p au système pour réutilisation ultérieure.",
+        "choices": [
+            "Elle restitue la mémoire pointée par p au système",
+            "Elle efface le nom de la variable p",
+            "Elle met la valeur 0 dans p↑",
+            "Elle ferme le programme"
+        ],
+        "answer": "Elle restitue la mémoire pointée par p au système"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Fuite Mémoire",
+        "question": "Qu'est-ce qu'une 'Fuite Mémoire' (Memory Leak) ?",
+        "explanation": "C'est l'omission de liberer un bloc mémoire avant de perdre l'unique pointeur qui y menait, la RAM restant bloquée.",
+        "choices": [
+            "Un bloc mémoire dynamique non libéré qui devient inaccessible",
+            "Un virus qui lit les variables",
+            "Une erreur de syntaxe à la compilation",
+            "Une pile qui déborde"
+        ],
+        "answer": "Un bloc mémoire dynamique non libéré qui devient inaccessible"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Dangling Pointer",
+        "question": "Qu'est-ce qu'un 'Pointeur Pendouillant' (Dangling Pointer) ?",
+        "explanation": "Un pointeur qui contient encore l'adresse d'un bloc mémoire qui a déjà été libéré par `Liberer(p)`.",
+        "choices": [
+            "Un pointeur contenant l'adresse d'une mémoire déjà libérée",
+            "Un pointeur valant NIL",
+            "Un pointeur non encore déclaré",
+            "Un pointeur vers une constante"
+        ],
+        "answer": "Un pointeur contenant l'adresse d'une mémoire déjà libérée"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Bonne Pratique Libération",
+        "question": "Quelle est la bonne pratique immédiatement après avoir exécuté `Liberer(p)` ?",
+        "explanation": "Réinitialiser le pointeur à NIL (`p := NIL;`) pour éviter les accès accidentels via un pointeur pendouillant.",
+        "choices": [
+            "Faire `p := NIL;`",
+            "Re-faire `Allouer(p);`",
+            "Effacer la variable p",
+            "Rien de particulier"
+        ],
+        "answer": "Faire `p := NIL;`"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Taille d'un Pointeur",
+        "question": "Quelle est la taille en mémoire d'une variable pointeur sur une architecture 64 bits ?",
+        "explanation": "Sur une architecture 64 bits, toutes les adresses mémoire font 8 octets, quel que soit le type pointé.",
+        "choices": [
+            "8 octets (quelle que soit la taille du type pointé)",
+            "La taille du type pointé",
+            "4 octets",
+            "Variable selon la valeur stockée"
+        ],
+        "answer": "8 octets (quelle que soit la taille du type pointé)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Tableau Dynamique 1D",
+        "question": "Comment alloue-t-on dynamiquement un tableau de N entiers pointé par T ?",
+        "explanation": "On alloue un bloc de N entiers : `Allouer(T, N);`.",
+        "choices": [
+            "Allouer(T, N);",
+            "T := Tableau[N];",
+            "Allouer(T);",
+            "T := &N;"
+        ],
+        "answer": "Allouer(T, N);"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Pointeur de Pointeurs",
+        "question": "Pour déclarer une matrice dynamique 2D ligne par ligne, quel est le type du pointeur mat ?",
+        "explanation": "Il faut un pointeur vers un tableau de pointeurs : `mat : ↑↑Entier;`.",
+        "choices": [
+            "mat : ↑↑Entier;",
+            "mat : ↑Entier[2];",
+            "mat : Matrix↑;",
+            "mat : Array↑;"
+        ],
+        "answer": "mat : ↑↑Entier;"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Matrice Contiguë Dynamique",
+        "question": "Si une matrice N x M est allouée dans un seul bloc contigu pointé par `mat : ↑Entier`, quelle est l'adresse de la case (i, j) ?",
+        "explanation": "En indexation linéaire 0-based : `mat + (i * M + j)`.",
+        "choices": [
+            "mat + (i * M + j)",
+            "mat + i + j",
+            "mat[i][j]",
+            "mat * i * j"
+        ],
+        "answer": "mat + (i * M + j)"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Arithmétique des Pointeurs",
+        "question": "Si p est un `↑Entier` (4 octets) pointant à l'adresse 1000, quelle est l'adresse de `p + 1` ?",
+        "explanation": "L'arithmétique des pointeurs avance du nombre d'octets du type pointé : 1000 + 4 = 1004.",
+        "choices": [
+            "1004",
+            "1001",
+            "1008",
+            "1000"
+        ],
+        "answer": "1004"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Comparaison de Pointeurs",
+        "question": "Que compare l'expression `p1 = p2` où p1 et p2 sont deux pointeurs ?",
+        "explanation": "Elle compare si p1 et p2 contiennent la MÊME adresse mémoire (et non leurs valeurs pointées).",
+        "choices": [
+            "Si p1 et p2 contiennent la même adresse mémoire",
+            "Si p1↑ = p2↑",
+            "Si p1 et p2 ont le même nom",
+            "Si p1 et p2 ont été alloués en même temps"
+        ],
+        "answer": "Si p1 et p2 contiennent la même adresse mémoire"
+    },
+    {
+        "difficulty": "Hard",
+        "concept": "Allocation Échouée",
+        "question": "Que retourne `Allouer(p)` si la mémoire RAM centrale est totalement saturée ?",
+        "explanation": "Si la mémoire est saturée, le système ne peut allouer le bloc et retourne `p = NIL`.",
+        "choices": [
+            "p vaut NIL",
+            "Le système redémarre",
+            "p prend l'adresse -1",
+            "Une valeur aléatoire"
+        ],
+        "answer": "p vaut NIL"
+    },
+    {
+        "difficulty": "Easy",
+        "concept": "Opérateur Taille",
+        "question": "Quelle fonction retourne le nombre d'octets consommés par un type de donnée ?",
+        "explanation": "La fonction `Taille(Type)` (ou `sizeof(Type)`) retourne l'empreinte mémoire du type.",
+        "choices": [
+            "Taille(Type)",
+            "Longueur(Type)",
+            "Octets(Type)",
+            "Ram(Type)"
+        ],
+        "answer": "Taille(Type)"
+    },
+    {
+        "difficulty": "Medium",
+        "concept": "Pointeur Générique",
+        "question": "Qu'est-ce qu'un pointeur générique ou universel (ex: `void*` en C) ?",
+        "explanation": "Un pointeur capable de stocker n'importe quelle adresse sans spécifier le type de la donnée pointée.",
+        "choices": [
+            "Un pointeur pouvant contenir l'adresse de n'importe quel type de donnée",
+            "Un pointeur qui s'alloue tout seul",
+            "Un pointeur qui ne peut pas être libéré",
+            "Un pointeur lisible uniquement"
+        ],
+        "answer": "Un pointeur pouvant contenir l'adresse de n'importe quel type de donnée"
+    }
+]
