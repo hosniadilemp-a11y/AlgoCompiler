@@ -1,0 +1,233 @@
+// // ================================================================
+// PROBLEME : Magic Transformation d’une liste chaînée
+// ================================================================
+// On dispose d'une liste de 2n éléments : a1..an, b1..bn.
+// La transformation consiste à réorganiser chaque moitié selon
+// des motifs spécifiques, puis à concaténer les résultats.
+// ================================================================
+
+Type Cellule = Enregistrement
+    val : Entier;
+    suiv : ^Cellule;
+Fin;
+
+
+// --- 1. Utilitaires généraux ---
+
+// Retourne le milieu d'une liste (premier élément de la seconde moitié)
+// Pour une liste vide ou à un élément, retourne NIL ou l'unique élément ?
+// Ici on suppose liste non vide de longueur >= 2.
+Fonction milieu(L : ^Cellule) : ^Cellule
+Var lent, rapide : ^Cellule;
+Debut
+    Si L = NIL Alors Retourner(NIL); Fsi
+    lent := L;
+    rapide := L;
+    TantQue rapide <> NIL Et rapide->suiv <> NIL Faire
+        lent := lent->suiv;
+        rapide := rapide->suiv->suiv;
+    FinTantQue
+    Retourner(lent);
+Fin;
+
+// Inverse une liste chaînée et retourne la nouvelle tête
+Fonction inverser(L : ^Cellule) : ^Cellule
+Var prec, courant, suiv : ^Cellule;
+Debut
+    prec := NIL;
+    courant := L;
+    TantQue courant <> NIL Faire
+        suiv := courant->suiv;
+        courant->suiv := prec;
+        prec := courant;
+        courant := suiv;
+    FinTantQue
+    Retourner(prec);
+Fin;
+
+// Interlace deux listes A et B en commençant par A (si startA = Vrai)
+// ou par B (sinon). Les nœuds sont réutilisés, aucune allocation.
+// Les longueurs vérifient |A| = |B| ou |A| = |B|+1 selon le cas.
+Fonction alterner(A:^Cellule,B : ^Cellule, startA : Booleen) : ^Cellule
+Var tete, dernier, pa, pb : ^Cellule;
+    tourA : Booleen;
+Debut
+    Si A = NIL Alors Retourner(B); Fsi
+    Si B = NIL Alors Retourner(A); Fsi
+    
+    tete := NIL;
+    dernier := NIL;
+    pa := A;
+    pb := B;
+    tourA := startA;
+    
+    TantQue pa <> NIL Et pb <> NIL Faire
+        Si tourA Alors
+            // prendre un nœud de A
+            Si dernier = NIL Alors
+                tete := pa;
+            Sinon
+                dernier->suiv := pa;
+            Fsi
+            dernier := pa;
+            pa := pa->suiv;
+        Sinon
+            // prendre un nœud de B
+            Si dernier = NIL Alors
+                tete := pb;
+            Sinon
+                dernier->suiv := pb;
+            Fsi
+            dernier := pb;
+            pb := pb->suiv;
+        Fsi
+        tourA := Non tourA;
+    FinTantQue
+    
+    // Ajouter les éventuels restes (un seul des deux peut en avoir)
+    Si pa <> NIL Alors
+        dernier->suiv := pa;
+    Sinon 
+        Si pb <> NIL Alors
+            dernier->suiv := pb;
+        FinSi
+    FinSi
+    
+    Retourner(tete);
+Fin;
+
+// --- 2. Semi‑Magic Transformation (fusion a1,bn,a2,bn-1,...) ---
+Fonction semiMagicTransformation(A: ^Cellule, B : ^Cellule) : ^Cellule
+Var revB : ^Cellule;
+Debut
+    revB := inverser(B);
+    Retourner(alterner(A, revB, Vrai));  // on commence par A
+Fin;
+
+// --- 3. Transformation de la première moitié ---
+// Entrée : liste a1..an (n quelconque)
+// Sortie : a1, an, a2, an-1, a3, ...
+Fonction transformerPremiereMoitie(L : ^Cellule) : ^Cellule
+Var m, gauche, droite, suivant, temp : ^Cellule;
+Debut
+    Si L = NIL Ou L->suiv = NIL Alors Retourner(L); Fsi
+    
+    // Trouver le milieu de L pour couper en deux parties
+    m := milieu(L);
+    // Séparer : gauche = L, droite = m
+    gauche := L;
+    // Chercher le nœud précédant m
+    temp := L;
+    TantQue temp->suiv <> m Faire
+        temp := temp->suiv;
+    FinTantQue
+    temp->suiv := NIL;   // fin de la partie gauche
+    
+    droite := inverser(m);  // on inverse la partie droite
+    // Interlacer : gauche (a1..a_{ceil(n/2)}) avec droite (inverse de la fin)
+    Retourner(alterner(gauche, droite, Vrai));
+Fin;
+
+// --- 4. Transformation de la deuxième moitié ---
+// Entrée : liste b1..bn (n quelconque)
+// Sortie : b_{n/2+1}, b_{n/2}, b_{n/2+2}, b_{n/2-1}, ...
+Fonction transformerDeuxiemeMoitie(L : ^Cellule) : ^Cellule
+Var m, gauche, droite, temp : ^Cellule;
+Debut
+    Si L = NIL Ou L->suiv = NIL Alors Retourner(L); Fsi
+    
+    // Trouver le milieu : début de la partie droite (b_{n/2+1})
+    m := milieu(L);
+    // Séparer : gauche = première moitié de L (b1..b_{n/2})
+    //          droite = seconde moitié (b_{n/2+1}..bn)
+    temp := L;
+    TantQue temp->suiv <> m Faire
+        temp := temp->suiv;
+    FinTantQue
+    temp->suiv := NIL;
+    
+    gauche := inverser(L);     // on inverse la première moitié
+    droite := m;               // la seconde moitié reste dans l'ordre
+    // Interlacer en commençant par droite, puis gauche, etc.
+    Retourner(alterner(droite, gauche, Vrai));
+Fin;
+
+// --- 5. Magic Transformation complète ---
+Fonction magicTransformation(L : ^Cellule) : ^Cellule
+Var m, premiere, deuxieme, temp, resultat : ^Cellule;
+Debut
+    Si L = NIL Ou L->suiv = NIL Alors Retourner(L); Fsi
+    
+    // Étape 1 : découper la liste en deux moitiés égales
+    m := milieu(L);          // premier élément de la seconde moitié (b1)
+    deuxieme := m;
+    premiere := L;
+    // Chercher le nœud précédant m pour couper
+    temp := L;
+    TantQue temp->suiv <> m Faire
+        temp := temp->suiv;
+    FinTantQue
+    temp->suiv := NIL;
+    
+    // Étape 2 : appliquer les transformations spécifiques à chaque moitié
+    premiere := transformerPremiereMoitie(premiere);
+    deuxieme := transformerDeuxiemeMoitie(deuxieme);
+    
+    // Étape 3 : concaténer les deux listes transformées
+    resultat := premiere;
+    Si resultat <> NIL Alors
+        temp := resultat;
+        TantQue temp->suiv <> NIL Faire
+            temp := temp->suiv;
+        FinTantQue
+        temp->suiv := deuxieme;
+    Sinon
+        resultat := deuxieme;
+    Fsi
+    
+    Retourner(resultat);
+Fin;
+
+// --- Programme de test ---
+
+
+Algorithme Test_Magic_Transformation;
+Var
+    L, resultat : ^Cellule;
+    curr : ^Cellule;
+    i : Entier;
+Debut
+    Ecrire("=== TEST MAGIC TRANSFORMATION ===\n");
+    
+    // Construction de la liste : 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+    L := NIL;
+    Pour i := 1 a 16  Faire
+        curr := allouer(taille(Cellule));
+        curr->val := i;
+        curr->suiv := L;
+        L := curr;
+    FinPour
+    
+    Ecrire("Liste initiale : ");
+    curr := L;
+    TantQue curr <> NIL Faire
+        Ecrire(curr->val);
+        Si curr->suiv <> NIL Alors Ecrire(" -> "); Fsi
+        curr := curr->suiv;
+    FinTantQue
+    Ecrire("\n");
+    
+    resultat := magicTransformation(L);
+    
+    Ecrire("\nApres Magic Transformation :\n");
+    curr := resultat;
+    TantQue curr <> NIL Faire
+        Ecrire(curr->val);
+        Si curr->suiv <> NIL Alors Ecrire(" -> "); Fsi
+        curr := curr->suiv;
+    FinTantQue
+    Ecrire("\n");
+    
+    // Résultat attendu :
+    // 1 -> 8 -> 2 -> 7 -> 3 -> 6 -> 4 -> 5 -> 13 -> 12 -> 14 -> 11 -> 15 -> 10 -> 16 -> 9
+Fin.

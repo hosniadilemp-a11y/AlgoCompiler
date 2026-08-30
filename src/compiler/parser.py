@@ -409,7 +409,10 @@ def p_program(p):
     code += "        s = s.replace('#0', chr(0))\n"
     code += "        s = s.replace('\\\\n', '\\n').replace('\\\\t', '\\t')\n"
     code += "        parts.append(s)\n"
-    code += "    _b_print(' '.join(parts), end='')\n\n"
+    code += "    out_str = ' '.join(parts)\n"
+    code += "    if out_str and not out_str.endswith('\\n') and not out_str.endswith(' '):\n"
+    code += "        out_str += ' '\n"
+    code += "    _b_print(out_str, end='')\n\n"
 
     # 2. _algo_to_string - no deps; MUST come before assign/concat/longueur
     code += "def _algo_to_string(val):\n"
