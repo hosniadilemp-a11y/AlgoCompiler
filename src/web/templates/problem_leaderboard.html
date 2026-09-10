@@ -151,61 +151,249 @@
         .podium-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 18px;
+            margin-bottom: 28px;
+            align-items: end;
         }
 
         .podium-card {
-            padding: 22px;
+            padding: 24px 18px;
             position: relative;
             overflow: hidden;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+            border: 1px solid var(--lb-border);
+            background: var(--lb-panel);
+        }
+
+        .podium-card:hover {
+            transform: translateY(-4px);
         }
 
         .podium-card.rank-1 {
             background:
-                radial-gradient(circle at top, rgba(255, 193, 7, 0.28), transparent 45%),
-                var(--lb-panel-strong);
+                radial-gradient(circle at top, rgba(245, 158, 11, 0.24), transparent 60%),
+                linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(13, 23, 40, 0.95) 100%);
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 12px 36px rgba(245, 158, 11, 0.18), var(--lb-shadow);
+            order: 2;
+            z-index: 2;
+        }
+
+        @media (min-width: 961px) {
+            .podium-card.rank-1 {
+                transform: translateY(-12px);
+            }
+            .podium-card.rank-1:hover {
+                transform: translateY(-16px);
+            }
+            .podium-card.rank-2 {
+                order: 1;
+            }
+            .podium-card.rank-3 {
+                order: 3;
+            }
         }
 
         .podium-card.rank-2 {
             background:
-                radial-gradient(circle at top, rgba(148, 163, 184, 0.22), transparent 45%),
-                var(--lb-panel-strong);
+                radial-gradient(circle at top, rgba(148, 163, 184, 0.2), transparent 60%),
+                linear-gradient(180deg, rgba(148, 163, 184, 0.06) 0%, rgba(13, 23, 40, 0.95) 100%);
+            border-color: rgba(148, 163, 184, 0.4);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), var(--lb-shadow);
         }
 
         .podium-card.rank-3 {
             background:
-                radial-gradient(circle at top, rgba(205, 127, 50, 0.22), transparent 45%),
-                var(--lb-panel-strong);
+                radial-gradient(circle at top, rgba(217, 119, 6, 0.2), transparent 60%),
+                linear-gradient(180deg, rgba(217, 119, 6, 0.06) 0%, rgba(13, 23, 40, 0.95) 100%);
+            border-color: rgba(217, 119, 6, 0.4);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), var(--lb-shadow);
         }
 
-        .podium-rank {
+        body.light-theme .podium-card.rank-1 {
+            background:
+                radial-gradient(circle at top, rgba(245, 158, 11, 0.16), transparent 65%),
+                #ffffff;
+            border-color: rgba(245, 158, 11, 0.4);
+            box-shadow: 0 12px 30px rgba(245, 158, 11, 0.15);
+        }
+
+        body.light-theme .podium-card.rank-2 {
+            background:
+                radial-gradient(circle at top, rgba(100, 116, 139, 0.1), transparent 65%),
+                #ffffff;
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        body.light-theme .podium-card.rank-3 {
+            background:
+                radial-gradient(circle at top, rgba(180, 83, 9, 0.1), transparent 65%),
+                #ffffff;
+            border-color: rgba(217, 119, 6, 0.35);
+        }
+
+        .podium-badge-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 14px;
+            border-radius: 999px;
             font-size: 0.78rem;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--lb-muted);
+            letter-spacing: 0.06em;
+            margin-bottom: 12px;
+        }
+
+        .podium-card.rank-1 .podium-badge-header {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(251, 191, 36, 0.15));
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.45);
+        }
+
+        .podium-card.rank-2 .podium-badge-header {
+            background: linear-gradient(135deg, rgba(148, 163, 184, 0.2), rgba(203, 213, 225, 0.12));
+            color: #cbd5e1;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
+
+        .podium-card.rank-3 .podium-badge-header {
+            background: linear-gradient(135deg, rgba(217, 119, 6, 0.2), rgba(245, 158, 11, 0.12));
+            color: #f59e0b;
+            border: 1px solid rgba(217, 119, 6, 0.4);
+        }
+
+        .podium-avatar-wrap {
+            position: relative;
             margin-bottom: 10px;
         }
 
-        .podium-name {
-            font-size: 1.2rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .podium-score {
-            font-size: 2.1rem;
-            font-weight: 800;
-            margin-bottom: 14px;
-        }
-
-        .podium-meta,
-        .metric-inline {
+        .podium-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .podium-card.rank-1 .podium-avatar {
+            width: 66px;
+            height: 66px;
+            font-size: 1.6rem;
+            border-color: #fbbf24;
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
+        }
+
+        .podium-crown-icon {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.25rem;
+            filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.5));
+            animation: crownBounce 2.5s ease-in-out infinite;
+        }
+
+        @keyframes crownBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-4px); }
+        }
+
+        .podium-name {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--lb-text);
+            margin-bottom: 4px;
+            max-width: 100%;
+            word-break: break-word;
+        }
+
+        .podium-title-pill {
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
             color: var(--lb-muted);
-            font-size: 0.9rem;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        .podium-score-box {
+            margin: 6px 0 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .podium-score-val {
+            font-size: 1.85rem;
+            font-weight: 900;
+            line-height: 1.1;
+            color: var(--lb-text);
+        }
+
+        .podium-card.rank-1 .podium-score-val {
+            color: #fbbf24;
+            text-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+        }
+
+        .podium-score-max {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--lb-muted);
+        }
+
+        .podium-level-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            border: 1px solid var(--lb-border);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .podium-metrics-grid {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .podium-metric-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.74rem;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--lb-border);
+            color: var(--lb-muted);
+        }
+
+        body.light-theme .podium-metric-chip {
+            background: rgba(0, 0, 0, 0.03);
+            border-color: rgba(0, 0, 0, 0.08);
+            color: var(--lb-muted);
         }
 
         .table-wrap {
@@ -264,6 +452,19 @@
             border-radius: 999px;
             font-weight: 800;
             background: var(--lb-rank-bg);
+        }
+
+        .year-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            background: rgba(99, 102, 241, 0.12);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.25);
         }
 
         .score-pill {
@@ -512,9 +713,6 @@
                         <option value="asc">Ordre croissant</option>
                     </select>
                 </div>
-                <div class="controls-group">
-                    <span id="page-info" style="color: var(--text-secondary, #9ca3af);">Page 1 / 1</span>
-                </div>
             </section>
 
             <details class="panel-card score-explainer">
@@ -577,6 +775,7 @@
                             <tr>
                                 <th>Rang</th>
                                 <th>Utilisateur</th>
+                                <th>Année</th>
                                 <th>Niveau</th>
                                 <th>Temps de résolution</th>
                                 <th>Exécution moyenne</th>
@@ -586,14 +785,18 @@
                         </thead>
                         <tbody id="leaderboard-body">
                             <tr>
-                                <td colspan="7" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Chargement du leaderboard...</td>
+                                <td colspan="8" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Chargement du leaderboard...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <div class="pagination-row">
                     <button id="prev-btn" class="btn secondary" disabled><i class="fas fa-chevron-left"></i> Précédent</button>
-                    <span id="pagination-summary" style="color: var(--text-secondary, #9ca3af);">0 résultat</span>
+                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                        <span id="page-info" style="font-weight: 600; color: var(--lb-text);">Page 1 / 1</span>
+                        <span style="color: var(--text-secondary, #9ca3af);">•</span>
+                        <span id="pagination-summary" style="color: var(--text-secondary, #9ca3af);">0 résultat</span>
+                    </div>
                     <button id="next-btn" class="btn secondary" disabled>Suivant <i class="fas fa-chevron-right"></i></button>
                 </div>
             </section>
@@ -643,9 +846,18 @@
             const select = document.getElementById('year-filter');
             const current = state.year;
             select.innerHTML = '<option value="">Tous les comptes</option>' + years.map(year => (
-                `<option value="${year}">${year}</option>`
+                `<option value="${year}">Année ${year}</option>`
             )).join('');
             select.value = current;
+        }
+
+        function getStableColor(str) {
+            let hash = 0;
+            const text = String(str || '');
+            for (let i = 0; i < text.length; i++) {
+                hash = text.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return `hsl(${Math.abs(hash) % 360}, 65%, 45%)`;
         }
 
         function renderPodium(topUsers) {
@@ -655,38 +867,86 @@
                 return;
             }
 
-            podium.innerHTML = topUsers.map(user => `
-                <article class="panel-card podium-card rank-${user.rank}">
-                    <div class="podium-rank">Top ${user.rank}</div>
-                    <div class="podium-name">${user.name}</div>
-                    <div class="podium-score">${Number(user.final_score).toFixed(3)} / 40</div>
-                    <div class="podium-meta">
-                        <span>${user.level.icon} ${user.level.name}</span>
-                        <span>Compte ${user.joined_year || '—'}</span>
+            const rankMeta = {
+                1: { title: '🥇 Champion (Top 1)', class: 'rank-1', crown: true },
+                2: { title: '🥈 2ème Place (Top 2)', class: 'rank-2', crown: false },
+                3: { title: '🥉 3ème Place (Top 3)', class: 'rank-3', crown: false }
+            };
+
+            podium.innerHTML = topUsers.map(user => {
+                const meta = rankMeta[user.rank] || { title: `Top ${user.rank}`, class: `rank-${user.rank}`, crown: false };
+                const prestigeHtml = user.prestige_badge
+                    ? `<span class="prestige-badge ${user.prestige_badge.class || ''}" title="${user.prestige_badge.label || ''}"><i class="${user.prestige_badge.icon || 'fas fa-award'}"></i><span>${user.prestige_badge.short_label || user.prestige_badge.label || ''}</span></span>`
+                    : '';
+                const initial = (user.name || '?').trim().charAt(0).toUpperCase();
+                const avatarBg = getStableColor(user.name);
+                const userLevel = user.level || { num: 1, name: 'Débutant', icon: '🧭', color: '#94a3b8' };
+                const yearText = user.study_year ? `Année ${user.study_year}` : (user.joined_year ? `Promo ${user.joined_year}` : 'Promo 2026');
+
+                return `
+                <article class="podium-card ${meta.class} user-card-trigger" data-user-id="${user.user_id}" title="Cliquer pour voir la carte joueur de ${user.name}" style="cursor:pointer;">
+                    <div class="podium-badge-header">${meta.title}</div>
+                    <div class="podium-avatar-wrap">
+                        ${meta.crown ? '<div class="podium-crown-icon">👑</div>' : ''}
+                        <div class="podium-avatar" style="background: ${avatarBg};">
+                            ${initial}
+                        </div>
                     </div>
-                    <div class="metric-inline" style="margin-top: 14px;">
-                        <span><i class="fas fa-stopwatch"></i> ${formatSeconds(user.time_taken_seconds)}</span>
-                        <span><i class="fas fa-gauge-high"></i> ${formatMetric(user.avg_execution_time_ms, 'ms')}</span>
-                        <span><i class="fas fa-memory"></i> ${formatMetric(user.avg_memory_kb, 'KB', 2)}</span>
+                    <div class="podium-name">${user.name}</div>
+                    ${prestigeHtml ? `<div style="margin-bottom: 8px;">${prestigeHtml}</div>` : ''}
+                    
+                    <div class="podium-score-box">
+                        <div class="podium-score-val">${Number(user.final_score).toFixed(3)}</div>
+                        <div class="podium-score-max">sur 40 points</div>
+                    </div>
+
+                    <div class="podium-level-pill" style="color:${userLevel.color || '#94a3b8'}; border-color:${userLevel.color || 'var(--lb-border)'};">
+                        <span>${userLevel.icon || '🧭'}</span>
+                        <span>${userLevel.name || 'Débutant'}</span>
+                        <span style="opacity: 0.5;">•</span>
+                        <span style="color: var(--lb-muted);">${yearText}</span>
+                    </div>
+
+                    <div class="podium-metrics-grid">
+                        <div class="podium-metric-chip" title="Temps de résolution">
+                            <i class="fas fa-stopwatch" style="color: #38bdf8;"></i> ${formatSeconds(user.time_taken_seconds)}
+                        </div>
+                        <div class="podium-metric-chip" title="Vitesse d'exécution CPU">
+                            <i class="fas fa-bolt" style="color: #fbbf24;"></i> ${formatMetric(user.avg_execution_time_ms, 'ms')}
+                        </div>
+                        <div class="podium-metric-chip" title="Mémoire RAM utilisée">
+                            <i class="fas fa-memory" style="color: #34d399;"></i> ${formatMetric(user.avg_memory_kb, 'KB', 2)}
+                        </div>
                     </div>
                 </article>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function renderRows(rows) {
             const tbody = document.getElementById('leaderboard-body');
             if (!rows.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun solveur ne correspond à ce filtre.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun solveur ne correspond à ce filtre.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = rows.map(row => `
+            tbody.innerHTML = rows.map(row => {
+                const prestigeHtml = row.prestige_badge
+                    ? `<span class="prestige-badge ${row.prestige_badge.class || ''}" title="${row.prestige_badge.label || ''}"><i class="${row.prestige_badge.icon || 'fas fa-award'}"></i><span>${row.prestige_badge.short_label || row.prestige_badge.label || ''}</span></span>`
+                    : '';
+
+                return `
                 <tr>
                     <td><span class="rank-badge">#${row.rank}</span></td>
                     <td>
-                        <div class="user-name">${row.name}</div>
-                        <div class="user-subtitle">Compte ${row.joined_year || '—'}</div>
+                        <div class="user-cell user-card-trigger" data-user-id="${row.user_id}" title="Cliquer pour voir la carte joueur de ${row.name}" style="cursor:pointer;">
+                            <div class="user-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-weight:700;">
+                                <span>${row.name}</span>
+                                ${prestigeHtml}
+                            </div>
+                        </div>
                     </td>
+                    <td><span class="year-badge">${row.study_year || row.joined_year || '—'}</span></td>
                     <td>${row.level.icon} ${row.level.name}</td>
                     <td class="metric-cell">${formatSeconds(row.time_taken_seconds)}</td>
                     <td class="metric-cell">${formatMetric(row.avg_execution_time_ms, 'ms')}</td>
@@ -695,7 +955,8 @@
                         <div class="score-pill" title="Tests: ${Number(row.tests_score).toFixed(3)} | Résolution: ${Number(row.solve_time_score).toFixed(3)} | Exécution: ${Number(row.execution_score).toFixed(3)} | Mémoire: ${Number(row.memory_score).toFixed(3)} | Ajusté selon le nombre de participants">${Number(row.final_score).toFixed(3)} / 40</div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function fetchLeaderboard() {
@@ -737,7 +998,7 @@
                 renderRows(data.leaderboard || []);
 
                 document.getElementById('summary-total-solvers').textContent = `${data.pagination.total_items} solveur${data.pagination.total_items > 1 ? 's' : ''}`;
-                document.getElementById('summary-filter').textContent = data.filters.year ? `Comptes créés en ${data.filters.year}` : 'Tous les comptes';
+                document.getElementById('summary-filter').textContent = data.filters.year ? `Année ${data.filters.year}` : 'Tous les comptes';
                 document.getElementById('page-info').textContent = `Page ${data.pagination.page} / ${data.pagination.total_pages}`;
                 document.getElementById('pagination-summary').textContent = `${data.pagination.total_items} résultat${data.pagination.total_items > 1 ? 's' : ''}`;
 
@@ -750,7 +1011,7 @@
                 const message = error.name === 'AbortError'
                     ? 'Le leaderboard a pris trop de temps à répondre.'
                     : error.message;
-                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${message}</td></tr>`;
             }
         }
 

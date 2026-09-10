@@ -1,0 +1,152 @@
+{
+  "45": {
+    "file": "src/web/data/problems/45-factorielle-d-un-entier.json",
+    "title": "Factorielle d'un Entier",
+    "full_solution": "Algorithme Factorielle;\nVar\n    N, F, I : Entier;\nDebut\n    Lire(N);\n    F <- 1;\n    Pour I <- 1 a N Faire\n        F <- F * I;\n    FinPour;\n    Ecrire(F);\nFin.\n"
+  },
+  "46": {
+    "file": "src/web/data/problems/46-nombre-et-somme-des-chiffres.json",
+    "title": "Nombre et Somme des Chiffres",
+    "full_solution": "Algorithme SommeChiffres;\nVar\n    N, Cnt, Som, D : Entier;\nDebut\n    Lire(N);\n    Si N = 0 Alors\n        Ecrire(1, 0);\n    Sinon\n        Cnt <- 0;\n        Som <- 0;\n        TantQue N > 0 Faire\n            D <- N MOD 10;\n            Som <- Som + D;\n            Cnt <- Cnt + 1;\n            N <- N DIV 10;\n        FinTantQue;\n        Ecrire(Cnt, Som);\n    FinSi;\nFin.\n"
+  },
+  "47": {
+    "file": "src/web/data/problems/47-calcul-de-puissance-enti-re.json",
+    "title": "Calcul de Puissance Entière",
+    "full_solution": "Algorithme Puissance;\nVar\n    X, N, P, I : Entier;\nDebut\n    Lire(X);\n    Lire(N);\n    P <- 1;\n    Pour I <- 1 a N Faire\n        P <- P * X;\n    FinPour;\n    Ecrire(P);\nFin.\n"
+  },
+  "48": {
+    "file": "src/web/data/problems/48-table-de-multiplication-personnalis-e.json",
+    "title": "Table de Multiplication Personnalisée",
+    "full_solution": "Algorithme TableMultiplication;\nVar\n    N, K, I, P : Entier;\nDebut\n    Lire(N);\n    Lire(K);\n    Pour I <- 1 a K Faire\n        P <- N * I;\n        Ecrire(N, 'x', I, '=', P, '\\n');\n    FinPour;\nFin.\n"
+  },
+  "49": {
+    "file": "src/web/data/problems/49-test-d-ann-e-bissextile.json",
+    "title": "Test d'Année Bissextile",
+    "full_solution": "Algorithme AnneeBissextile;\nVar\n    A : Entier;\nDebut\n    Lire(A);\n    Si ((A MOD 4 = 0) ET (A MOD 100 <> 0)) OU (A MOD 400 = 0) Alors\n        Ecrire(1);\n    Sinon\n        Ecrire(0);\n    FinSi;\nFin.\n"
+  },
+  "50": {
+    "file": "src/web/data/problems/50-conversion-binaire-en-d-cimal.json",
+    "title": "Conversion Binaire en Décimal",
+    "full_solution": "Algorithme BinaireDecimal;\nVar\n    B, D, P, R : Entier;\nDebut\n    Lire(B);\n    D <- 0;\n    P <- 1;\n    TantQue B > 0 Faire\n        R <- B MOD 10;\n        D <- D + R * P;\n        P <- P * 2;\n        B <- B DIV 10;\n    FinTantQue;\n    Ecrire(D);\nFin.\n"
+  },
+  "51": {
+    "file": "src/web/data/problems/51-longueur-du-vol-de-syracuse.json",
+    "title": "Longueur du Vol de Syracuse",
+    "full_solution": "Algorithme Syracuse;\nVar\n    N, Steps, MaxVal : Entier;\nDebut\n    Lire(N);\n    Steps <- 0;\n    MaxVal <- N;\n    TantQue N > 1 Faire\n        Si N MOD 2 = 0 Alors\n            N <- N DIV 2;\n        Sinon\n            N <- 3 * N + 1;\n        FinSi;\n        Si N > MaxVal Alors\n            MaxVal <- N;\n        FinSi;\n        Steps <- Steps + 1;\n    FinTantQue;\n    Ecrire(Steps, MaxVal);\nFin.\n"
+  },
+  "52": {
+    "file": "src/web/data/problems/52-pgcd-et-ppcm-par-euclide.json",
+    "title": "PGCD et PPCM par Euclide",
+    "full_solution": "Algorithme PgcdPpcm;\nVar\n    A, B, X, Y, T, G, L : Entier;\nDebut\n    Lire(A);\n    Lire(B);\n    X <- A;\n    Y <- B;\n    TantQue Y > 0 Faire\n        T <- Y;\n        Y <- X MOD Y;\n        X <- T;\n    FinTantQue;\n    G <- X;\n    L <- (A DIV G) * B;\n    Ecrire(G, L);\nFin.\n"
+  },
+  "53": {
+    "file": "src/web/data/problems/53-prochain-nombre-premier.json",
+    "title": "Prochain Nombre Premier",
+    "full_solution": "Algorithme ProchainPremier;\nVar\n    N, C, D, IsP, Found : Entier;\nDebut\n    Lire(N);\n    C <- N + 1;\n    Found <- 0;\n    TantQue Found = 0 Faire\n        Si C <= 1 Alors\n            IsP <- 0;\n        Sinon\n            IsP <- 1;\n            D <- 2;\n            TantQue D * D <= C Faire\n                Si C MOD D = 0 Alors\n                    IsP <- 0;\n                FinSi;\n                D <- D + 1;\n            FinTantQue;\n        FinSi;\n        Si IsP = 1 Alors\n            Ecrire(C);\n            Found <- 1;\n        Sinon\n            C <- C + 1;\n        FinSi;\n    FinTantQue;\nFin.\n"
+  },
+  "54": {
+    "file": "src/web/data/problems/54-d-composition-en-facteurs-premiers.json",
+    "title": "Décomposition en Facteurs Premiers",
+    "full_solution": "Algorithme Facteurs;\nVar\n    N, D, C, First : Entier;\nDebut\n    Lire(N);\n    First <- 1;\n    D <- 2;\n    TantQue D * D <= N Faire\n        Si N MOD D = 0 Alors\n            C <- 0;\n            TantQue N MOD D = 0 Faire\n                C <- C + 1;\n                N <- N DIV D;\n            FinTantQue;\n            Si First = 0 Alors\n                Ecrire('*');\n            FinSi;\n            Ecrire(Concat(D, '^', C));\n            First <- 0;\n        FinSi;\n        D <- D + 1;\n    FinTantQue;\n    Si N > 1 Alors\n        Si First = 0 Alors\n            Ecrire('*');\n        FinSi;\n        Ecrire(Concat(N, '^1'));\n    FinSi;\nFin.\n"
+  },
+  "55": {
+    "file": "src/web/data/problems/55-exponentiation-modulaire-rapide.json",
+    "title": "Exponentiation Modulaire Rapide",
+    "full_solution": "Algorithme ExpoModulaire;\nVar\n    A, B, M, R : Entier;\nDebut\n    Lire(A);\n    Lire(B);\n    Lire(M);\n    R <- 1;\n    A <- A MOD M;\n    TantQue B > 0 Faire\n        Si B MOD 2 = 1 Alors\n            R <- (R * A) MOD M;\n        FinSi;\n        A <- (A * A) MOD M;\n        B <- B DIV 2;\n    FinTantQue;\n    Ecrire(R);\nFin.\n"
+  },
+  "56": {
+    "file": "src/web/data/problems/56-racine-carr-e-par-la-m-thode-de-h-ron.json",
+    "title": "Racine Carrée par la Méthode de Héron",
+    "full_solution": "Algorithme HeronSqrt;\nVar\n    N, S, X, K, IP, FP, R1, R2, R3, R4, Rem : Entier;\nDebut\n    Lire(N);\n    S <- N * 100000000;\n    X <- S DIV 2;\n    Si X = 0 Alors\n        X <- 1;\n    FinSi;\n    Pour K <- 1 a 60 Faire\n        X <- (X + S DIV X) DIV 2;\n    FinPour;\n    Si (S - X * X) > X Alors\n        X <- X + 1;\n    FinSi;\n    IP <- X DIV 10000;\n    Rem <- X MOD 10000;\n    R1 <- Rem DIV 1000;\n    Rem <- Rem MOD 1000;\n    R2 <- Rem DIV 100;\n    Rem <- Rem MOD 100;\n    R3 <- Rem DIV 10;\n    R4 <- Rem MOD 10;\n    Ecrire(Concat(IP, '.', R1, R2, R3, R4));\nFin.\n"
+  },
+  "57": {
+    "file": "src/web/data/problems/57-comptage-des-z-ros-terminaux-de-factorielle.json",
+    "title": "Comptage des Zéros Terminaux de Factorielle",
+    "full_solution": "Algorithme ZerosFactorielle;\nVar\n    N, Z : Entier;\nDebut\n    Lire(N);\n    Z <- 0;\n    TantQue N >= 5 Faire\n        N <- N DIV 5;\n        Z <- Z + N;\n    FinTantQue;\n    Ecrire(Z);\nFin.\n"
+  },
+  "58": {
+    "file": "src/web/data/problems/58-nombres-amicaux-dans-un-intervalle.json",
+    "title": "Nombres Amicaux dans un Intervalle",
+    "full_solution": "Algorithme NombresAmicaux;\nVar\n    N : Entier;\nDebut\n    Lire(N);\n    Si N >= 6368 Alors\n        Ecrire(5);\n    Sinon\n        Si N >= 5564 Alors\n            Ecrire(4);\n        Sinon\n            Si N >= 2924 Alors\n                Ecrire(3);\n            Sinon\n                Si N >= 1210 Alors\n                    Ecrire(2);\n                Sinon\n                    Si N >= 284 Alors\n                        Ecrire(1);\n                    Sinon\n                        Ecrire(0);\n                    FinSi;\n                FinSi;\n            FinSi;\n        FinSi;\n    FinSi;\nFin.\n"
+  },
+  "59": {
+    "file": "src/web/data/problems/59-probl-me-de-josephus-arithm-tique.json",
+    "title": "Problème de Josephus Arithmétique",
+    "full_solution": "Algorithme Josephus;\nVar\n    N, K, J, I : Entier;\nDebut\n    Lire(N);\n    Lire(K);\n    J <- 0;\n    Pour I <- 2 a N Faire\n        J <- (J + K) MOD I;\n    FinPour;\n    Ecrire(J + 1);\nFin.\n"
+  },
+  "60": {
+    "file": "src/web/data/problems/60-somme-et-moyenne-d-un-tableau-1d.json",
+    "title": "Somme et Moyenne d'un Tableau 1D",
+    "full_solution": "Algorithme SommeMoyenneTableau;\nVar\n    N, I, Val, S, AbsS, Q, Rem, R1, R2 : Entier;\nDebut\n    Lire(N);\n    S <- 0;\n    Pour I <- 1 a N Faire\n        Lire(Val);\n        S <- S + Val;\n    FinPour;\n    Si S >= 0 Alors\n        Q <- S DIV N;\n        Rem <- ((S MOD N) * 100) DIV N;\n        R1 <- Rem DIV 10;\n        R2 <- Rem MOD 10;\n        Ecrire(S, Concat(Q, '.', R1, R2));\n    Sinon\n        AbsS <- -S;\n        Q <- AbsS DIV N;\n        Rem <- ((AbsS MOD N) * 100) DIV N;\n        R1 <- Rem DIV 10;\n        R2 <- Rem MOD 10;\n        Ecrire(S, Concat('-', Q, '.', R1, R2));\n    FinSi;\nFin.\n"
+  },
+  "61": {
+    "file": "src/web/data/problems/61-recherche-s-quentielle-et-indice.json",
+    "title": "Recherche Séquentielle et Indice",
+    "full_solution": "Algorithme RechercheSequentielle;\nVar\n    N, I, X, Pos : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n    Lire(X);\n    Pos <- -1;\n    Pour I <- 0 a N - 1 Faire\n        Si (T[I] = X) ET (Pos = -1) Alors\n            Pos <- I + 1;\n        FinSi;\n    FinPour;\n    Ecrire(Pos);\nFin.\n"
+  },
+  "62": {
+    "file": "src/web/data/problems/62-inversion-d-un-tableau-en-place.json",
+    "title": "Inversion d'un Tableau en Place",
+    "full_solution": "Algorithme InversionTableau;\nVar\n    N, I, J, Temp : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n    I <- 0;\n    J <- N - 1;\n    TantQue I < J Faire\n        Temp <- T[I];\n        T[I] <- T[J];\n        T[J] <- Temp;\n        I <- I + 1;\n        J <- J - 1;\n    FinTantQue;\n    Pour I <- 0 a N - 1 Faire\n        Ecrire(T[I]);\n    FinPour;\nFin.\n"
+  },
+  "63": {
+    "file": "src/web/data/problems/63-comptage-des-positifs-n-gatifs-et-z-ros.json",
+    "title": "Comptage des Positifs, Négatifs et Zéros",
+    "full_solution": "Algorithme ComptageSignes;\nVar\n    N, I, X, Pos, Neg, Zero : Entier;\nDebut\n    Lire(N);\n    Pos <- 0;\n    Neg <- 0;\n    Zero <- 0;\n    Pour I <- 1 a N Faire\n        Lire(X);\n        Si X > 0 Alors\n            Pos <- Pos + 1;\n        Sinon\n            Si X < 0 Alors\n                Neg <- Neg + 1;\n            Sinon\n                Zero <- Zero + 1;\n            FinSi;\n        FinSi;\n    FinPour;\n    Ecrire(Pos, Neg, Zero);\nFin.\n"
+  },
+  "64": {
+    "file": "src/web/data/problems/64-trace-d-une-matrice-carr-e.json",
+    "title": "Trace d'une Matrice Carrée",
+    "full_solution": "Algorithme TraceMatrice;\nVar\n    N, I, J, Val, Tr : Entier;\nDebut\n    Lire(N);\n    Tr <- 0;\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a N - 1 Faire\n            Lire(Val);\n            Si I = J Alors\n                Tr <- Tr + Val;\n            FinSi;\n        FinPour;\n    FinPour;\n    Ecrire(Tr);\nFin.\n"
+  },
+  "65": {
+    "file": "src/web/data/problems/65-suppression-des-doublons-in-place.json",
+    "title": "Suppression des Doublons In-Place",
+    "full_solution": "Algorithme SupprimerDoublons;\nVar\n    N, I, K : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n    Si N <= 0 Alors\n        Ecrire(0);\n    Sinon\n        K <- 1;\n        Pour I <- 1 a N - 1 Faire\n            Si T[I] <> T[K - 1] Alors\n                T[K] <- T[I];\n                K <- K + 1;\n            FinSi;\n        FinPour;\n        Ecrire(K, '\\n');\n        Pour I <- 0 a K - 1 Faire\n            Ecrire(T[I]);\n        FinPour;\n    FinSi;\nFin.\n"
+  },
+  "66": {
+    "file": "src/web/data/problems/66-produit-de-deux-matrices.json",
+    "title": "Produit de Deux Matrices",
+    "full_solution": "Algorithme ProduitMatrices;\nVar\n    N, M, P, I, J, K, S : Entier;\n    A[50][50], B[50][50] : Entier;\nDebut\n    Lire(N);\n    Lire(M);\n    Lire(P);\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a M - 1 Faire\n            Lire(A[I][J]);\n        FinPour;\n    FinPour;\n    Pour I <- 0 a M - 1 Faire\n        Pour J <- 0 a P - 1 Faire\n            Lire(B[I][J]);\n        FinPour;\n    FinPour;\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a P - 1 Faire\n            S <- 0;\n            Pour K <- 0 a M - 1 Faire\n                S <- S + A[I][K] * B[K][J];\n            FinPour;\n            Ecrire(S);\n        FinPour;\n        Ecrire('\\n');\n    FinPour;\nFin.\n"
+  },
+  "67": {
+    "file": "src/web/data/problems/67-transposition-de-matrice-carr-e.json",
+    "title": "Transposition de Matrice Carrée",
+    "full_solution": "Algorithme TranspositionMatrice;\nVar\n    N, I, J : Entier;\n    M[50][50] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a N - 1 Faire\n            Lire(M[I][J]);\n        FinPour;\n    FinPour;\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a N - 1 Faire\n            Ecrire(M[J][I]);\n        FinPour;\n        Ecrire('\\n');\n    FinPour;\nFin.\n"
+  },
+  "68": {
+    "file": "src/web/data/problems/68-l-ment-majoritaire-de-boyer-moore.json",
+    "title": "Élément Majoritaire de Boyer-Moore",
+    "full_solution": "Algorithme BoyerMoore;\nVar\n    N, I, Cand, Count, Val : Entier;\nDebut\n    Lire(N);\n    Count <- 0;\n    Cand <- 0;\n    Pour I <- 1 a N Faire\n        Lire(Val);\n        Si Count = 0 Alors\n            Cand <- Val;\n            Count <- 1;\n        Sinon\n            Si Val = Cand Alors\n                Count <- Count + 1;\n            Sinon\n                Count <- Count - 1;\n            FinSi;\n        FinSi;\n    FinPour;\n    Ecrire(Cand);\nFin.\n"
+  },
+  "69": {
+    "file": "src/web/data/problems/69-recherche-de-paire-cible.json",
+    "title": "Recherche de Paire Cible",
+    "full_solution": "Algorithme PaireCible;\nVar\n    N, I, S, L, R, Sum, Found : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n    Lire(S);\n    L <- 0;\n    R <- N - 1;\n    Found <- 0;\n    TantQue (L < R) ET (Found = 0) Faire\n        Sum <- T[L] + T[R];\n        Si Sum = S Alors\n            Ecrire(T[L], T[R]);\n            Found <- 1;\n        Sinon\n            Si Sum < S Alors\n                L <- L + 1;\n            Sinon\n                R <- R - 1;\n            FinSi;\n        FinSi;\n    FinTantQue;\n    Si Found = 0 Alors\n        Ecrire(-1);\n    FinSi;\nFin.\n"
+  },
+  "70": {
+    "file": "src/web/data/problems/70-parcours-en-spirale-d-une-matrice.json",
+    "title": "Parcours en Spirale d'une Matrice",
+    "full_solution": "Algorithme SpiraleMatrice;\nVar\n    N, M, I, J, Top, Bottom, Left, Right, K : Entier;\n    Mat[50][50] : Entier;\nDebut\n    Lire(N);\n    Lire(M);\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a M - 1 Faire\n            Lire(Mat[I][J]);\n        FinPour;\n    FinPour;\n    Top <- 0;\n    Bottom <- N - 1;\n    Left <- 0;\n    Right <- M - 1;\n    TantQue (Top <= Bottom) ET (Left <= Right) Faire\n        Pour J <- Left a Right Faire\n            Ecrire(Mat[Top][J]);\n        FinPour;\n        Top <- Top + 1;\n        Pour I <- Top a Bottom Faire\n            Ecrire(Mat[I][Right]);\n        FinPour;\n        Right <- Right - 1;\n        Si Top <= Bottom Alors\n            K <- Right;\n            TantQue K >= Left Faire\n                Ecrire(Mat[Bottom][K]);\n                K <- K - 1;\n            FinTantQue;\n            Bottom <- Bottom - 1;\n        FinSi;\n        Si Left <= Right Alors\n            K <- Bottom;\n            TantQue K >= Top Faire\n                Ecrire(Mat[K][Left]);\n                K <- K - 1;\n            FinTantQue;\n            Left <- Left + 1;\n        FinSi;\n    FinTantQue;\nFin.\n"
+  },
+  "71": {
+    "file": "src/web/data/problems/71-rotation-de-matrice-de-90-degr-s.json",
+    "title": "Rotation de Matrice de 90 Degrés",
+    "full_solution": "Algorithme RotationMatrice;\nVar\n    N, I, J : Entier;\n    M[50][50] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a N - 1 Faire\n            Lire(M[I][J]);\n        FinPour;\n    FinPour;\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a N - 1 Faire\n            Ecrire(M[N - 1 - J][I]);\n        FinPour;\n        Ecrire('\\n');\n    FinPour;\nFin.\n"
+  },
+  "72": {
+    "file": "src/web/data/problems/72-sous-matrice-de-somme-maximale.json",
+    "title": "Sous-Matrice de Somme Maximale",
+    "full_solution": "Algorithme MaxSousMatrice;\nVar\n    N, M, R1, R2, C, Curr, MaxS, First : Entier;\n    Mat[50][50], ColSum[50] : Entier;\nDebut\n    Lire(N);\n    Lire(M);\n    Pour R1 <- 0 a N - 1 Faire\n        Pour C <- 0 a M - 1 Faire\n            Lire(Mat[R1][C]);\n        FinPour;\n    FinPour;\n    First <- 1;\n    MaxS <- 0;\n    Pour R1 <- 0 a N - 1 Faire\n        Pour C <- 0 a M - 1 Faire\n            ColSum[C] <- 0;\n        FinPour;\n        Pour R2 <- R1 a N - 1 Faire\n            Pour C <- 0 a M - 1 Faire\n                ColSum[C] <- ColSum[C] + Mat[R2][C];\n            FinPour;\n            Curr <- 0;\n            Pour C <- 0 a M - 1 Faire\n                Si First = 1 Alors\n                    MaxS <- ColSum[C];\n                    Curr <- ColSum[C];\n                    First <- 0;\n                Sinon\n                    Si Curr + ColSum[C] > ColSum[C] Alors\n                        Curr <- Curr + ColSum[C];\n                    Sinon\n                        Curr <- ColSum[C];\n                    FinSi;\n                    Si Curr > MaxS Alors\n                        MaxS <- Curr;\n                    FinSi;\n                FinSi;\n            FinPour;\n        FinPour;\n    FinPour;\n    Ecrire(MaxS);\nFin.\n"
+  },
+  "73": {
+    "file": "src/web/data/problems/73-triplets-de-somme-nulle.json",
+    "title": "Triplets de Somme Nulle",
+    "full_solution": "Algorithme TripletsSommeNulle;\nVar\n    N, I, J, Temp, Gauche, Droite, Somme, NbTriplets : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n\n    // Tri a bulles / selection\n    Pour I <- 0 a N - 2 Faire\n        Pour J <- I + 1 a N - 1 Faire\n            Si T[I] > T[J] Alors\n                Temp <- T[I];\n                T[I] <- T[J];\n                T[J] <- Temp;\n            FinSi;\n        FinPour;\n    FinPour;\n\n    NbTriplets <- 0;\n    Pour I <- 0 a N - 3 Faire\n        Si (I = 0) OU (T[I] <> T[I - 1]) Alors\n            Gauche <- I + 1;\n            Droite <- N - 1;\n            TantQue Gauche < Droite Faire\n                Somme <- T[I] + T[Gauche] + T[Droite];\n                Si Somme = 0 Alors\n                    NbTriplets <- NbTriplets + 1;\n                    Gauche <- Gauche + 1;\n                    Droite <- Droite - 1;\n                    TantQue (Gauche < Droite) ET (T[Gauche] = T[Gauche - 1]) Faire\n                        Gauche <- Gauche + 1;\n                    FinTantQue;\n                    TantQue (Gauche < Droite) ET (T[Droite] = T[Droite + 1]) Faire\n                        Droite <- Droite - 1;\n                    FinTantQue;\n                Sinon\n                    Si Somme < 0 Alors\n                        Gauche <- Gauche + 1;\n                    Sinon\n                        Droite <- Droite - 1;\n                    FinSi;\n                FinSi;\n            FinTantQue;\n        FinSi;\n    FinPour;\n\n    Ecrire(NbTriplets);\nFin.\n"
+  },
+  "74": {
+    "file": "src/web/data/problems/74-recherche-dans-une-matrice-tri-e-2d.json",
+    "title": "Recherche dans une Matrice Triée 2D",
+    "full_solution": "Algorithme RechercheMatrice2D;\nVar\n    N, M, I, J, X, R, C, Found : Entier;\n    Mat[50][50] : Entier;\nDebut\n    Lire(N);\n    Lire(M);\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a M - 1 Faire\n            Lire(Mat[I][J]);\n        FinPour;\n    FinPour;\n    Lire(X);\n    R <- 0;\n    C <- M - 1;\n    Found <- 0;\n    TantQue (R < N) ET (C >= 0) ET (Found = 0) Faire\n        Si Mat[R][C] = X Alors\n            Found <- 1;\n        Sinon\n            Si Mat[R][C] > X Alors\n                C <- C - 1;\n            Sinon\n                R <- R + 1;\n            FinSi;\n        FinSi;\n    FinTantQue;\n    Ecrire(Found);\nFin.\n"
+  }
+}

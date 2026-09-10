@@ -1,0 +1,70 @@
+{
+  "title": "Élément Majoritaire de Boyer-Moore",
+  "topic": "Tableaux",
+  "difficulty": "Medium",
+  "description": "### Détection de l'Élément Majoritaire en O(N)\n\nÉtant donné un tableau de taille `N`, trouvez l'élément qui apparaît strictement plus de $\\lfloor N/2 \\rfloor$ fois.\nL'existence de l'élément majoritaire est garantie.\n\n#### Format d'entrée\n- Ligne 1 : `N`\n- Lignes 2 à N+1 : Les `N` entiers\n\n#### Format de sortie attendu\n- La valeur de l'élément majoritaire.\n\n#### Exemple concret\n**Entrée :**\n```\n7\n2\n2\n1\n1\n1\n2\n2\n```\n**Sortie attendue :**\n```\n2\n```",
+  "template_code": "Algorithme BoyerMoore;\nVar\n    N, I, Cand, Count, Val : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n\n    // TODO: Trouver l'élément majoritaire selon l'algorithme de Boyer-Moore et stocker dans Cand\n\n\n\n    Ecrire(Cand);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "7\n2\n2\n1\n1\n1\n2\n2\n",
+      "expected_output": "2\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n3\n2\n3\n",
+      "expected_output": "3\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n1\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n7\n7\n7\n7\n1\n2\n7\n",
+      "expected_output": "7\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n5\n5\n5\n2\n5\n3\n5\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n10\n20\n10\n10\n10\n",
+      "expected_output": "10\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n4\n4\n1\n4\n2\n4\n",
+      "expected_output": "4\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n9\n9\n9\n8\n9\n7\n9\n",
+      "expected_output": "9\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n-1\n-1\n2\n-1\n3\n-1\n-1\n",
+      "expected_output": "-1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n6\n6\n6\n6\n6\n",
+      "expected_output": "6\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n100\n200\n100\n100\n300\n100\n100\n",
+      "expected_output": "100\n",
+      "is_public": false
+    },
+    {
+      "input": "9\n8\n1\n8\n2\n8\n3\n8\n4\n8\n",
+      "expected_output": "8\n",
+      "is_public": false
+    }
+  ]
+}

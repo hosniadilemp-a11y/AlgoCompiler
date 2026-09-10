@@ -108,6 +108,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=True) # Nullable for OAuth users
     name = db.Column(db.String(100), unique=True, nullable=False) # Pseudo
+    equipped_title = db.Column(db.String(500), nullable=True) # JSON or comma-separated up to 3 titles
     date_of_birth = db.Column(db.Date, nullable=True)
     study_year = db.Column(db.String(50), nullable=True)
 

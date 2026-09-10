@@ -37,7 +37,7 @@
     },
     {
       "input": "9\n-5 4 -1 7 -8 6 2 -1 3\n",
-      "expected_output": "10\n",
+      "expected_output": "12\n",
       "is_public": false
     },
     {

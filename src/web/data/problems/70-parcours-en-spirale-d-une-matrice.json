@@ -1,0 +1,70 @@
+{
+  "title": "Parcours en Spirale d'une Matrice",
+  "topic": "Tableaux",
+  "difficulty": "Hard",
+  "description": "### Parcours d'une Matrice en Spirale dans le Sens Horaire\n\nÉcrivez un algorithme qui lit une matrice de dimensions `N x M` et affiche ses éléments selon un parcours en spirale partant du coin supérieur gauche vers le centre.\n\n#### Format d'entrée\n- Ligne 1 : `N`\n- Ligne 2 : `M`\n- Les $N \\times M$ lignes suivantes : Éléments de la matrice ligne par ligne\n\n#### Format de sortie attendu\n- Les éléments affichés sur une seule ligne séparés par des espaces.\n\n#### Exemple concret\n**Entrée :**\n```\n3\n3\n1\n2\n3\n4\n5\n6\n7\n8\n9\n```\n**Sortie attendue :**\n```\n1 2 3 6 9 8 7 4 5\n```",
+  "template_code": "Algorithme SpiraleMatrice;\nVar\n    N, M, I, J : Entier;\n    Mat[50][50] : Entier;\nDebut\n    Lire(N);\n    Lire(M);\n    Pour I <- 0 a N - 1 Faire\n        Pour J <- 0 a M - 1 Faire\n            Lire(Mat[I][J]);\n        FinPour;\n    FinPour;\n\n    // TODO: Afficher les éléments de la matrice selon un parcours en spirale horaire\n\n\n\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "3\n3\n1\n2\n3\n4\n5\n6\n7\n8\n9\n",
+      "expected_output": "1 2 3 6 9 8 7 4 5\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n4\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n",
+      "expected_output": "1 2 3 4 8 12 11 10 9 5 6 7\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n1\n42\n",
+      "expected_output": "42\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n2\n1\n2\n3\n4\n",
+      "expected_output": "1 2 4 3\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n4\n1\n2\n3\n4\n",
+      "expected_output": "1 2 3 4\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n1\n1\n2\n3\n4\n",
+      "expected_output": "1 2 3 4\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n3\n1\n2\n3\n4\n5\n6\n",
+      "expected_output": "1 2 3 6 5 4\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n2\n1\n2\n3\n4\n5\n6\n",
+      "expected_output": "1 2 4 6 5 3\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n4\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n",
+      "expected_output": "1 2 3 4 8 12 16 15 14 13 9 5 6 7 11 10\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n2\n10\n20\n40\n30\n",
+      "expected_output": "10 20 30 40\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n3\n5\n6\n7\n8\n9\n10\n11\n12\n13\n",
+      "expected_output": "5 6 7 10 13 12 11 8 9\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n3\n1\n2\n3\n8\n9\n4\n7\n6\n5\n",
+      "expected_output": "1 2 3 4 5 6 7 8 9\n",
+      "is_public": false
+    }
+  ]
+}

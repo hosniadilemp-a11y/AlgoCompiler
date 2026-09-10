@@ -1,0 +1,70 @@
+{
+  "title": "Problème de Josephus Arithmétique",
+  "topic": "Basics",
+  "difficulty": "Hard",
+  "description": "### Le Problème de Josephus\n\n`N` personnes sont disposées en cercle et numérotées de 1 à `N`. En commençant par la personne 1, on élimine chaque `K`-ième personne vivante jusqu'à ce qu'il n'en reste qu'une seule.\n\n#### Objectif\nDéterminer la position finale du survivant en utilisant la formule itérative :\n$$J(1, K) = 0$$\n$$J(i, K) = (J(i-1, K) + K) \\pmod i$$\navec conversion finale en indexation 1 ($J + 1$).\n\n#### Format d'entrée\n- Ligne 1 : `N` (nombre de personnes, `N >= 1`).\n- Ligne 2 : `K` (pas d'élimination, `K >= 1`).\n\n#### Format de sortie attendu\n- Un seul entier représentant la position du survivant.\n\n#### Exemple concret\n**Entrée :**\n```\n7\n3\n```\n**Sortie attendue :**\n```\n4\n```",
+  "template_code": "Algorithme Josephus;\nVar\n    N, K, Survivant : Entier;\nDebut\n    Lire(N);\n    Lire(K);\n\n    // TODO: Trouver la position du survivant (1-based) pour N personnes avec pas K\n\n\n\n    Ecrire(Survivant);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "7\n3\n",
+      "expected_output": "4\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n2\n",
+      "expected_output": "3\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n2\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n5\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n2\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "8\n3\n",
+      "expected_output": "7\n",
+      "is_public": false
+    },
+    {
+      "input": "12\n4\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "15\n3\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "20\n2\n",
+      "expected_output": "9\n",
+      "is_public": false
+    },
+    {
+      "input": "14\n2\n",
+      "expected_output": "13\n",
+      "is_public": false
+    },
+    {
+      "input": "100\n2\n",
+      "expected_output": "73\n",
+      "is_public": false
+    },
+    {
+      "input": "40\n7\n",
+      "expected_output": "24\n",
+      "is_public": false
+    }
+  ]
+}

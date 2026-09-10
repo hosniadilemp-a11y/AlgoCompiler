@@ -1,0 +1,70 @@
+{
+  "title": "Exponentiation Modulaire Rapide",
+  "topic": "Basics",
+  "difficulty": "Hard",
+  "description": "### Calcul de (A^B) mod M en Temps Logarithmique\n\nÉcrivez un algorithme qui calcule `(A^B) mod M` efficacement en $O(\\log B)$ par élévation au carré modulaire, évitant tout débordement d'entier.\n\n#### Format d'entrée\n- Ligne 1 : `A` (base)\n- Ligne 2 : `B` (exposant)\n- Ligne 3 : `M` (modulo)\n\n#### Format de sortie attendu\n- Un entier représentant `(A^B) mod M`.\n\n#### Exemple concret\n**Entrée :**\n```\n3\n13\n7\n```\n**Sortie attendue :**\n```\n3\n```",
+  "template_code": "Algorithme ExpoModulaire;\nVar\n    A, B, M, R : Entier;\nDebut\n    Lire(A);\n    Lire(B);\n    Lire(M);\n\n    // TODO: Calculer (A^B) mod M de manière efficace et stocker dans R\n\n\n\n    Ecrire(R);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "3\n13\n7\n",
+      "expected_output": "3\n",
+      "is_public": true
+    },
+    {
+      "input": "2\n10\n1000\n",
+      "expected_output": "24\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n3\n13\n",
+      "expected_output": "8\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n20\n17\n",
+      "expected_output": "16\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n100\n13\n",
+      "expected_output": "9\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n25\n11\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n15\n19\n",
+      "expected_output": "11\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n8\n23\n",
+      "expected_output": "18\n",
+      "is_public": false
+    },
+    {
+      "input": "11\n13\n100\n",
+      "expected_output": "31\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n30\n105\n",
+      "expected_output": "64\n",
+      "is_public": false
+    },
+    {
+      "input": "9\n9\n10\n",
+      "expected_output": "9\n",
+      "is_public": false
+    },
+    {
+      "input": "13\n17\n31\n",
+      "expected_output": "17\n",
+      "is_public": false
+    }
+  ]
+}

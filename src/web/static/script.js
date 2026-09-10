@@ -142,18 +142,64 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cm.getOption("disableInput")) return CodeMirror.Pass;
                     const cursor = cm.getCursor();
                     const line = cm.getLine(cursor.line);
-                    const trimmedLine = line.trim();
+                    const lineTextUntilCursor = line.slice(0, cursor.ch);
+                    const textBefore = lineTextUntilCursor.trim();
 
-                    // Auto-semicolon logic:
-                    // If line is not empty, not a comment, doesn't end in punctuation that doesn't need a semicolon,
-                    // and doesn't end in keywords that start/end blocks.
+                    // 1. Smart Block Auto-Closing (Parity with AlgoExamination)
+                    if (!lineTextUntilCursor.includes('//') && ((lineTextUntilCursor.match(/"/g) || []).length % 2 === 0)) {
+                        let closer = '';
+                        let openerRegex = null;
+                        let closerRegex = null;
+
+                        if (/(^|\s)alors$/i.test(textBefore)) {
+                            closer = 'FinSi;';
+                            openerRegex = /\bSi\b/gi;
+                            closerRegex = /\bFinSi\b/gi;
+                        } else if (/(^|\s)faire$/i.test(textBefore)) {
+                            if (/pour/i.test(textBefore) || /pour\b/i.test(lineTextUntilCursor)) {
+                                closer = 'FinPour;';
+                                openerRegex = /\bPour\b/gi;
+                                closerRegex = /\bFinPour\b/gi;
+                            } else {
+                                closer = 'FinTantQue;';
+                                openerRegex = /\bTantQue\b/gi;
+                                closerRegex = /\bFinTantQue\b/gi;
+                            }
+                        } else if (/^repeter$/i.test(textBefore)) {
+                            closer = "Jusqu'a (condition);";
+                            openerRegex = /\bRepeter\b/gi;
+                            closerRegex = /\bJusqu'a\b/gi;
+                        }
+
+                        if (closer) {
+                            const totalLines = cm.lineCount();
+                            let textAfterCursor = line.slice(cursor.ch) + "\n";
+                            for (let i = cursor.line + 1; i < totalLines; i++) {
+                                textAfterCursor += cm.getLine(i) + "\n";
+                            }
+                            const openersAfter = (textAfterCursor.match(openerRegex) || []).length;
+                            const closersAfter = (textAfterCursor.match(closerRegex) || []).length;
+
+                            if (closersAfter <= openersAfter) {
+                                const indentMatch = line.match(/^\s*/);
+                                const baseIndent = indentMatch ? indentMatch[0] : '';
+                                const innerIndent = baseIndent + '    ';
+                                const insertText = '\n' + innerIndent + '\n' + baseIndent + closer;
+                                cm.replaceRange(insertText, cursor);
+                                cm.setCursor({ line: cursor.line + 1, ch: innerIndent.length });
+                                return;
+                            }
+                        }
+                    }
+
+                    // 2. Auto-semicolon logic:
+                    const trimmedLine = line.trim();
                     if (trimmedLine.length > 0 &&
                         !trimmedLine.startsWith("//") &&
                         !/[;:\.\,\{\[\(\^]$/.test(trimmedLine) &&
                         !/^(Algorithme|Var|Const|Debut|Alors|Faire|Sinon|Repeter|Type|Enregistrement|Fin|FinSi|FinPour|FinTantQue)/i.test(trimmedLine) &&
                         !/\s+(Alors|Faire)$/i.test(trimmedLine)
                     ) {
-                        // Insert semicolon at the end of the line if the cursor is at or after the last non-space character
                         const lastCharIdx = line.search(/\S\s*$/);
                         if (cursor.ch > lastCharIdx) {
                             cm.replaceRange(";", { line: cursor.line, ch: line.length });

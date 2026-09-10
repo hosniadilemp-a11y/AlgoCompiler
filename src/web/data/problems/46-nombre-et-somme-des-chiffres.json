@@ -1,0 +1,70 @@
+{
+  "title": "Nombre et Somme des Chiffres",
+  "topic": "Basics",
+  "difficulty": "Easy",
+  "description": "### Analyse des Chiffres d'un Nombre\n\nÉcrivez un algorithme qui lit un entier positif ou nul `N`, puis détermine le nombre total de chiffres qui le composent ainsi que la somme de ses chiffres.\n\n#### Contexte & Objectif\nEn utilisant des divisions entières successives par 10 (`div 10`) et des restes (`mod 10`), extrayez chaque chiffre pour les compter et les additionner.\n\n#### Format d'entrée\n- Une seule ligne contenant l'entier `N` (`0 <= N <= 1000000`).\n\n#### Format de sortie attendu\n- Deux entiers séparés par un espace : le nombre de chiffres suivi de la somme des chiffres.\n\n#### Exemple concret\n**Entrée :**\n```\n4821\n```\n**Sortie attendue :**\n```\n4 15\n```",
+  "template_code": "Algorithme SommeChiffres;\nVar\n    N, Cnt, Som : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Déterminer le nombre de chiffres (Cnt) et la somme des chiffres (Som) de N\n\n\n\n    Ecrire(Cnt, Som);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "4821\n",
+      "expected_output": "4 15\n",
+      "is_public": true
+    },
+    {
+      "input": "0\n",
+      "expected_output": "1 0\n",
+      "is_public": true
+    },
+    {
+      "input": "7\n",
+      "expected_output": "1 7\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n",
+      "expected_output": "2 1\n",
+      "is_public": false
+    },
+    {
+      "input": "999\n",
+      "expected_output": "3 27\n",
+      "is_public": false
+    },
+    {
+      "input": "1000\n",
+      "expected_output": "4 1\n",
+      "is_public": false
+    },
+    {
+      "input": "50505\n",
+      "expected_output": "5 15\n",
+      "is_public": false
+    },
+    {
+      "input": "123456\n",
+      "expected_output": "6 21\n",
+      "is_public": false
+    },
+    {
+      "input": "90807\n",
+      "expected_output": "5 24\n",
+      "is_public": false
+    },
+    {
+      "input": "100000\n",
+      "expected_output": "6 1\n",
+      "is_public": false
+    },
+    {
+      "input": "88\n",
+      "expected_output": "2 16\n",
+      "is_public": false
+    },
+    {
+      "input": "314159\n",
+      "expected_output": "6 23\n",
+      "is_public": false
+    }
+  ]
+}

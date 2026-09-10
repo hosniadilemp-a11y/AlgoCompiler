@@ -1,0 +1,70 @@
+{
+  "title": "Recherche de Paire Cible",
+  "topic": "Tableaux",
+  "difficulty": "Medium",
+  "description": "### Deux Éléments de Somme Cible (Two Sum)\n\nÉtant donné un tableau trié dans l'ordre croissant et une valeur `Cible`, trouvez deux éléments distincts dont la somme vaut exactement `Cible`.\n\n#### Format d'entrée\n- Ligne 1 : `N`\n- Lignes 2 à N+1 : Les `N` entiers triés\n- Ligne N+2 : L'entier `Cible`\n\n#### Format de sortie attendu\n- Les deux valeurs séparées par un espace, ou `-1` si aucune paire n'existe.\n\n#### Exemple concret\n**Entrée :**\n```\n4\n2\n7\n11\n15\n9\n```\n**Sortie attendue :**\n```\n2 7\n```",
+  "template_code": "Algorithme PaireCible;\nVar\n    N, I, S, L, R, Sum, Found : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n    Lire(S);\n\n    // TODO: Trouver deux éléments dont la somme vaut S, ou afficher -1\n\n\n\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "4\n2\n7\n11\n15\n9\n",
+      "expected_output": "2 7\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n1\n2\n3\n4\n6\n10\n",
+      "expected_output": "4 6\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n1\n2\n3\n10\n",
+      "expected_output": "-1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n-5\n-2\n1\n3\n7\n2\n",
+      "expected_output": "-5 7\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n3\n5\n8\n12\n15\n20\n",
+      "expected_output": "5 15\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n1\n4\n6\n8\n10\n14\n",
+      "expected_output": "4 10\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n-10\n-5\n0\n5\n10\n0\n",
+      "expected_output": "-10 10\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n2\n3\n4\n6\n",
+      "expected_output": "2 4\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n10\n20\n30\n40\n50\n",
+      "expected_output": "10 40\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n-8\n-4\n-2\n0\n2\n6\n-2\n",
+      "expected_output": "-8 6\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n7\n14\n21\n28\n35\n",
+      "expected_output": "7 28\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n1\n3\n5\n7\n9\n16\n",
+      "expected_output": "7 9\n",
+      "is_public": false
+    }
+  ]
+}

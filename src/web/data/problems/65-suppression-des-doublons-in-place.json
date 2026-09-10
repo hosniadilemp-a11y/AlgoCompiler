@@ -1,0 +1,70 @@
+{
+  "title": "Suppression des Doublons In-Place",
+  "topic": "Tableaux",
+  "difficulty": "Medium",
+  "description": "### Compactage d'un Tableau Trié\n\nÉtant donné un tableau trié dans l'ordre croissant contenant des doublons, compactez le tableau pour éliminer les occurrences répétées et conserver uniquement les éléments uniques.\n\n#### Format d'entrée\n- Ligne 1 : `N`\n- Lignes 2 à N+1 : Les `N` entiers triés\n\n#### Format de sortie attendu\n- Ligne 1 : La nouvelle taille `K` du tableau\n- Ligne 2 : Les `K` éléments uniques séparés par des espaces\n\n#### Exemple concret\n**Entrée :**\n```\n6\n1\n1\n2\n3\n3\n4\n```\n**Sortie attendue :**\n```\n4\n1 2 3 4\n```",
+  "template_code": "Algorithme SupprimerDoublons;\nVar\n    N, I, K : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n\n    // TODO: Supprimer les doublons en place dans T trié, puis afficher K et les K éléments uniques\n\n\n\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "6\n1\n1\n2\n3\n3\n4\n",
+      "expected_output": "4\n1 2 3 4\n",
+      "is_public": true
+    },
+    {
+      "input": "4\n5\n5\n5\n5\n",
+      "expected_output": "1\n5\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n1\n2\n3\n4\n5\n",
+      "expected_output": "5\n1 2 3 4 5\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n10\n",
+      "expected_output": "1\n10\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n-5\n-5\n-2\n0\n0\n4\n",
+      "expected_output": "4\n-5 -2 0 4\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n1\n1\n1\n2\n2\n3\n",
+      "expected_output": "3\n1 2 3\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n0\n0\n1\n1\n1\n2\n2\n3\n3\n4\n",
+      "expected_output": "5\n0 1 2 3 4\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n-10\n-10\n-5\n0\n5\n5\n",
+      "expected_output": "4\n-10 -5 0 5\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n7\n7\n8\n9\n9\n",
+      "expected_output": "3\n7 8 9\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n2\n4\n4\n6\n8\n8\n10\n",
+      "expected_output": "5\n2 4 6 8 10\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n-1\n0\n0\n1\n",
+      "expected_output": "3\n-1 0 1\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n100\n100\n200\n300\n300\n400\n",
+      "expected_output": "4\n100 200 300 400\n",
+      "is_public": false
+    }
+  ]
+}

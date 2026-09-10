@@ -1,0 +1,70 @@
+{
+  "title": "Sous-Matrice de Somme Maximale",
+  "topic": "Tableaux",
+  "difficulty": "Hard",
+  "description": "### Somme Maximale d'une Sous-Matrice Rectangulaire\n\nÉtant donné une matrice de dimensions `N x M` pouvant contenir des entiers positifs et négatifs, trouvez la sous-matrice contiguë dont la somme des éléments est maximale.\n\n#### Format d'entrée\n- Ligne 1 : `N`\n- Ligne 2 : `M`\n- Les $N \\times M$ lignes suivantes : Éléments de la matrice\n\n#### Format de sortie attendu\n- Un entier représentant la somme maximale.\n\n#### Exemple concret\n**Entrée :**\n```\n3\n3\n1\n2\n-1\n-4\n-20\n-3\n-5\n20\n10\n```\n**Sortie attendue :**\n```\n30\n```",
+  "template_code": "Algorithme MaxSousMatrice;\nVar\n    N, M, R1, C, MaxS : Entier;\n    Mat[50][50] : Entier;\nDebut\n    Lire(N);\n    Lire(M);\n    Pour R1 <- 0 a N - 1 Faire\n        Pour C <- 0 a M - 1 Faire\n            Lire(Mat[R1][C]);\n        FinPour;\n    FinPour;\n\n    // TODO: Trouver la somme maximale d'une sous-matrice et stocker dans MaxS\n\n\n\n    Ecrire(MaxS);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "3\n3\n1\n2\n-1\n-4\n-20\n-3\n-5\n20\n10\n",
+      "expected_output": "30\n",
+      "is_public": true
+    },
+    {
+      "input": "2\n2\n1\n2\n3\n4\n",
+      "expected_output": "10\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n1\n-5\n",
+      "expected_output": "-5\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n4\n0\n-2\n-7\n0\n9\n2\n-6\n2\n-4\n1\n-4\n1\n-1\n8\n0\n-2\n",
+      "expected_output": "15\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n2\n-1\n-2\n-3\n-4\n",
+      "expected_output": "-1\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n2\n5\n-3\n-1\n4\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n5\n2\n1\n-3\n-4\n5\n0\n6\n3\n4\n1\n2\n-2\n-1\n4\n-5\n",
+      "expected_output": "16\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n1\n10\n",
+      "expected_output": "10\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n2\n-2\n-3\n-4\n-1\n",
+      "expected_output": "-1\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n3\n1\n-1\n1\n-1\n1\n-1\n1\n-1\n1\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n3\n10\n-5\n2\n-3\n20\n-2\n",
+      "expected_output": "22\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n3\n3\n-2\n5\n1\n4\n-1\n",
+      "expected_output": "10\n",
+      "is_public": false
+    }
+  ]
+}

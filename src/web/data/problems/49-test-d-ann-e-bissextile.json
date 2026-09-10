@@ -1,0 +1,70 @@
+{
+  "title": "Test d'Année Bissextile",
+  "topic": "Basics",
+  "difficulty": "Easy",
+  "description": "### Détection d'Année Bissextile\n\nÉcrivez un algorithme qui détermine si une année donnée est bissextile.\n\n#### Règle du calendrier grégorien\nUne année est bissextile si :\n- Elle est divisible par 4 ET non divisible par 100,\n- OU si elle est divisible par 400.\n\n#### Format d'entrée\n- Un entier positif `Annee`.\n\n#### Format de sortie attendu\n- Affichez `1` si l'année est bissextile, ou `0` sinon.\n\n#### Exemple concret\n**Entrée :**\n```\n2024\n```\n**Sortie attendue :**\n```\n1\n```",
+  "template_code": "Algorithme AnneeBissextile;\nVar\n    A, Rep : Entier;\nDebut\n    Lire(A);\n\n    // TODO: Déterminer si l'année A est bissextile (Rep <- 1 si bissextile, sinon 0)\n\n\n\n    Ecrire(Rep);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "2024\n",
+      "expected_output": "1\n",
+      "is_public": true
+    },
+    {
+      "input": "1900\n",
+      "expected_output": "0\n",
+      "is_public": true
+    },
+    {
+      "input": "2000\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "2023\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "2020\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "2100\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "2400\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "1996\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "1982\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "2004\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "2018\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "1600\n",
+      "expected_output": "1\n",
+      "is_public": false
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "title": "Calcul de Puissance Entière",
+  "topic": "Basics",
+  "difficulty": "Easy",
+  "description": "### Calcul de Puissance X^Y\n\nÉcrivez un algorithme qui calcule `X` élevé à la puissance `Y` à l'aide d'une boucle d'accumulation.\n\n#### Contexte & Objectif\nPar définition, pour tout entier `X != 0`, `X^0 = 1`. Pour `Y > 0`, `X^Y = X * X * ... * X` (`Y` fois).\n\n#### Format d'entrée\n- Ligne 1 : L'entier de base `X` (`0 <= X <= 20`).\n- Ligne 2 : L'exposant `Y` (`0 <= Y <= 15`).\n\n#### Format de sortie attendu\n- Un seul entier représentant `X^Y`.\n\n#### Exemple concret\n**Entrée :**\n```\n2\n6\n```\n**Sortie attendue :**\n```\n64\n```",
+  "template_code": "Algorithme Puissance;\nVar\n    X, N, P : Entier;\nDebut\n    Lire(X);\n    Lire(N);\n\n    // TODO: Calculer X élevé à la puissance N et stocker dans P\n\n\n\n    Ecrire(P);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "2\n6\n",
+      "expected_output": "64\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n0\n",
+      "expected_output": "1\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n1\n",
+      "expected_output": "3\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n3\n",
+      "expected_output": "1000\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n10\n",
+      "expected_output": "1024\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n2\n",
+      "expected_output": "49\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n4\n",
+      "expected_output": "256\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n20\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "0\n5\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n5\n",
+      "expected_output": "243\n",
+      "is_public": false
+    },
+    {
+      "input": "9\n3\n",
+      "expected_output": "729\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n15\n",
+      "expected_output": "32768\n",
+      "is_public": false
+    }
+  ]
+}

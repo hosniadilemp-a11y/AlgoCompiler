@@ -40,9 +40,40 @@
 
             <form method="POST" action="{{ url_for('auth.signup') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-group">
-                    <label class="form-label">Pseudo</label>
-                    <input type="text" name="name" class="form-control" required autofocus>
+                <!-- Pseudo Generation Section (Option C: <Name>#<4-digits>) -->
+                <div class="form-group" style="background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-user-astronaut" style="color: #4a6ee0; margin-right: 6px;"></i> Pseudo (Pionnier Informatique # 4 Chiffres)</span>
+                        <small style="color: #888; font-weight: normal;">Option C : Nom#4Chiffres</small>
+                    </label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div style="flex: 1.2;">
+                            <label style="font-size: 0.75rem; color: #888; margin-bottom: 2px; display: block;">Pionnier / Concept CS</label>
+                            <div style="display: flex; gap: 6px;">
+                                <select id="cs-pioneer-select" class="form-control" style="cursor: pointer; font-weight: 600;">
+                                    {% for cname in cs_names %}
+                                    <option value="{{ cname }}" {% if cname == initial_cs_name %}selected{% endif %}>{{ cname }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" id="shuffle-pioneer-btn" class="course-theme-btn" title="Changer de pionnier aléatoirement" style="padding: 8px 12px; white-space: nowrap; border-radius: 6px;">
+                                    <i class="fas fa-random"></i> 🎲
+                                </button>
+                            </div>
+                        </div>
+                        <div style="flex: 0.8;">
+                            <label style="font-size: 0.75rem; color: #888; margin-bottom: 2px; display: block;">Code (4 chiffres)</label>
+                            <input type="text" name="digit_code" id="digit-code" class="form-control" required maxlength="4" minlength="4" pattern="[0-9]{4}" placeholder="Ex: 4821" autofocus style="text-align: center; font-weight: bold; letter-spacing: 2px; font-size: 1.05rem;">
+                        </div>
+                    </div>
+
+                    <!-- Live Pseudo Preview -->
+                    <div id="pseudo-preview-box" style="margin-top: 10px; padding: 10px 14px; border-radius: 8px; background: rgba(74, 110, 224, 0.12); border: 1px dashed rgba(74, 110, 224, 0.45); display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fas fa-fingerprint"></i> Aperçu de votre pseudo :</span>
+                        <span id="pseudo-preview-text" style="font-weight: 700; font-size: 1.15rem; color: #4a6ee0; font-family: monospace; letter-spacing: 1px;">{{ initial_cs_name }}#----</span>
+                    </div>
+
+                    <input type="hidden" name="cs_pioneer" id="hidden-cs-pioneer" value="{{ initial_cs_name }}">
+                    <input type="hidden" name="name" id="hidden-final-pseudo" value="{{ initial_cs_name }}#">
                 </div>
 
                 <div style="display: flex; gap: 15px;">
@@ -51,13 +82,12 @@
                         <input type="date" name="date_of_birth" class="form-control" required>
                     </div>
                     <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Année d'étude (Université)</label>
-                        <select name="study_year" class="form-control" required style="cursor: pointer;">
-                            <option value="" disabled selected>Sélectionnez l'année</option>
-                            {% for y in range(2026, 1899, -1) %}
-                            <option value="{{ y }}">{{ y }}</option>
-                            {% endfor %}
-                        </select>
+                        <label class="form-label">Année universitaire</label>
+                        <div style="padding: 10px 14px; border-radius: 6px; background: rgba(40, 167, 69, 0.12); border: 1px solid rgba(40, 167, 69, 0.35); color: #28a745; font-weight: 600; display: flex; align-items: center; gap: 8px; height: 42px; box-sizing: border-box;">
+                            <i class="fas fa-graduation-cap"></i> {{ academic_year_display }} ({{ academic_year }})
+                        </div>
+                        <input type="hidden" name="study_year" value="{{ academic_year }}">
+                        <small style="font-size: 0.75rem; color: #888; display: block; margin-top: 4px;">Attribuée automatiquement selon le calendrier.</small>
                     </div>
                 </div>
                 <div class="form-group">
@@ -174,6 +204,50 @@
             strengthBar.style.backgroundColor = colors[strength];
             strengthText.innerText = 'Force : ' + labels[strength];
         });
+
+        // Pseudo Option C generator logic (<Pioneer>#<4digits>)
+        const csPioneerSelect = document.getElementById('cs-pioneer-select');
+        const shufflePioneerBtn = document.getElementById('shuffle-pioneer-btn');
+        const digitCodeInput = document.getElementById('digit-code');
+        const pseudoPreviewText = document.getElementById('pseudo-preview-text');
+        const hiddenCsPioneer = document.getElementById('hidden-cs-pioneer');
+        const hiddenFinalPseudo = document.getElementById('hidden-final-pseudo');
+
+        function updatePseudoPreview() {
+            if (!csPioneerSelect || !digitCodeInput) return;
+            const pioneer = csPioneerSelect.value || 'Turing';
+            let digits = (digitCodeInput.value || '').replace(/\D/g, '').slice(0, 4);
+            digitCodeInput.value = digits;
+            
+            const displayDigits = digits ? (digits.length < 4 ? digits + '-'.repeat(4 - digits.length) : digits) : '----';
+            pseudoPreviewText.textContent = `${pioneer}#${displayDigits}`;
+            hiddenCsPioneer.value = pioneer;
+            hiddenFinalPseudo.value = `${pioneer}#${digits}`;
+        }
+
+        if (csPioneerSelect) {
+            csPioneerSelect.addEventListener('change', updatePseudoPreview);
+        }
+
+        if (digitCodeInput) {
+            digitCodeInput.addEventListener('input', updatePseudoPreview);
+        }
+
+        if (shufflePioneerBtn) {
+            shufflePioneerBtn.addEventListener('click', () => {
+                const options = Array.from(csPioneerSelect.options);
+                if (options.length > 1) {
+                    let newIndex = Math.floor(Math.random() * options.length);
+                    while (newIndex === csPioneerSelect.selectedIndex) {
+                        newIndex = Math.floor(Math.random() * options.length);
+                    }
+                    csPioneerSelect.selectedIndex = newIndex;
+                    updatePseudoPreview();
+                }
+            });
+        }
+
+        updatePseudoPreview();
     </script>
 </body>
 

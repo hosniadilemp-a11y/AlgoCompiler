@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 # SECURITY_HARDENING_V1.1
 import secrets
 import logging
@@ -19,12 +20,18 @@ PROJECT_ROOT = os.path.abspath(os.path.join(APP_DIR, '..', '..'))
 for env_path in (
     os.path.join(PROJECT_ROOT, '.env'),
     os.path.join(PROJECT_ROOT, 'env.env'),
+    os.path.join(PROJECT_ROOT, 'AlgoCompiler.env'),
 ):
     if os.path.exists(env_path):
         load_dotenv(env_path, override=False)
 
 app_env = (os.environ.get('APP_ENV') or os.environ.get('FLASK_ENV') or '').strip().lower()
-is_local_dev = app_env not in {'production', 'prod'}
+is_production = (
+    app_env in {'production', 'prod'}
+    or os.environ.get('RENDER') == 'true'
+    or bool(os.environ.get('K_SERVICE'))
+)
+is_local_dev = not is_production
 
 # Add parent directory to path to allow importing 'compiler'
 sys.path.append(os.path.abspath(os.path.join(APP_DIR, '..')))
@@ -37,6 +44,7 @@ from flask_login import current_user, login_required
 import io
 import contextlib
 from compiler.parser import parser, compile_algo
+from compiler.french_exception_translator import translate_exception
 print(">>> [DEBUG] PARSER IMPORTED", flush=True)
 
 from web.debugger import TraceRunner
@@ -48,18 +56,15 @@ from sqlalchemy import func, distinct
 from sqlalchemy.orm import joinedload
 from sqlalchemy.pool import NullPool
 import json
-import secrets
 
 # Handle Windows console encoding issues for scientific/accented characters
 if sys.platform == 'win32':
     try:
-        import io
         sys.stdout.reconfigure(encoding='utf-8')
         sys.stderr.reconfigure(encoding='utf-8')
     except:
         pass
 
-import logging
 # Aggressively silence all logging to prevent OSError [Errno 22] on Windows console
 logging.disable(logging.CRITICAL)
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -105,6 +110,33 @@ user_progress_advanced_cache_lock = threading.Lock()
 USER_BADGES_CACHE_TTL_SECONDS = int(os.environ.get('USER_BADGES_CACHE_TTL_SECONDS', '120'))
 user_badges_cache = {}
 user_badges_cache_lock = threading.Lock()
+
+# Thread-safe in-memory cache for static Chapter metadata to avoid repeated DB queries
+_chapter_cache = {'expires_at': 0, 'chapters': [], 'id_to_identifier': {}}
+_chapter_cache_lock = threading.Lock()
+
+def get_all_chapters_cached():
+    now_ts = time.time()
+    with _chapter_cache_lock:
+        if _chapter_cache['expires_at'] > now_ts and _chapter_cache['chapters']:
+            return _chapter_cache['chapters']
+    chapters = Chapter.query.all()
+    id_map = {c.id: c.identifier for c in chapters}
+    with _chapter_cache_lock:
+        _chapter_cache['expires_at'] = now_ts + 600
+        _chapter_cache['chapters'] = chapters
+        _chapter_cache['id_to_identifier'] = id_map
+    return chapters
+
+def get_chapter_id_to_identifier_map():
+    now_ts = time.time()
+    with _chapter_cache_lock:
+        if _chapter_cache['expires_at'] > now_ts and _chapter_cache['id_to_identifier']:
+            return _chapter_cache['id_to_identifier']
+    get_all_chapters_cached()
+    with _chapter_cache_lock:
+        return dict(_chapter_cache['id_to_identifier'])
+
 background_task_executor = ThreadPoolExecutor(
     max_workers=max(2, int(os.environ.get('BACKGROUND_TASK_WORKERS', '2')))
 )
@@ -191,7 +223,7 @@ def generate_csrf_token():
 
 
 def get_submitted_csrf_token():
-    token = request.headers.get('X-CSRF-Token')
+    token = request.headers.get('X-CSRF-Token') or request.headers.get('X-CSRFToken')
     if token:
         return token
     token = request.form.get('csrf_token')
@@ -265,8 +297,16 @@ def cleanup_db_session(exc):
 
 # Basic Config
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+app.config['TEMPLATES_AUTO_RELOAD'] = not is_production
+
+flask_debug_raw = os.environ.get('FLASK_DEBUG', '').strip().lower()
+if is_production:
+    app.config['DEBUG'] = False
+else:
+    app.config['DEBUG'] = flask_debug_raw in {'1', 'true', 'yes', 'on'} if flask_debug_raw else is_local_dev
+
 # VULN-001: Fail loudly in production if SECRET_KEY is not set
-if not is_local_dev and not os.environ.get('SECRET_KEY'):
+if is_production and not os.environ.get('SECRET_KEY'):
     import warnings
     warnings.warn(
         "SECRET_KEY is not set! A random key is being used, which will "
@@ -306,11 +346,9 @@ if is_transaction_pooler and not is_local_dev:
 use_psycopg3 = False
 if database_url:
     # Attempt to detect which driver to use
-    try:
-        import psycopg
+    import importlib.util
+    if importlib.util.find_spec('psycopg') is not None:
         use_psycopg3 = True
-    except ImportError:
-        pass
     
     if database_url.startswith('postgres://'):
         driver = 'postgresql+psycopg://' if use_psycopg3 else 'postgresql://'
@@ -366,6 +404,52 @@ if database_url and not database_url.startswith('sqlite'):
 safe_uri = app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
 print(f">>> [DEBUG] SQLALCHEMY_DATABASE_URI: {safe_uri}", flush=True)
 
+def ensure_schema_migrations():
+    """Ensure newly added columns exist in both SQLite and PostgreSQL without requiring full re-creations."""
+    try:
+        from sqlalchemy import text
+        engine = db.engine
+        dialect_name = engine.dialect.name
+
+        columns_to_ensure = [
+            ('quiz_attempts', 'status', 'VARCHAR(20)', "'completed'"),
+            ('quiz_attempts', 'all_correct', 'BOOLEAN', 'FALSE'),
+            ('quiz_attempts', 'none_correct', 'BOOLEAN', 'FALSE'),
+            ('users', 'equipped_title', 'VARCHAR(500)', 'NULL'),
+            ('users', 'study_year', 'VARCHAR(50)', 'NULL'),
+            ('users', 'date_of_birth', 'DATE', 'NULL'),
+            ('challenge_submissions', 'avg_execution_time_ms', 'NUMERIC(12, 3)', 'NULL'),
+            ('challenge_submissions', 'avg_memory_kb', 'NUMERIC(12, 2)', 'NULL'),
+            ('challenge_submissions', 'test_case_metrics_json', 'JSON' if dialect_name == 'postgresql' else 'TEXT', 'NULL'),
+            ('challenge_submissions', 'attempt_session_id', 'BIGINT' if dialect_name == 'postgresql' else 'INTEGER', 'NULL'),
+            ('problems', 'is_published', 'BOOLEAN', 'FALSE'),
+        ]
+
+        with engine.connect() as conn:
+            if dialect_name == 'postgresql':
+                for table, col, col_type, default_val in columns_to_ensure:
+                    default_part = f" DEFAULT {default_val}" if default_val and default_val != 'NULL' else ""
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}{default_part};"))
+                    except Exception as col_err:
+                        print(f">>> [WARNING] Column {table}.{col} migration warning: {col_err}", flush=True)
+                conn.commit()
+            elif dialect_name == 'sqlite':
+                for table, col, col_type, default_val in columns_to_ensure:
+                    try:
+                        res = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+                        existing_cols = [r[1] for r in res]
+                        if existing_cols and col not in existing_cols:
+                            default_part = f" DEFAULT {default_val}" if default_val and default_val != 'NULL' else ""
+                            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}{default_part};"))
+                    except Exception as col_err:
+                        print(f">>> [WARNING] Column {table}.{col} migration warning: {col_err}", flush=True)
+                conn.commit()
+            print(">>> [DEBUG] SCHEMA MIGRATIONS VERIFIED OK", flush=True)
+    except Exception as e:
+        print(f">>> [WARNING] SCHEMA MIGRATIONS CHECK FAILED (NON-FATAL): {e}", flush=True)
+
+
 try:
     print(">>> [DEBUG] INITIALIZING DB...", flush=True)
     db.init_app(app)
@@ -381,6 +465,8 @@ try:
             print(">>> [DEBUG] DB TABLES CHECKED/CREATED OK", flush=True)
         else:
             print(">>> [DEBUG] SKIPPING db.create_all() FOR MANAGED REMOTE DATABASE", flush=True)
+
+        ensure_schema_migrations()
 
         should_run_startup_security_migration = (
             is_truthy(os.environ.get('STARTUP_SECURITY_MIGRATION'))
@@ -530,6 +616,7 @@ def get_course_chapter(identifier):
 @app.route('/progress')
 @login_required
 def progress_page():
+    from web.auth import CS_PIONEER_NAMES
     initial_progress = None
     try:
         initial_progress = {
@@ -538,7 +625,19 @@ def progress_page():
         }
     except Exception:
         initial_progress = None
-    return render_template('progress.html', initial_progress=initial_progress)
+    cur_pioneer = ""
+    cur_digits = ""
+    if current_user.name and '#' in current_user.name:
+        parts = current_user.name.split('#', 1)
+        cur_pioneer = parts[0].strip()
+        cur_digits = parts[1].strip()
+    return render_template(
+        'progress.html',
+        initial_progress=initial_progress,
+        cs_names=CS_PIONEER_NAMES,
+        cur_pioneer=cur_pioneer,
+        cur_digits=cur_digits
+    )
 
 @app.route('/problems')
 def problems_page():
@@ -556,7 +655,7 @@ def challenge_page(problem_id):
     return render_template('challenge.html', problem_id=problem_id)
 
 def utcnow():
-    return datetime.datetime.utcnow()
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 def decimal_to_float(value):
     if value is None:
@@ -736,7 +835,7 @@ def prewarm_course_cache_in_background():
 
 try:
     prewarm_course_cache_in_background()
-except Exception as e:
+except Exception:
     pass
 
 
@@ -871,6 +970,8 @@ def invalidate_global_user_stats_cache():
     with global_user_stats_cache_lock:
         global_user_stats_cache['expires_at'] = 0
         global_user_stats_cache['payload'] = None
+    with user_badges_cache_lock:
+        user_badges_cache.clear()
 
 
 def invalidate_user_progress_summary_cache(user_id=None):
@@ -924,9 +1025,10 @@ def get_default_level_badge():
     return {
         'num': 1,
         'name': 'Débutant',
-        'icon': '🌟',
-        'color': '#6c757d',
-        'glow': 'rgba(108,117,125,0.5)'
+        'icon': '🧭',
+        'icon_class': 'fa-solid fa-compass',
+        'color': '#94a3b8',
+        'glow': 'rgba(148,163,184,0.45)'
     }
 
 
@@ -951,7 +1053,141 @@ def leaderboard_sort_key(item):
     )
 
 
-def decorate_leaderboard_entry(user_id, raw_entry, rank=None):
+def compute_user_leaderboard_bucket(stats_by_user, user_id):
+    if not stats_by_user or user_id not in stats_by_user:
+        return {
+            'rank': None,
+            'total_users': 0,
+            'top_percent': 100.0,
+            'bucket_percent': 100,
+            'bucket_label': 'Top 100%'
+        }
+
+    ranked_users = [
+        item
+        for item in sorted(stats_by_user.items(), key=leaderboard_sort_key)
+        if has_rankable_leaderboard_score(item[1])
+    ]
+
+    total_users = len(ranked_users)
+    if not has_rankable_leaderboard_score(stats_by_user.get(user_id)):
+        return {
+            'rank': None,
+            'total_users': total_users,
+            'top_percent': 100.0,
+            'bucket_percent': 100,
+            'bucket_label': 'Top 100%'
+        }
+
+    user_rank = next((index for index, (uid, _) in enumerate(ranked_users, start=1) if uid == user_id), None)
+    if user_rank is None:
+        return {
+            'rank': None,
+            'total_users': total_users,
+            'top_percent': 100.0,
+            'bucket_percent': 100,
+            'bucket_label': 'Top 100%'
+        }
+
+    if total_users <= 1:
+        top_percent = 1.0
+    else:
+        top_percent = round((user_rank / total_users) * 100, 1)
+
+    if user_rank == 1:
+        bucket_percent = 1
+    else:
+        thresholds = [1, 5, 10, 20, 50, 70]
+        bucket_percent = next((threshold for threshold in thresholds if top_percent <= threshold), 100)
+
+    return {
+        'rank': user_rank,
+        'total_users': total_users,
+        'top_percent': top_percent,
+        'bucket_percent': bucket_percent,
+        'bucket_label': f'Top {bucket_percent}%'
+    }
+
+
+def compute_user_prestige_badge(user_id, global_user_stats=None):
+    """Compute prestige badge: Top 1, Top 2, Top 3, Top 1%, Top 5% across all users all-time."""
+    if global_user_stats is None:
+        global_user_stats = get_bulk_users_stats(allow_stale=True)
+    bucket = compute_user_leaderboard_bucket(global_user_stats, user_id)
+    
+    rank = bucket.get('rank')
+    top_pct = bucket.get('top_percent', 100.0)
+    
+    if rank == 1:
+        return {
+            'type': 'top1',
+            'label': '🥇 N° 1 Global',
+            'short_label': '🥇 Top 1',
+            'class': 'prestige-top1',
+            'icon': 'fas fa-crown',
+            'color': '#ffd700',
+            'rank': 1,
+            'percentile': top_pct
+        }
+    elif rank == 2:
+        return {
+            'type': 'top2',
+            'label': '🥈 N° 2 Global',
+            'short_label': '🥈 Top 2',
+            'class': 'prestige-top2',
+            'icon': 'fas fa-medal',
+            'color': '#e2e8f0',
+            'rank': 2,
+            'percentile': top_pct
+        }
+    elif rank == 3:
+        return {
+            'type': 'top3',
+            'label': '🥉 N° 3 Global',
+            'short_label': '🥉 Top 3',
+            'class': 'prestige-top3',
+            'icon': 'fas fa-medal',
+            'color': '#f97316',
+            'rank': 3,
+            'percentile': top_pct
+        }
+    elif rank is not None and top_pct <= 1.0:
+        return {
+            'type': 'top1pct',
+            'label': '💎 Top 1% Global',
+            'short_label': '💎 Top 1%',
+            'class': 'prestige-top1pct',
+            'icon': 'fas fa-gem',
+            'color': '#38bdf8',
+            'rank': rank,
+            'percentile': top_pct
+        }
+    elif rank is not None and top_pct <= 5.0:
+        return {
+            'type': 'top5pct',
+            'label': '⚡ Top 5% Global',
+            'short_label': '⚡ Top 5%',
+            'class': 'prestige-top5pct',
+            'icon': 'fas fa-bolt',
+            'color': '#c084fc',
+            'rank': rank,
+            'percentile': top_pct
+        }
+    elif rank is not None and top_pct <= 10.0:
+        return {
+            'type': 'top10pct',
+            'label': f'Top 10% (#{rank})',
+            'short_label': 'Top 10%',
+            'class': 'prestige-top10pct',
+            'icon': 'fas fa-award',
+            'color': '#10b981',
+            'rank': rank,
+            'percentile': top_pct
+        }
+    return None
+
+
+def decorate_leaderboard_entry(user_id, raw_entry, rank=None, global_stats=None):
     entry = dict(raw_entry or {})
     entry['user_id'] = int(user_id)
     entry['rank'] = rank
@@ -966,6 +1202,8 @@ def decorate_leaderboard_entry(user_id, raw_entry, rank=None):
         if int(user_id) == SECURITY_HONOREE_USER_ID
         else None
     )
+    entry['prestige_badge'] = compute_user_prestige_badge(user_id, global_stats)
+    entry['equipped_title'] = raw_entry.get('equipped_title') or (raw_entry.get('level') or {}).get('name')
     return entry
 
 
@@ -987,7 +1225,7 @@ def build_ranked_leaderboard_entries(stats_by_user, year=None):
         if has_rankable_leaderboard_score(raw_entry):
             ranked_position += 1
             rank = ranked_position
-        entries.append(decorate_leaderboard_entry(user_id, raw_entry, rank=rank))
+        entries.append(decorate_leaderboard_entry(user_id, raw_entry, rank=rank, global_stats=stats_by_user))
 
     return entries
 
@@ -1074,6 +1312,12 @@ def get_cached_bulk_user_level(user_id):
             level = (cached_payload.get(user_id) or {}).get('level')
             if level:
                 return level
+    try:
+        snapshot = get_cached_user_level_snapshot(user_id)
+        if snapshot and snapshot.get('level'):
+            return snapshot['level']
+    except Exception:
+        pass
     return get_default_level_badge()
 
 
@@ -1166,7 +1410,11 @@ def get_problem_leaderboard_base(problem_id):
         if not submission.user:
             continue
 
+        study_year = str(submission.user.study_year or '').strip()
         joined_year = submission.user.created_at.year if submission.user.created_at else None
+        effective_year = int(study_year) if study_year.isdigit() else joined_year
+        if effective_year is not None:
+            available_years.add(effective_year)
         if joined_year is not None:
             available_years.add(joined_year)
 
@@ -1176,8 +1424,11 @@ def get_problem_leaderboard_base(problem_id):
             'submission_id': submission.id,
             'user_id': submission.user_id,
             'name': submission.user.name or f'User {submission.user_id}',
+            'study_year': study_year or (str(joined_year) if joined_year else ''),
             'joined_year': joined_year,
             'level': current_level,
+            'equipped_title': getattr(submission.user, 'equipped_title', None) or (current_level.get('name') if isinstance(current_level, dict) else 'Débutant'),
+            'prestige_badge': compute_user_prestige_badge(submission.user_id),
             'time_taken_seconds': int(submission.time_taken_seconds or 0),
             'avg_execution_time_ms': (
                 decimal_to_float(submission.avg_execution_time_ms)
@@ -1209,6 +1460,10 @@ def get_problem_leaderboard_base(problem_id):
     for row in selected_rows.values():
         row.pop('_selection_key', None)
         rows.append(row)
+
+    current_acad_year = get_current_academic_year()
+    if current_acad_year:
+        available_years.add(current_acad_year)
 
     payload = {
         'problem': {
@@ -1431,6 +1686,7 @@ def serialize_leaderboard_row(row):
         'name': row['name'],
         'level': row['level'],
         'joined_year': row.get('joined_year'),
+        'study_year': str(row.get('study_year') or row.get('joined_year') or ''),
         'time_taken_seconds': int(row.get('time_taken_seconds') or 0),
         'avg_execution_time_ms': decimal_to_float(row.get('avg_execution_time_ms')),
         'avg_memory_kb': decimal_to_float(row.get('avg_memory_kb')),
@@ -1439,7 +1695,9 @@ def serialize_leaderboard_row(row):
         'execution_score': round(float(row.get('execution_score') or 0.0), 3),
         'memory_score': round(float(row.get('memory_score') or 0.0), 3),
         'final_score': round(float(row.get('final_score') or 0.0), 3),
-        'badge_label': row.get('badge_label')
+        'badge_label': row.get('badge_label'),
+        'equipped_title': row.get('equipped_title'),
+        'prestige_badge': row.get('prestige_badge')
     }
 
 @app.after_request
@@ -2314,36 +2572,10 @@ def start_execution():
             except SystemExit:
                  ctx.output_queue.put({'type': 'stopped', 'data': 'Exécution interrompue.'})
             except Exception as e:
-                # Translate Python errors to friendly Algo errors
-                err_msg = str(e)
+                # Translate Python errors to friendly Algo errors using the canonical compiler error translator
                 error_type = type(e).__name__
-                
-                if "not supported between instances of 'str' and 'int'" in err_msg:
-                    err_msg = "Impossible de comparer une Chaîne et un Entier."
-                elif "not supported between instances of 'int' and 'str'" in err_msg:
-                    err_msg = "Impossible de comparer un Entier et une Chaîne."
-                elif "unsupported operand type(s)" in err_msg:
-                    err_msg = f"Opération impossible entre ces types: {err_msg}"
-                elif "name" in err_msg and "is not defined" in err_msg:
-                    # Extract variable name
-                    import re
-                    match = re.search(r"name '(\w+)' is not defined", err_msg)
-                    if match:
-                        err_msg = f"Variable non déclarée ou inconnue: '{match.group(1)}'"
-                    else:
-                        err_msg = "Variable non déclarée."
-                elif "division by zero" in err_msg:
-                    err_msg = "[E4.5] Division par zéro impossible."
-                elif "list index out of range" in err_msg:
-                    err_msg = "[E4.4] Accès au tableau expiré ou hors limites."
-                elif isinstance(e, TimeoutError):
-                    err_msg = "[E4.1] Boucle infinie détectée (Temps/Instructions dépassés)."
-                elif isinstance(e, RecursionError):
-                    err_msg = "[E4.2] Erreur de récursion infinie (Trop d'appels de sous-programmes)."
-                elif isinstance(e, MemoryError):
-                    err_msg = "[E4.3] Dépassement de capacité mémoire (Trop d'allocations)."
-                    
-                run_state.output_queue.put({'type': 'error', 'data': f"Erreur d'exécution ({error_type}): {err_msg}"})
+                translated_msg = translate_exception(e, py_code=python_code, algo_code=code, include_lineno=False)
+                run_state.output_queue.put({'type': 'error', 'data': f"Erreur d'exécution ({error_type}): {translated_msg}"})
             finally:
                 for attr_name in ('stdout', 'stderr'):
                     if hasattr(_execution_io_local, attr_name):
@@ -2514,7 +2746,7 @@ def get_problem_leaderboard(problem_id):
 
     year_param = (request.args.get('year') or '').strip().lower()
     year = None
-    if year_param and year_param not in {'overall', 'all'}:
+    if year_param and year_param not in {'overall', 'all', 'tous', 'none', '*'}:
         if year_param in {'current', 'default'}:
             year = get_current_academic_year()
         else:
@@ -2522,8 +2754,6 @@ def get_problem_leaderboard(problem_id):
                 year = int(year_param)
             except ValueError:
                 return jsonify({'success': False, 'error': 'Invalid year filter'}), 400
-    elif not year_param:
-        year = get_current_academic_year()
 
     sort_key = (request.args.get('sort') or 'final_score').strip()
     allowed_sorts = {'final_score', 'time_taken_seconds', 'avg_execution_time_ms', 'avg_memory_kb'}
@@ -2579,9 +2809,6 @@ def get_problem_leaderboard(problem_id):
 def submission_results():
     return render_template('submission_results.html')
 
-from web.sandbox.runner import execute_code
-# Assuming compiler is available in the same scope as before for `run` endpoint
-import ast
 
 @app.route('/api/submissions/custom', methods=['POST'])
 def submit_custom_code():
@@ -2801,29 +3028,29 @@ def submit_code():
 # XP POINTS & LEVEL SYSTEM
 # ─────────────────────────────────────────────────────────────────────────────
 LEVEL_DEFS = [
-    # (min_xp, level_num, name_fr, color, glow, icon, special_requirement_key)
-    (0,    1, "Débutant",    "#6c757d", "rgba(108,117,125,0.5)", "🌟", None),
-    (50,   2, "Amateur",     "#0dcaf0", "rgba(13,202,240,0.5)",  "⚡", None),
-    (200,  3, "Bosseur",     "#fd7e14", "rgba(253,126,20,0.5)",  "🔥", None),
-    (500,  4, "Expert",      "#0d6efd", "rgba(13,110,253,0.5)",  "⚙️", None),
-    (1200, 5, "Master",      "#ffc107", "rgba(255,193,7,0.5)",   "🏆", None),
-    (3000, 6, "Légende",     "#a855f7", "rgba(168,85,247,0.5)",  "👑", "master_criteria"),
+    # (min_xp, level_num, name_fr, color, glow, icon, icon_class, special_requirement_key)
+    (0,    1, "Débutant",    "#94a3b8", "rgba(148,163,184,0.45)", "🧭", "fa-solid fa-compass", None),
+    (200,  2, "Explorateur", "#38bdf8", "rgba(56,189,248,0.5)",   "⚡", "fa-solid fa-bolt-lightning", None),
+    (500,  3, "Bosseur",     "#f97316", "rgba(249,115,22,0.5)",   "🔥", "fa-solid fa-fire-flame-curved", None),
+    (1000, 4, "Expert",      "#a855f7", "rgba(168,85,247,0.5)",   "💎", "fa-solid fa-gem", None),
+    (2000, 5, "Master",      "#ffc107", "rgba(255,193,7,0.55)",   "🏆", "fa-solid fa-chess-knight", None),
+    (4000, 6, "Légende",     "#ec4899", "rgba(236,72,153,0.55)",  "👑", "fa-solid fa-crown", "master_criteria"),
 ]
 
-def compute_xp_and_level(user_id):
+def compute_xp_and_level(user_id, preloaded_quiz_attempts=None, preloaded_submissions=None, preloaded_badges=None, preloaded_problems=None):
     """Return (xp_total, xp_breakdown, level_dict, xp_to_next) for a user."""
-    from web.models import QuizAttempt, ChallengeSubmission, UserBadge, Chapter
+    from web.models import QuizAttempt, ChallengeSubmission, UserBadge
 
-    quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).all()
-    submissions   = ChallengeSubmission.query.filter_by(user_id=user_id, passed=True).all()
-    badges        = UserBadge.query.filter_by(user_id=user_id).all()
+    quiz_attempts = preloaded_quiz_attempts if preloaded_quiz_attempts is not None else QuizAttempt.query.filter_by(user_id=user_id).all()
+    submissions   = preloaded_submissions if preloaded_submissions is not None else ChallengeSubmission.query.filter_by(user_id=user_id, passed=True).all()
+    badges        = preloaded_badges if preloaded_badges is not None else UserBadge.query.filter_by(user_id=user_id).all()
 
-    chapters = {c.id: c.identifier for c in Chapter.query.all()}
+    chapters = get_chapter_id_to_identifier_map()
 
     breakdown = []
     xp = 0
 
-    # Quiz XP — per chapter, count the BEST attempt (if score >= 80%) → +10 XP
+    # Quiz XP — per chapter, count the BEST attempt (if score >= 80%) → +15 XP
     chapter_best = {}
     for qa in quiz_attempts:
         pct = qa.score / qa.total_questions if qa.total_questions else 0
@@ -2832,50 +3059,61 @@ def compute_xp_and_level(user_id):
             chapter_best[qa.chapter_id] = max(prev, qa.score)
     for cid, best_score in chapter_best.items():
         ident = chapters.get(cid, f"Chap {cid}")
-        breakdown.append({"label": f"Quiz — {ident.capitalize()}", "xp": 10, "icon": "📚"})
-        xp += 10
+        breakdown.append({"label": f"Quiz — {ident.capitalize()}", "xp": 15, "icon": "📚"})
+        xp += 15
 
-    # Challenge XP — per unique passed problem → scaled by difficulty
+    # Challenge XP — per unique passed problem → scaled by difficulty (Easy: 15, Medium: 30, Hard: 60)
     passed_pids = set()
     for sub in submissions:
         if sub.problem_id not in passed_pids:
             passed_pids.add(sub.problem_id)
     
     if passed_pids:
-        passed_problems = Problem.query.filter(Problem.id.in_(passed_pids)).all()
+        if preloaded_problems is not None:
+            passed_problems = [p for p in preloaded_problems if p.id in passed_pids]
+        else:
+            passed_problems = Problem.query.filter(Problem.id.in_(passed_pids)).all()
         for p in passed_problems:
             if p.difficulty == 'Easy':
-                val = 10
+                val = 15
                 icon = "🌱"
             elif p.difficulty == 'Medium':
-                val = 20
+                val = 30
                 icon = "⚡"
             elif p.difficulty == 'Hard':
-                val = 50
+                val = 60
                 icon = "🔥"
             else:
-                val = 25
+                val = 35
                 icon = "⚔️"
             breakdown.append({"label": f"Défi #{p.id} ({p.difficulty})", "xp": val, "icon": icon})
             xp += val
 
-    # Badge XP — per badge → +50 XP
-    from web.models import UserBadge as UB
-    badge_map = {
-        "streak_3": "Séquence 3 Jours", "streak_7": "Séquence 7 Jours",
-        "course_1": "Premier Pas", "course_3": "Étudiant Assidu",
-        "course_7": "Érudit", "course_10_master": "Algo Master",
-        "chall_1": "Développeur", "chall_5": "Codeur",
-        "chall_10_beg": "Débutant Challenges", "chall_20_int": "Intermédiaire Challenges",
-        "chall_50_adv": "Avancé Challenges", "chall_100_mast": "Maître des Défis",
-        "hacker_bronze": "Hacker Bronze", "hacker_gold": "Hacker Or",
-        "hacker_platinum": "Hacker Platine", "hacker_diamond": "Hacker Diamant",
-        "hacker_master": "Maître Hacker", "hacker_grandmaster": "Grand Maître Hacker",
-    }
+    # Badge XP — scaled by difficulty (easy: 10 XP, up to hard: 100 XP)
+    badge_defs = get_badge_definitions()
     for ub in badges:
-        label = badge_map.get(ub.badge_id, ub.badge_id)
-        breakdown.append({"label": f"Badge : {label}", "xp": 50, "icon": "🏅"})
-        xp += 50
+        b_def = badge_defs.get(ub.badge_id, {})
+        title_str = b_def.get('title')
+        raw_name = b_def.get('name')
+        
+        badge_icon = "🏅"
+        if title_str and not title_str.startswith('<'):
+            parts = title_str.split(' ', 1)
+            if len(parts) == 2 and len(parts[0]) <= 4:
+                badge_icon = parts[0]
+                label = parts[1]
+            else:
+                label = title_str
+        elif raw_name:
+            label = raw_name
+        else:
+            clean_name = ub.badge_id.replace('title_', '').replace('_', ' ').title()
+            label = clean_name
+            
+        b_xp = b_def.get('xp', 10)
+        prefix = "Titre : " if "title_" in ub.badge_id else "Badge : "
+        breakdown.append({"label": f"{prefix}{label}", "xp": b_xp, "icon": badge_icon})
+        xp += b_xp
 
     # Determine level
     # Check master criteria for level 6
@@ -2889,11 +3127,11 @@ def compute_xp_and_level(user_id):
             chapter_pct[qa.chapter_id] = max(chapter_pct.get(qa.chapter_id, 0), p)
         all_quiz_pct = sum(chapter_pct.values()) / len(chapter_pct) if chapter_pct else 0
 
-    master_ok = (xp >= 3000 and all_quiz_pct >= 95 and total_challenges >= 50)
+    master_ok = (xp >= 4000 and all_quiz_pct >= 95 and total_challenges >= 50)
     
     current_level = LEVEL_DEFS[0]
     for lvl in LEVEL_DEFS:
-        min_xp, lnum, name, color, glow, icon, special = lvl
+        min_xp, lnum, name, color, glow, icon, icon_class, special = lvl
         if special == "master_criteria":
             if master_ok:
                 current_level = lvl
@@ -2923,6 +3161,7 @@ def compute_xp_and_level(user_id):
         "color": current_level[3],
         "glow": current_level[4],
         "icon": current_level[5],
+        "icon_class": current_level[6],
         "min_xp": current_level[0],
         "next_xp": next_xp,
         "next_level_name": next_level_name,
@@ -2931,7 +3170,7 @@ def compute_xp_and_level(user_id):
 
 def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
     now_ts = time.time()
-    all_users = db.session.query(User.id, User.name, User.created_at, User.study_year).all()
+    all_users = db.session.query(User.id, User.name, User.created_at, User.study_year, User.equipped_title).all()
     if not all_users:
         if write_cache:
             with global_user_stats_cache_lock:
@@ -2965,11 +3204,8 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
         ).filter(
             ChallengeSubmission.passed.is_(True)
         ).all()
-    user_badges = db.session.query(UserBadge.user_id).all()
-    chapters = {
-        row.id: row.identifier
-        for row in db.session.query(Chapter.id, Chapter.identifier).all()
-    }
+    user_badges = db.session.query(UserBadge.user_id, UserBadge.badge_id).all()
+    badge_defs = get_badge_definitions()
     problems = {
         row.id: row.difficulty
         for row in db.session.query(Problem.id, Problem.difficulty).all()
@@ -2988,8 +3224,10 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
 
     badges_by_user = {}
     for ub in user_badges:
-        if ub.user_id not in badges_by_user: badges_by_user[ub.user_id] = []
-        badges_by_user[ub.user_id].append(ub)
+        u_id = ub[0]
+        b_id = ub[1]
+        if u_id not in badges_by_user: badges_by_user[u_id] = []
+        badges_by_user[u_id].append(b_id)
 
     # 2b. Compute per-problem placements in memory so the global leaderboard
     # can expose Top 1 / Top 3 / Top 10 without issuing one query per problem.
@@ -3021,7 +3259,7 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
                 chapter_best[qa.chapter_id] = max(prev, qa.score)
         
         for _ in chapter_best:
-            xp += 10
+            xp += 15
 
         # Challenge XP
         passed_pids = set()
@@ -3031,24 +3269,32 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
         
         for pid in passed_pids:
             diff = problems.get(pid, 'Easy')
-            if diff == 'Easy': val = 10
-            elif diff == 'Medium': val = 20
-            elif diff == 'Hard': val = 50
+            if diff == 'Easy': val = 15
+            elif diff == 'Medium': val = 30
+            elif diff == 'Hard': val = 60
             else: val = 25
             xp += val
 
-        # Badge XP
-        for _ in u_badges:
-            xp += 50
+        # Badge XP (excluding revoked/lost competitive badges)
+        user_top1 = placement_counts[uid]['top1']
+        for bid in u_badges:
+            if bid == 'title_vainqueur' and user_top1 < 1:
+                continue
+            if bid == 'title_roi_podium' and user_top1 < 3:
+                continue
+            if bid == 'title_legende' and user_top1 < 10:
+                continue
+            b_def = badge_defs.get(bid, {})
+            xp += b_def.get('xp', 10)
 
         # Level detection
         total_challenges = len(passed_pids)
         all_quiz_pct = sum(chapter_pct.values()) / len(chapter_pct) if chapter_pct else 0
-        master_ok = (xp >= 3000 and all_quiz_pct >= 95 and total_challenges >= 50)
+        master_ok = (xp >= 4000 and all_quiz_pct >= 95 and total_challenges >= 50)
         
         current_level = LEVEL_DEFS[0]
         for lvl in LEVEL_DEFS:
-            min_xp, lnum, name, color, glow, icon, special = lvl
+            min_xp, lnum, name, color, glow, icon, icon_class, special = lvl
             if special == "master_criteria":
                 if master_ok: current_level = lvl
             elif xp >= min_xp:
@@ -3061,6 +3307,7 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
                 'num': current_level[1],
                 'name': current_level[2],
                 'icon': current_level[5],
+                'icon_class': current_level[6],
                 'color': current_level[3],
                 'glow': current_level[4]
             },
@@ -3072,7 +3319,8 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
             'joined_year': user.created_at.year if user.created_at else None,
             'top1': placement_counts[uid]['top1'],
             'top3': placement_counts[uid]['top3'],
-            'top10': placement_counts[uid]['top10']
+            'top10': placement_counts[uid]['top10'],
+            'equipped_title': getattr(user, 'equipped_title', None)
         }
 
     if write_cache:
@@ -3080,6 +3328,17 @@ def compute_bulk_users_stats_payload(include_placements=True, write_cache=True):
             global_user_stats_cache['expires_at'] = now_ts + GLOBAL_USER_STATS_CACHE_TTL_SECONDS
             global_user_stats_cache['payload'] = results
     return results
+
+
+def sync_all_competitive_badges():
+    """Ensure all users with competitive badges still satisfy current criteria, otherwise revoke them."""
+    try:
+        revocable = ('title_vainqueur', 'title_roi_podium', 'title_legende', 'title_tireur_elite')
+        holders = db.session.query(UserBadge.user_id).filter(UserBadge.badge_id.in_(revocable)).distinct().all()
+        for (uid,) in holders:
+            build_user_badges_payload(uid)
+    except Exception as e:
+        print(f">>> [WARNING] sync_all_competitive_badges error: {e}", flush=True)
 
 
 def refresh_global_user_stats_cache():
@@ -3092,6 +3351,7 @@ def refresh_global_user_stats_cache():
     try:
         with app.app_context():
             compute_bulk_users_stats_payload()
+            sync_all_competitive_badges()
     except Exception as exc:
         log_perf_event('global_user_stats_refresh_failed', error=str(exc))
         with global_user_stats_cache_lock:
@@ -3142,89 +3402,262 @@ def get_bulk_users_stats(allow_stale=False, refresh_async=False):
 
     return compute_bulk_users_stats_payload()
 
-def compute_user_leaderboard_bucket(stats_by_user, user_id):
-    if not stats_by_user or user_id not in stats_by_user:
-        return {
-            'rank': None,
-            'total_users': 0,
-            'top_percent': 100.0,
-            'bucket_percent': 100,
-            'bucket_label': 'Top 100%'
-        }
+def safe_entry_date(entry):
+    if entry is None:
+        return None
+    if isinstance(entry, (datetime.datetime, datetime.date)):
+        return entry.date() if isinstance(entry, datetime.datetime) else entry
+    ts = getattr(entry, 'timestamp', None) if not isinstance(entry, str) else entry
+    if not ts:
+        return None
+    if isinstance(ts, datetime.datetime):
+        return ts.date()
+    if isinstance(ts, datetime.date):
+        return ts
+    if isinstance(ts, str):
+        try:
+            return datetime.date.fromisoformat(ts.split('T')[0].strip())
+        except Exception:
+            return None
+    return None
 
-    ranked_users = [
-        item
-        for item in sorted(stats_by_user.items(), key=leaderboard_sort_key)
-        if has_rankable_leaderboard_score(item[1])
-    ]
-
-    total_users = len(ranked_users)
-    if not has_rankable_leaderboard_score(stats_by_user.get(user_id)):
-        return {
-            'rank': None,
-            'total_users': total_users,
-            'top_percent': 100.0,
-            'bucket_percent': 100,
-            'bucket_label': 'Top 100%'
-        }
-
-    user_rank = next((index for index, (uid, _) in enumerate(ranked_users, start=1) if uid == user_id), None)
-    if user_rank is None:
-        return {
-            'rank': None,
-            'total_users': total_users,
-            'top_percent': 100.0,
-            'bucket_percent': 100,
-            'bucket_label': 'Top 100%'
-        }
-
-    if total_users <= 1:
-        top_percent = 1.0
+def compute_user_streak(user_id, preloaded_dates=None):
+    """Compute current streak (consecutive active days) and best historical streak."""
+    if preloaded_dates is not None:
+        active_dates = set(preloaded_dates)
+        raw_dates = set(preloaded_dates)
     else:
-        top_percent = round((user_rank / total_users) * 100, 1)
+        from sqlalchemy import union
+        qa_q = db.session.query(func.date(QuizAttempt.timestamp).label('act_date')).filter(QuizAttempt.user_id == user_id)
+        sub_q = db.session.query(func.date(ChallengeSubmission.timestamp).label('act_date')).filter(
+            ChallengeSubmission.user_id == user_id,
+            ChallengeSubmission.passed.is_(True)
+        )
+        union_rows = union(qa_q, sub_q).alias('combined_dates')
+        dates = db.session.query(union_rows.c.act_date).distinct().all()
+        active_dates = {r[0] if isinstance(r[0], datetime.date) else r[0] for r in dates if r[0]}
+        raw_dates = {r[0] for r in dates if r[0]}
 
-    if user_rank == 1:
-        bucket_percent = 1
-    else:
-        thresholds = [1, 5, 10, 20, 50, 70]
-        bucket_percent = next((threshold for threshold in thresholds if top_percent <= threshold), 100)
+    active_dates = set()
+    for d in raw_dates:
+        parsed = safe_entry_date(d)
+        if parsed:
+            active_dates.add(parsed)
+
+    if not active_dates:
+        return {'current_streak': 0, 'best_streak': 0, 'is_active_today': False}
+
+    today = utcnow().date()
+    yesterday = today - datetime.timedelta(days=1)
+    is_active_today = today in active_dates
+
+    # Check if current streak is alive (active today or yesterday)
+    current_streak = 0
+    check_date = today if is_active_today else yesterday
+    while check_date in active_dates:
+        current_streak += 1
+        check_date -= datetime.timedelta(days=1)
+
+    # Calculate best streak
+    best_streak = 0
+    cur_streak_counter = 0
+    prev_date = None
+    for d in sorted(list(active_dates)):
+        if prev_date is None or d == prev_date + datetime.timedelta(days=1):
+            cur_streak_counter += 1
+        else:
+            cur_streak_counter = 1
+        prev_date = d
+        if cur_streak_counter > best_streak:
+            best_streak = cur_streak_counter
 
     return {
-        'rank': user_rank,
-        'total_users': total_users,
-        'top_percent': top_percent,
-        'bucket_percent': bucket_percent,
-        'bucket_label': f'Top {bucket_percent}%'
+        'current_streak': current_streak,
+        'best_streak': max(best_streak, current_streak),
+        'is_active_today': is_active_today
+    }
+
+
+LEGACY_TITLE_MIGRATION = {
+    "⚡ Explorateur de Code": "🧭 Explorateur de Code",
+    "🔥 Khabeche Acharné": "📚 Khabeche Acharné",
+    "🏆 Grand M3alem": "🥋 Grand M3alem",
+    "👑 Roi du Podium": "🏆 Roi du Podium",
+    "⚡ Légende Intouchable": "💎 Légende Intouchable",
+    "⚡ Métronome du Code": "⏱️ Métronome du Code",
+}
+
+
+def compute_unlocked_titles(user_id, xp=0, level_num=1, top1_count=0, streak_days=0,
+                           preloaded_badges=None, preloaded_topic_counts=None,
+                           preloaded_high_score_quizzes=None, preloaded_equipped_title=None):
+    """Return unlocked titles and up to 3 active titles for user_id with unique icons and badge linkage."""
+    earned_badges = set()
+    topic_counts = {}
+    high_score_quizzes = 0
+
+    if preloaded_badges is not None:
+        if isinstance(preloaded_badges, set):
+            earned_badges = preloaded_badges
+        else:
+            earned_badges = {getattr(b, 'badge_id', b) for b in preloaded_badges}
+    else:
+        try:
+            earned_badges = {b.badge_id for b in UserBadge.query.filter_by(user_id=user_id).all()}
+        except Exception:
+            pass
+
+    if preloaded_topic_counts is not None and preloaded_high_score_quizzes is not None:
+        topic_counts = preloaded_topic_counts
+        high_score_quizzes = preloaded_high_score_quizzes
+    else:
+        try:
+            if preloaded_topic_counts is not None:
+                topic_counts = preloaded_topic_counts
+            else:
+                passed_rows = ChallengeSubmission.query.join(Problem).filter(
+                    ChallengeSubmission.user_id == user_id,
+                    ChallengeSubmission.passed == True
+                ).with_entities(Problem.id, Problem.topic).distinct().all()
+                for _, topic in passed_rows:
+                    norm_t = normalize_problem_topic(topic)
+                    topic_counts[norm_t] = topic_counts.get(norm_t, 0) + 1
+
+            if preloaded_high_score_quizzes is not None:
+                high_score_quizzes = preloaded_high_score_quizzes
+            else:
+                quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).all()
+                high_score_quizzes = sum(1 for qa in quiz_attempts if qa.total_questions > 0 and (qa.score / qa.total_questions) >= 0.8)
+        except Exception:
+            pass
+
+    unlocked = [
+        "🌱 Novice de l'Algorithmique",
+    ]
+    # Progression & XP
+    if "title_explorateur" in earned_badges or level_num >= 2 or xp >= 200:
+        unlocked.append("🧭 Explorateur de Code")
+    if "title_khabeche" in earned_badges or level_num >= 3 or xp >= 500:
+        unlocked.append("📚 Khabeche Acharné")
+    if "title_virtuose" in earned_badges or level_num >= 4 or xp >= 1000:
+        unlocked.append("⚙️ Virtuose des Algorithmes")
+    if "title_m3alem" in earned_badges or level_num >= 5 or xp >= 2000:
+        unlocked.append("🥋 Grand M3alem")
+    if "title_oustoura" in earned_badges or level_num >= 6 or xp >= 4000:
+        unlocked.append("👑 L'Oustoura Vivante")
+
+    # Compétition & Podiums (Dynamiques : révoqués si la place est perdue)
+    if "title_vainqueur" in earned_badges and top1_count >= 1:
+        unlocked.append("🥇 Vainqueur de Défi")
+    if "title_roi_podium" in earned_badges and top1_count >= 3:
+        unlocked.append("🏆 Roi du Podium")
+    if "title_legende" in earned_badges and top1_count >= 10:
+        unlocked.append("💎 Légende Intouchable")
+    if "title_tireur_elite" in earned_badges:
+        unlocked.append("🎯 Tireur d'Élite O(1)")
+
+    # Assiduité & Streaks
+    if "streak_3" in earned_badges or streak_days >= 3:
+        unlocked.append("🔥 Flamme Ardente")
+    if "streak_7" in earned_badges or streak_days >= 7:
+        unlocked.append("⏱️ Métronome du Code")
+    if "streak_14" in earned_badges or streak_days >= 14:
+        unlocked.append("🛡️ Disciple Indomptable")
+    if "streak_30" in earned_badges or streak_days >= 30 or xp >= 1500:
+        unlocked.append("🌙 Gardien de la Nuit")
+
+    # Spécialités & Maîtrise
+    if "title_dompteur_tableaux" in earned_badges or topic_counts.get("Arrays", 0) >= 5 or xp >= 300:
+        unlocked.append("🧩 Dompteur de Tableaux")
+    if "title_tisserand_chaines" in earned_badges or topic_counts.get("Strings", 0) >= 5 or xp >= 300:
+        unlocked.append("🧵 Tisserand de Chaînes")
+    if "title_grand_maitre_quiz" in earned_badges or high_score_quizzes >= 10 or xp >= 600:
+        unlocked.append("🧠 Grand Maître des Quiz")
+
+    if preloaded_equipped_title is not None:
+        raw_equipped = preloaded_equipped_title
+    else:
+        user = db.session.get(User, user_id)
+        raw_equipped = getattr(user, 'equipped_title', None) if user else None
+
+    equipped_titles = []
+    if raw_equipped:
+        try:
+            parsed = json.loads(raw_equipped)
+            if isinstance(parsed, list):
+                equipped_titles = [LEGACY_TITLE_MIGRATION.get(t, t) for t in parsed if LEGACY_TITLE_MIGRATION.get(t, t) in unlocked]
+            elif isinstance(parsed, str):
+                migrated = LEGACY_TITLE_MIGRATION.get(parsed, parsed)
+                if migrated in unlocked:
+                    equipped_titles = [migrated]
+        except Exception:
+            for part in str(raw_equipped).split(','):
+                part = LEGACY_TITLE_MIGRATION.get(part.strip(), part.strip())
+                if part in unlocked:
+                    equipped_titles.append(part)
+
+    # Allow at most 3 equipped titles
+    equipped_titles = equipped_titles[:3]
+    if not equipped_titles:
+        equipped_titles = [unlocked[-1]]
+
+    return {
+        'equipped': equipped_titles[0],
+        'equipped_titles': equipped_titles,
+        'unlocked': unlocked
     }
 
 def get_badge_definitions():
     return {
-        "streak_3": {"name": "Séquence 3 Jours", "desc": "Actif pendant 3 jours distincts", "icon": "fas fa-fire", "category": "streak"},
-        "streak_7": {"name": "Séquence 7 Jours", "desc": "Actif pendant 7 jours distincts", "icon": "fas fa-fire-alt", "category": "streak"},
-        "streak_14": {"name": "Séquence 14 Jours", "desc": "Actif pendant 14 jours distincts", "icon": "fas fa-burn", "category": "streak"},
-        "streak_30": {"name": "Séquence Mensuelle", "desc": "Actif pendant 30 jours", "icon": "fas fa-calendar-check", "category": "streak"},
-        "course_1": {"name": "Premier Pas", "desc": "1 cours terminé", "icon": "fas fa-book-open", "category": "course"},
-        "course_3": {"name": "Étudiant Assidu", "desc": "3 cours terminés", "icon": "fas fa-book-reader", "category": "course"},
-        "course_7": {"name": "Érudit", "desc": "7 cours terminés", "icon": "fas fa-graduation-cap", "category": "course"},
-        "course_10_master": {"name": "Algo Master", "desc": "10 cours terminés", "icon": "fas fa-university", "category": "course"},
-        "chall_1": {"name": "Développeur", "desc": "1 défi terminé", "icon": "fas fa-keyboard", "category": "challenges"},
-        "chall_5": {"name": "Codeur", "desc": "5 défis terminés", "icon": "fas fa-laptop-code", "category": "challenges"},
-        "chall_10_beg": {"name": "Débutant", "desc": "10 défis terminés", "icon": "fas fa-medal", "category": "challenges"},
-        "chall_20_int": {"name": "Intermédiaire", "desc": "20 défis terminés", "icon": "fas fa-award", "category": "challenges"},
-        "chall_50_adv": {"name": "Avancé", "desc": "50 défis terminés", "icon": "fas fa-trophy", "category": "challenges"},
-        "chall_100_mast": {"name": "Maître des Défis", "desc": "100 défis terminés", "icon": "fas fa-crown", "category": "challenges"},
-        "hacker_bronze": {"name": "Hacker Bronze", "desc": "Tous cours, avg > 70%, 10 défis dont 2 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
-        "hacker_gold": {"name": "Hacker Or", "desc": "Tous cours, avg > 80%, 15 défis dont 3 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
-        "hacker_platinum": {"name": "Hacker Platine", "desc": "Tous cours, avg > 90%, 20 défis dont 4 difficiles", "icon": "fas fa-user-ninja", "category": "mastery"},
-        "hacker_diamond": {"name": "Hacker Diamant", "desc": "Tous cours, avg > 92%, 30 défis dont 6 difficiles", "icon": "fas fa-user-astronaut", "category": "mastery"},
-        "hacker_master": {"name": "Maître Hacker", "desc": "Tous cours, avg > 95%, 40 défis dont 8 difficiles", "icon": "fas fa-user-secret", "category": "mastery"},
-        "hacker_grandmaster": {"name": "Grand Maître Hacker", "desc": "Tous cours, avg > 99%, 50 défis dont 10 difficiles", "icon": "fas fa-user-secret", "category": "mastery"},
-        "maitre_tableaux": {"name": "Maitre des Tableaux", "desc": "20 problèmes sur Arrays", "icon": "fas fa-table", "category": "maitre"},
-        "maitre_chaines": {"name": "Maitre des Chaines", "desc": "20 problèmes sur Strings", "icon": "fas fa-font", "category": "maitre"},
-        "maitre_enregistrements": {"name": "Maitre des Enregistrements", "desc": "20 problèmes d'Enregistrements", "icon": "fas fa-address-card", "category": "maitre"},
-        "maitre_listes": {"name": "Maitre des Listes Chainees", "desc": "20 problèmes sur LinkedList", "icon": "fas fa-link", "category": "maitre"},
-        "maitre_files": {"name": "Maitre des Files", "desc": "20 problèmes sur Files", "icon": "fas fa-layer-group", "category": "maitre"},
-        "maitre_piles": {"name": "Maitre des Piles", "desc": "20 problèmes sur Piles", "icon": "fas fa-bars", "category": "maitre"},
+        # --- TITRES & SUCCÈS ASSOCIÉS (Icônes uniques & Déblocage synchronisé) ---
+        # 1. Progression & XP
+        "title_novice": {"name": "Novice de l'Algorithmique", "desc": "Niveau 1 atteint (Tous les étudiants)", "icon": "fas fa-seedling", "category": "progression", "title": "🌱 Novice de l'Algorithmique", "xp": 10, "difficulty": "Easy"},
+        "title_explorateur": {"name": "Explorateur de Code", "desc": "Niveau 2 atteint (200 XP)", "icon": "fas fa-compass", "category": "progression", "title": "🧭 Explorateur de Code", "xp": 15, "difficulty": "Easy"},
+        "title_khabeche": {"name": "Khabeche Acharné", "desc": "Niveau 3 atteint (500 XP)", "icon": "fas fa-book", "category": "progression", "title": "📚 Khabeche Acharné", "xp": 20, "difficulty": "Medium"},
+        "title_virtuose": {"name": "Virtuose des Algorithmes", "desc": "Niveau 4 atteint (1000 XP)", "icon": "fas fa-cogs", "category": "progression", "title": "⚙️ Virtuose des Algorithmes", "xp": 25, "difficulty": "Medium"},
+        "title_m3alem": {"name": "Grand M3alem", "desc": "Niveau 5 atteint (2000 XP)", "icon": "fas fa-user-ninja", "category": "progression", "title": "🥋 Grand M3alem", "xp": 25, "difficulty": "Hard"},
+        "title_oustoura": {"name": "L'Oustoura Vivante", "desc": "Niveau 6 atteint (4000 XP)", "icon": "fas fa-crown", "category": "progression", "title": "👑 L'Oustoura Vivante", "xp": 30, "difficulty": "Hard"},
+
+        # 2. Compétition & Podiums
+        "title_vainqueur": {"name": "Vainqueur de Défi", "desc": "Au moins 1 première place (Top 1)", "icon": "fas fa-medal", "category": "competition", "title": "🥇 Vainqueur de Défi", "xp": 15, "difficulty": "Medium"},
+        "title_roi_podium": {"name": "Roi du Podium", "desc": "Au moins 3 premières places (Top 1)", "icon": "fas fa-trophy", "category": "competition", "title": "🏆 Roi du Podium", "xp": 20, "difficulty": "Medium"},
+        "title_legende": {"name": "Légende Intouchable", "desc": "Au moins 10 premières places (Top 1)", "icon": "fas fa-gem", "category": "competition", "title": "💎 Légende Intouchable", "xp": 25, "difficulty": "Hard"},
+        "title_tireur_elite": {"name": "Tireur d'Élite O(1)", "desc": "Temps d'exécution optimal N°1 (Défi Medium/Hard)", "icon": "fas fa-crosshairs", "category": "competition", "title": "🎯 Tireur d'Élite O(1)", "xp": 25, "difficulty": "Hard"},
+
+        # 3. Assiduité & Séries (Streaks)
+        "streak_3": {"name": "Flamme Ardente", "desc": "Série active de 3 jours consécutifs", "icon": "fas fa-fire", "category": "streak", "title": "🔥 Flamme Ardente", "xp": 10, "difficulty": "Easy"},
+        "streak_7": {"name": "Métronome du Code", "desc": "Série active de 7 jours consécutifs", "icon": "fas fa-stopwatch", "category": "streak", "title": "⏱️ Métronome du Code", "xp": 25, "difficulty": "Easy"},
+        "streak_14": {"name": "Disciple Indomptable", "desc": "Série active de 14 jours consécutifs", "icon": "fas fa-shield-alt", "category": "streak", "title": "🛡️ Disciple Indomptable", "xp": 50, "difficulty": "Medium"},
+        "streak_30": {"name": "Gardien de la Nuit", "desc": "Série active de 30 jours consécutifs", "icon": "fas fa-moon", "category": "streak", "title": "🌙 Gardien de la Nuit", "xp": 100, "difficulty": "Hard"},
+
+        # 4. Spécialités Algorithmiques
+        "title_dompteur_tableaux": {"name": "Dompteur de Tableaux", "desc": "Au moins 5 défis résolus sur les Tableaux", "icon": "fas fa-puzzle-piece", "category": "maitre", "title": "🧩 Dompteur de Tableaux", "xp": 15, "difficulty": "Medium"},
+        "title_tisserand_chaines": {"name": "Tisserand de Chaînes", "desc": "Au moins 5 défis résolus sur les Chaînes", "icon": "fas fa-scroll", "category": "maitre", "title": "🧵 Tisserand de Chaînes", "xp": 15, "difficulty": "Medium"},
+        "title_grand_maitre_quiz": {"name": "Grand Maître des Quiz", "desc": "Au moins 10 quiz réussis avec un score ≥ 80%", "icon": "fas fa-brain", "category": "maitre", "title": "🧠 Grand Maître des Quiz", "xp": 25, "difficulty": "Hard"},
+
+        # --- Autres Badges Spécifiques ---
+        "course_1": {"name": "Premier Pas", "desc": "1 cours terminé", "icon": "fas fa-book-open", "category": "course", "xp": 10, "difficulty": "Easy"},
+        "course_3": {"name": "Étudiant Assidu", "desc": "3 cours terminés", "icon": "fas fa-book-reader", "category": "course", "xp": 25, "difficulty": "Easy"},
+        "course_7": {"name": "Érudit", "desc": "7 cours terminés", "icon": "fas fa-graduation-cap", "category": "course", "xp": 50, "difficulty": "Medium"},
+        "course_10_master": {"name": "Algo Master", "desc": "10 cours terminés", "icon": "fas fa-university", "category": "course", "xp": 100, "difficulty": "Hard"},
+        "chall_1": {"name": "Développeur", "desc": "1 défi terminé", "icon": "fas fa-keyboard", "category": "challenges", "xp": 10, "difficulty": "Easy"},
+        "chall_5": {"name": "Codeur", "desc": "5 défis terminés", "icon": "fas fa-laptop-code", "category": "challenges", "xp": 25, "difficulty": "Easy"},
+        "chall_10_beg": {"name": "Débutant", "desc": "10 défis terminés", "icon": "fas fa-medal", "category": "challenges", "xp": 40, "difficulty": "Medium"},
+        "chall_20_int": {"name": "Intermédiaire", "desc": "20 défis terminés", "icon": "fas fa-award", "category": "challenges", "xp": 60, "difficulty": "Medium"},
+        "chall_50_adv": {"name": "Avancé", "desc": "50 défis terminés", "icon": "fas fa-trophy", "category": "challenges", "xp": 80, "difficulty": "Hard"},
+        "chall_100_mast": {"name": "Maître des Défis", "desc": "100 défis terminés", "icon": "fas fa-crown", "category": "challenges", "xp": 100, "difficulty": "Hard"},
+        "hacker_bronze": {"name": "Hacker Bronze", "desc": "Tous cours, avg > 70%, 10 défis dont 2 difficiles", "icon": "fas fa-user-ninja", "category": "mastery", "xp": 50, "difficulty": "Medium"},
+        "hacker_gold": {"name": "Hacker Or", "desc": "Tous cours, avg > 80%, 15 défis dont 3 difficiles", "icon": "fas fa-user-ninja", "category": "mastery", "xp": 75, "difficulty": "Hard"},
+        "hacker_platinum": {"name": "Hacker Platine", "desc": "Tous cours, avg > 90%, 20 défis dont 4 difficiles", "icon": "fas fa-user-ninja", "category": "mastery", "xp": 85, "difficulty": "Hard"},
+        "hacker_diamond": {"name": "Hacker Diamant", "desc": "Tous cours, avg > 92%, 30 défis dont 6 difficiles", "icon": "fas fa-user-astronaut", "category": "mastery", "xp": 90, "difficulty": "Hard"},
+        "hacker_master": {"name": "Maître Hacker", "desc": "Tous cours, avg > 95%, 40 défis dont 8 difficiles", "icon": "fas fa-user-secret", "category": "mastery", "xp": 95, "difficulty": "Hard"},
+        "hacker_grandmaster": {"name": "Grand Maître Hacker", "desc": "Tous cours, avg > 99%, 50 défis dont 10 difficiles", "icon": "fas fa-user-secret", "category": "mastery", "xp": 100, "difficulty": "Hard"},
+        "maitre_tableaux": {"name": "Maitre des Tableaux", "desc": "20 problèmes sur Arrays", "icon": "fas fa-table", "category": "maitre", "xp": 60, "difficulty": "Medium"},
+        "maitre_chaines": {"name": "Maitre des Chaines", "desc": "20 problèmes sur Strings", "icon": "fas fa-font", "category": "maitre", "xp": 60, "difficulty": "Medium"},
+        "maitre_enregistrements": {"name": "Maitre des Enregistrements", "desc": "20 problèmes d'Enregistrements", "icon": "fas fa-address-card", "category": "maitre", "xp": 60, "difficulty": "Medium"},
+        "maitre_listes": {"name": "Maitre des Listes Chainees", "desc": "20 problèmes sur LinkedList", "icon": "fas fa-link", "category": "maitre", "xp": 60, "difficulty": "Medium"},
+        "maitre_files": {"name": "Maitre des Files", "desc": "20 problèmes sur Files", "icon": "fas fa-layer-group", "category": "maitre", "xp": 60, "difficulty": "Medium"},
+        "maitre_piles": {"name": "Maitre des Piles", "desc": "20 problèmes sur Piles", "icon": "fas fa-bars", "category": "maitre", "xp": 60, "difficulty": "Medium"},
     }
 
 
@@ -3301,7 +3734,7 @@ def build_user_progress_summary_payload(user_id):
     submissions = ChallengeSubmission.query.filter_by(user_id=user_id).order_by(ChallengeSubmission.timestamp.desc()).all()
 
     chapter_stats = build_chapter_stats_map(quiz_attempts)
-    frontend_chapter_stats, _ = build_frontend_chapter_stats(chapter_stats, Chapter.query.all())
+    frontend_chapter_stats, _ = build_frontend_chapter_stats(chapter_stats, get_all_chapters_cached())
     challenge_stats = build_challenge_stats_map(submissions)
 
     total_quizzes = len(quiz_attempts)
@@ -3316,6 +3749,7 @@ def build_user_progress_summary_payload(user_id):
     passed_challenges = sum(1 for stats in challenge_stats.values() if stats['passed'])
 
     global_user_stats = get_bulk_users_stats()
+    global_user_stats = get_bulk_users_stats() or {}
     current_global_stats = global_user_stats.get(user_id, {})
     current_user_placements = {
         'top1': current_global_stats.get('top1', 0),
@@ -3327,7 +3761,11 @@ def build_user_progress_summary_payload(user_id):
     top10_percentage = round((current_user_placements['top10'] / total_available_challenges) * 100, 1) if total_available_challenges else 0.0
     leaderboard_bucket = compute_user_leaderboard_bucket(global_user_stats, user_id)
 
-    xp_total, xp_breakdown, level_dict, xp_to_next = compute_xp_and_level(user_id)
+    xp_total, xp_breakdown, level_dict, xp_to_next = compute_xp_and_level(
+        user_id,
+        preloaded_quiz_attempts=quiz_attempts,
+        preloaded_submissions=[s for s in submissions if s.passed]
+    )
     with user_level_cache_lock:
         user_level_cache[user_id] = {
             'expires_at': time.time() + USER_LEVEL_CACHE_TTL_SECONDS,
@@ -3338,6 +3776,20 @@ def build_user_progress_summary_payload(user_id):
                 'computed_at': utcnow().isoformat()
             }
         }
+
+    distinct_active_dates = {entry.timestamp.date() for entry in submissions if entry.timestamp and entry.passed} | {entry.timestamp.date() for entry in quiz_attempts if entry.timestamp}
+    distinct_active_dates = {safe_entry_date(entry) for entry in submissions if entry.passed and safe_entry_date(entry)} | {safe_entry_date(entry) for entry in quiz_attempts if safe_entry_date(entry)}
+    streak_info = compute_user_streak(user_id, preloaded_dates=distinct_active_dates)
+    quizzes_high_score = sum(1 for qa in quiz_attempts if qa.total_questions > 0 and (qa.score / qa.total_questions) >= 0.8)
+    titles_info = compute_unlocked_titles(
+        user_id=user_id,
+        xp=xp_total,
+        level_num=level_dict.get('num', 1),
+        top1_count=current_user_placements['top1'],
+        streak_days=streak_info.get('current_streak', 0),
+        preloaded_high_score_quizzes=quizzes_high_score
+    )
+    prestige_badge = compute_user_prestige_badge(user_id, global_user_stats)
 
     return {
         'chapter_stats': frontend_chapter_stats,
@@ -3356,6 +3808,9 @@ def build_user_progress_summary_payload(user_id):
         'top10_finishes': current_user_placements['top10'],
         'top10_percentage': top10_percentage,
         'leaderboard_bucket': leaderboard_bucket,
+        'prestige_badge': prestige_badge,
+        'streak': streak_info,
+        'titles': titles_info,
         'xp_total': xp_total,
         'xp_breakdown': xp_breakdown,
         'level': level_dict,
@@ -3368,7 +3823,7 @@ def build_user_badges_payload(user_id):
     submissions = ChallengeSubmission.query.filter_by(user_id=user_id).order_by(ChallengeSubmission.timestamp.desc()).all()
 
     chapter_stats = build_chapter_stats_map(quiz_attempts)
-    frontend_chapter_stats, _ = build_frontend_chapter_stats(chapter_stats, Chapter.query.all())
+    frontend_chapter_stats, _ = build_frontend_chapter_stats(chapter_stats, get_all_chapters_cached())
     challenge_stats = build_challenge_stats_map(submissions)
     challenges_completed = sum(1 for stats in challenge_stats.values() if stats['passed'])
     courses_completed = sum(1 for stats in frontend_chapter_stats.values() if stats.get('all_correct'))
@@ -3383,6 +3838,7 @@ def build_user_badges_payload(user_id):
     num_courses_taken = len(chapter_stats) if chapter_stats else 1
     avg_course_score = (total_course_score / num_courses_taken) * 100
     distinct_active_days = {entry.timestamp.date() for entry in submissions} | {entry.timestamp.date() for entry in quiz_attempts}
+    distinct_active_days = {safe_entry_date(entry) for entry in submissions if safe_entry_date(entry)} | {safe_entry_date(entry) for entry in quiz_attempts if safe_entry_date(entry)}
     active_days = len(distinct_active_days)
 
     passed_problem_rows = ChallengeSubmission.query.join(Problem).filter(
@@ -3395,6 +3851,67 @@ def build_user_badges_payload(user_id):
         topic_counts_norm[normalized_topic] = topic_counts_norm.get(normalized_topic, 0) + 1
 
     badges_to_award = []
+    # --- Titres & Succès Associés ---
+    badges_to_award.append("title_novice")
+    xp_total, _, level_dict, _ = compute_xp_and_level(
+        user_id,
+        preloaded_quiz_attempts=quiz_attempts,
+        preloaded_submissions=[s for s in submissions if s.passed]
+    )
+    level_num = level_dict.get('num', 1)
+    bulk_stats = get_bulk_users_stats()
+    user_bulk = bulk_stats.get(user_id, {})
+    top1_count = user_bulk.get('top1', 0)
+    quizzes_high_score = sum(1 for qa in quiz_attempts if qa.total_questions > 0 and (qa.score / qa.total_questions) >= 0.8)
+
+    if level_num >= 2 or xp_total >= 200: badges_to_award.append("title_explorateur")
+    if level_num >= 3 or xp_total >= 500: badges_to_award.append("title_khabeche")
+    if level_num >= 4 or xp_total >= 1000: badges_to_award.append("title_virtuose")
+    if level_num >= 5 or xp_total >= 2000: badges_to_award.append("title_m3alem")
+    if level_num >= 6 or xp_total >= 4000: badges_to_award.append("title_oustoura")
+
+    if top1_count >= 1: badges_to_award.append("title_vainqueur")
+    if top1_count >= 3: badges_to_award.append("title_roi_podium")
+    if top1_count >= 10: badges_to_award.append("title_legende")
+
+    # Tireur d'Élite O(1) : classé N°1 au temps d'exécution CPU sur au moins un défi Medium ou Hard
+    has_optimal_exec = False
+    passed_med_hard_subs = db.session.query(ChallengeSubmission).join(
+        Problem, ChallengeSubmission.problem_id == Problem.id
+    ).filter(
+        ChallengeSubmission.user_id == user_id,
+        ChallengeSubmission.passed.is_(True),
+        Problem.difficulty.in_(['Medium', 'Hard'])
+    ).all()
+    med_hard_problem_ids = [
+        sub.problem_id for sub in passed_med_hard_subs
+        if sub.avg_execution_time_ms is not None
+    ]
+    if med_hard_problem_ids:
+        min_times = dict(
+            db.session.query(
+                ChallengeSubmission.problem_id,
+                func.min(ChallengeSubmission.avg_execution_time_ms)
+            ).filter(
+                ChallengeSubmission.problem_id.in_(med_hard_problem_ids),
+                ChallengeSubmission.passed.is_(True),
+                ChallengeSubmission.avg_execution_time_ms.isnot(None)
+            ).group_by(ChallengeSubmission.problem_id).all()
+        )
+        for sub in passed_med_hard_subs:
+            if sub.avg_execution_time_ms is not None:
+                min_time = min_times.get(sub.problem_id)
+                if min_time is not None and sub.avg_execution_time_ms <= min_time:
+                    has_optimal_exec = True
+                    break
+    if has_optimal_exec:
+        badges_to_award.append("title_tireur_elite")
+
+    if topic_counts_norm.get("Arrays", 0) >= 5: badges_to_award.append("title_dompteur_tableaux")
+    if topic_counts_norm.get("Strings", 0) >= 5: badges_to_award.append("title_tisserand_chaines")
+    if quizzes_high_score >= 10: badges_to_award.append("title_grand_maitre_quiz")
+
+    # --- Séries (Streaks) ---
     if active_days >= 3: badges_to_award.append("streak_3")
     if active_days >= 7: badges_to_award.append("streak_7")
     if active_days >= 14: badges_to_award.append("streak_14")
@@ -3435,8 +3952,18 @@ def build_user_badges_payload(user_id):
     if topic_counts_norm.get("Files", 0) >= 20: badges_to_award.append("maitre_files")
     if topic_counts_norm.get("Piles", 0) >= 20: badges_to_award.append("maitre_piles")
 
+    COMPETITIVE_REVOCABLE_BADGES = {
+        "title_vainqueur",
+        "title_roi_podium",
+        "title_legende",
+        "title_tireur_elite"
+    }
+
     existing_badges = {badge.badge_id: badge for badge in UserBadge.query.filter_by(user_id=user_id).all()}
     new_badges_awarded = []
+    badges_revoked = []
+
+    # 1. Award newly earned badges
     for badge_id in badges_to_award:
         if badge_id in existing_badges:
             continue
@@ -3445,7 +3972,39 @@ def build_user_badges_payload(user_id):
         new_badges_awarded.append(badge_id)
         existing_badges[badge_id] = badge
 
-    if new_badges_awarded:
+    # 2. Revoke dynamic competitive badges that are no longer earned (e.g. lost Top 1)
+    for badge_id in COMPETITIVE_REVOCABLE_BADGES:
+        if badge_id in existing_badges and badge_id not in badges_to_award:
+            db.session.delete(existing_badges[badge_id])
+            badges_revoked.append(badge_id)
+            del existing_badges[badge_id]
+
+    if new_badges_awarded or badges_revoked:
+        # If any titles were revoked, unequip them if currently equipped on user profile
+        if badges_revoked:
+            user = db.session.get(User, user_id)
+            if user and user.equipped_title:
+                try:
+                    b_defs = get_badge_definitions()
+                    revoked_labels = set()
+                    for r_bid in badges_revoked:
+                        t = b_defs.get(r_bid, {}).get('title')
+                        if t:
+                            revoked_labels.add(t.strip())
+                    
+                    eq = user.equipped_title.strip()
+                    if eq.startswith('['):
+                        parsed_eq = json.loads(eq)
+                        cleaned = [t for t in parsed_eq if t.strip() not in revoked_labels]
+                        if not cleaned:
+                            cleaned = ["🌱 Novice de l'Algorithmique"]
+                        user.equipped_title = json.dumps(cleaned)
+                    else:
+                        if eq in revoked_labels:
+                            user.equipped_title = json.dumps(["🌱 Novice de l'Algorithmique"])
+                except Exception:
+                    pass
+
         db.session.commit()
         invalidate_global_user_stats_cache()
         invalidate_user_level_cache(user_id)
@@ -3460,6 +4019,8 @@ def build_user_badges_payload(user_id):
         "description": meta["desc"],
         "icon": meta["icon"],
         "category": meta["category"],
+        "xp": meta.get("xp", 10),
+        "difficulty": meta.get("difficulty", "Easy"),
         "earned": badge_id in existing_badges,
         "seen": existing_badges[badge_id].seen if badge_id in existing_badges else True
     } for badge_id, meta in badge_defs.items()]
@@ -3475,6 +4036,10 @@ def build_user_badges_payload(user_id):
         'avg_course_score': avg_course_score,
         'challenges_completed': challenges_completed,
         'topic_counts': topic_counts,
+        'quizzes_high_score': quizzes_high_score,
+        'top1_finishes': top1_count,
+        'level': level_dict,
+        'xp_total': xp_total,
         'summary_refresh_required': bool(new_badges_awarded),
         'newly_awarded_badge_ids': new_badges_awarded
     }
@@ -3483,7 +4048,7 @@ def build_user_badges_payload(user_id):
 def build_user_progress_advanced_payload(user_id):
     quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).order_by(QuizAttempt.timestamp.desc()).all()
     submissions = ChallengeSubmission.query.filter_by(user_id=user_id).order_by(ChallengeSubmission.timestamp.desc()).all()
-    chapter_map = {chapter.id: chapter.identifier for chapter in Chapter.query.all()}
+    chapter_map = get_chapter_id_to_identifier_map()
 
     passed_problem_rows = ChallengeSubmission.query.join(Problem).filter(
         ChallengeSubmission.user_id == user_id,
@@ -3608,6 +4173,16 @@ def get_user_progress_summary():
         'success': True,
         'progress': get_cached_user_progress_summary_payload(current_user.id)
     })
+    try:
+        payload = get_cached_user_progress_summary_payload(current_user.id)
+        return jsonify({
+            'success': True,
+            'progress': payload
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f"Erreur serveur: {str(e)}"}), 500
 
 
 @app.route('/api/user/progress/badges', methods=['GET'])
@@ -3657,15 +4232,15 @@ def get_user_level():
         'computed_at': snapshot['computed_at']
     })
 
-@app.route('/leaderboard')
 @app.route('/leaderboards')
+@app.route('/leaderboard')
 def leaderboard_page():
     return render_template('leaderboard.html')
 
 @app.route('/hall-of-fame')
 @app.route('/leaderboard/hall-of-fame')
 def hall_of_fame_page():
-    return render_template('hall_of_fame.html')
+    return redirect(url_for('leaderboard_page'))
 
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
@@ -3680,10 +4255,48 @@ def get_leaderboard():
                     year = int(year_param)
                 except ValueError:
                     return jsonify({'success': False, 'error': 'Invalid year filter'}), 400
-        elif not year_param:
-            year = get_current_academic_year()
 
-        return jsonify(build_global_leaderboard_response_payload(year=year))
+        payload = build_global_leaderboard_response_payload(year=year)
+        entries = payload.get('leaderboard', [])
+        ranked_entries = [e for e in entries if e.get('is_ranked')]
+        
+        # Determine podium for the requested year, or fallback to previous year if < 3 ranked
+        podium = []
+        podium_is_fallback = False
+        podium_year = str(year) if year is not None else 'overall'
+
+        if len(ranked_entries) >= 3:
+            podium = ranked_entries[:3]
+            podium_is_fallback = False
+        else:
+            # Fallback for podium: look at previous years (e.g. year - 1, year - 2, or overall)
+            found_fallback = False
+            if year is not None:
+                for candidate_prev in [year - 1, year - 2, 2026]:
+                    if candidate_prev != year and candidate_prev >= 2020:
+                        prev_payload = build_global_leaderboard_response_payload(year=candidate_prev)
+                        prev_ranked = [e for e in prev_payload.get('leaderboard', []) if e.get('is_ranked')]
+                        if len(prev_ranked) >= 3:
+                            podium = prev_ranked[:3]
+                            podium_is_fallback = True
+                            podium_year = str(candidate_prev)
+                            found_fallback = True
+                            break
+            
+            if not found_fallback:
+                # Fallback to overall
+                overall_payload = build_global_leaderboard_response_payload(year=None)
+                overall_ranked = [e for e in overall_payload.get('leaderboard', []) if e.get('is_ranked')]
+                podium = overall_ranked[:3]
+                podium_is_fallback = (year is not None)
+                podium_year = 'overall'
+
+        payload['podium'] = podium
+        payload['podium_is_fallback'] = podium_is_fallback
+        payload['podium_year'] = podium_year
+        payload['active_year'] = str(year) if year is not None else 'overall'
+
+        return jsonify(payload)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -3748,41 +4361,218 @@ def mark_badges_seen():
 @app.route('/update_profile', methods=['POST'])
 @login_required
 def update_profile():
-    data = request.get_json()
-    if not data:
-        return jsonify({'success': False, 'error': 'No data provided'}), 400
-    
-    name = data.get('name')
-    dob_str = data.get('date_of_birth')
-    study_year = data.get('study_year')
-    
-    if not name:
-        return jsonify({'success': False, 'error': 'Le pseudo est requis'}), 400
-        
-    # Check if name is taken by another user
-    from sqlalchemy import func
-    from web.models import User
-    existing_user = User.query.filter(func.lower(User.name) == name.strip().lower(), User.id != current_user.id).first()
-    if existing_user:
-        return jsonify({'success': False, 'error': 'Ce pseudo est déjà utilisé'}), 400
-        
-    current_user.name = name.strip()
-    current_user.study_year = study_year
-    
-    if dob_str:
+    try:
         try:
-            from datetime import datetime
-            current_user.date_of_birth = datetime.strptime(dob_str, '%Y-%m-%d').date()
-        except ValueError:
-            pass # Ignore invalid date format
+            from web.auth import CS_PIONEER_NAMES
+        except ImportError:
+            from auth import CS_PIONEER_NAMES
+
+        data = request.get_json(silent=True) or {}
+        if not data:
+            return jsonify({'success': False, 'error': 'Données non fournies'}), 400
+        
+        name = (data.get('name') or '').strip()
+        dob_str = data.get('date_of_birth')
+        study_year = data.get('study_year')
+        
+        if not name or '#' not in name:
+            return jsonify({'success': False, 'error': 'Le pseudo doit respecter le format NomPionnier#4Chiffres (ex: Turing#4821)'}), 400
             
+        parts = name.split('#', 1)
+        pioneer = parts[0].strip()
+        digits = parts[1].strip()
+
+        if pioneer not in CS_PIONEER_NAMES:
+            return jsonify({'success': False, 'error': f"Le nom '{pioneer}' n'est pas dans la liste officielle des pionniers / concepts informatiques autorisés."}), 400
+
+        if not re.match(r'^\d{4}$', digits):
+            return jsonify({'success': False, 'error': 'Le code doit comporter exactement 4 chiffres numériques (ex: 4821)'}), 400
+
+        final_name = f"{pioneer}#{digits}"
+
+        # Check if name is taken by another user
+        existing_user = User.query.filter(func.lower(User.name) == final_name.lower(), User.id != current_user.id).first()
+        if existing_user:
+            return jsonify({'success': False, 'error': f"Le pseudo '{final_name}' est déjà utilisé par un autre étudiant."}), 400
+            
+        current_user.name = final_name
+        if study_year is not None:
+            current_user.study_year = str(study_year).strip() if str(study_year).strip() else None
+        
+        if dob_str:
+            try:
+                from datetime import datetime as dt
+                current_user.date_of_birth = dt.strptime(str(dob_str).strip(), '%Y-%m-%d').date()
+            except ValueError:
+                pass # Ignore invalid date format
+        elif dob_str == '':
+            current_user.date_of_birth = None
+                
+        db.session.commit()
+        invalidate_global_user_stats_cache()
+        invalidate_user_progress_cache(current_user.id)
+        schedule_global_user_stats_refresh()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profil mis à jour avec succès',
+            'name': final_name
+        })
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f"Erreur serveur: {str(e)}"}), 500
+
+
+@app.route('/api/users/<int:user_id>/card_profile', methods=['GET'])
+def get_user_card_profile(user_id):
+    try:
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'Utilisateur introuvable'}), 404
+
+        global_user_stats = get_bulk_users_stats(allow_stale=True, refresh_async=True) or {}
+        user_stats = global_user_stats.get(user_id, {})
+
+        user_badges_raw = UserBadge.query.filter_by(user_id=user_id).order_by(UserBadge.awarded_at.desc()).all()
+        quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).all()
+        submissions = ChallengeSubmission.query.filter_by(user_id=user_id, passed=True).all()
+        earned_badge_ids = {ub.badge_id for ub in user_badges_raw}
+
+        xp_total, xp_breakdown, level_dict, xp_to_next = compute_xp_and_level(
+            user_id,
+            preloaded_quiz_attempts=quiz_attempts,
+            preloaded_submissions=submissions,
+            preloaded_badges=user_badges_raw
+        )
+        act_dates = [qa.timestamp for qa in quiz_attempts if qa.timestamp] + [sub.timestamp for sub in submissions if sub.timestamp]
+        streak_info = compute_user_streak(user_id, preloaded_dates=act_dates)
+
+        top1 = user_stats.get('top1', 0)
+        top3 = user_stats.get('top3', 0)
+        top10 = user_stats.get('top10', 0)
+
+        titles_info = compute_unlocked_titles(
+            user_id=user_id,
+            xp=xp_total,
+            level_num=level_dict.get('num', 1),
+            top1_count=top1,
+            streak_days=streak_info.get('current_streak', 0),
+            preloaded_badges=earned_badge_ids,
+            preloaded_equipped_title=user.equipped_title
+        )
+        badge_defs = get_badge_definitions()
+        badges = []
+        for ub in user_badges_raw:
+            b_def = badge_defs.get(ub.badge_id, {
+                'name': ub.badge_id,
+                'desc': 'Succès débloqué',
+                'icon': 'fas fa-medal',
+                'category': 'achievement',
+                'xp': 10,
+                'difficulty': 'Easy'
+            })
+            badges.append({
+                'id': ub.badge_id,
+                'name': b_def['name'],
+                'desc': b_def['desc'],
+                'icon': b_def['icon'],
+                'category': b_def.get('category', 'achievement'),
+                'xp': b_def.get('xp', 10),
+                'difficulty': b_def.get('difficulty', 'Easy'),
+                'awarded_at': ub.awarded_at.isoformat() if ub.awarded_at else None
+            })
+
+        passed_challenges_count = len({sub.problem_id for sub in submissions if sub.problem_id is not None})
+        passed_quizzes_count = user_stats.get('quizzes', 0)
+
+        is_owner = current_user.is_authenticated and current_user.id == user_id
+
+        bucket = compute_user_leaderboard_bucket(global_user_stats, user_id)
+        prestige_badge = compute_user_prestige_badge(user_id, global_user_stats)
+
+        return jsonify({
+            'success': True,
+            'card': {
+                'user_id': user.id,
+                'name': user.name,
+                'study_year': user.study_year or 'Non spécifiée',
+                'joined_year': user.created_at.year if user.created_at else None,
+                'equipped_title': titles_info['equipped'],
+                'equipped_titles': titles_info.get('equipped_titles', [titles_info['equipped']]),
+                'unlocked_titles': titles_info['unlocked'] if is_owner else titles_info.get('equipped_titles', [titles_info['equipped']]),
+                'is_owner': is_owner,
+                'level': level_dict,
+                'xp_total': xp_total,
+                'xp_to_next': xp_to_next,
+                'streak': streak_info,
+                'global_rank': bucket.get('rank'),
+                'total_ranked_users': bucket.get('total_users'),
+                'percentile': bucket.get('top_percent'),
+                'prestige_badge': prestige_badge,
+                'stats': {
+                    'top1': top1,
+                    'top3': top3,
+                    'top10': top10,
+                    'challenges_completed': passed_challenges_count,
+                    'quizzes_passed': passed_quizzes_count,
+                    'score_pts': user_stats.get('score', 0)
+                },
+                'badges': badges
+            }
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f"Erreur serveur: {str(e)}"}), 500
+
+
+@app.route('/api/user/title', methods=['POST'])
+@login_required
+def equip_user_title():
+    data = request.get_json() or {}
+    raw_titles = data.get('titles')
+    if raw_titles is None and data.get('title'):
+        raw_titles = [data.get('title')]
+
+    if not isinstance(raw_titles, list) or not raw_titles:
+        return jsonify({'success': False, 'error': 'Veuillez sélectionner au moins un titre.'}), 400
+
+    clean_titles = [str(t).strip() for t in raw_titles if str(t).strip()]
+    if not clean_titles:
+        return jsonify({'success': False, 'error': 'Veuillez sélectionner au moins un titre.'}), 400
+    if len(clean_titles) > 3:
+        return jsonify({'success': False, 'error': 'Vous ne pouvez équiper que 3 titres maximum.'}), 400
+
+    global_user_stats = get_bulk_users_stats(allow_stale=True)
+    user_stats = global_user_stats.get(current_user.id, {})
+    xp_total, _, level_dict, _ = compute_xp_and_level(current_user.id)
+    streak_info = compute_user_streak(current_user.id)
+
+    titles_info = compute_unlocked_titles(
+        user_id=current_user.id,
+        xp=xp_total,
+        level_num=level_dict.get('num', 1),
+        top1_count=user_stats.get('top1', 0),
+        streak_days=streak_info.get('current_streak', 0)
+    )
+
+    for t in clean_titles:
+        if t not in titles_info['unlocked']:
+            return jsonify({'success': False, 'error': f"Le titre « {t} » n'est pas encore débloqué."}), 400
+
+    current_user.equipped_title = json.dumps(clean_titles)
     db.session.commit()
+    invalidate_user_progress_cache(current_user.id)
     invalidate_global_user_stats_cache()
     schedule_global_user_stats_refresh()
-    
+
     return jsonify({
         'success': True,
-        'message': 'Profil mis à jour avec succès'
+        'equipped_title': clean_titles[0],
+        'equipped_titles': clean_titles,
+        'message': f"{len(clean_titles)} titre(s) équipé(s) avec succès !"
     })
 
 @app.route('/api/challenge/<int:problem_id>/live')
@@ -3867,10 +4657,14 @@ def api_chat_message():
     except Exception as e:
         db.session.rollback()
         print(f">>> [ERROR] Error saving chat message: {e}", flush=True)
-        return jsonify({'success': False, 'error': 'Failed to save message'}), 500
+try:
+    schedule_global_user_stats_refresh()
+except Exception:
+    pass
 
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    debug_enabled = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes', 'on')
-    app.run(debug=debug_enabled, host='0.0.0.0', port=port, use_reloader=debug_enabled)
+    debug_enabled = (not is_production) and os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes', 'on')
+    host = '127.0.0.1' if debug_enabled else '0.0.0.0'
+    app.run(debug=debug_enabled, host=host, port=port, use_reloader=debug_enabled)

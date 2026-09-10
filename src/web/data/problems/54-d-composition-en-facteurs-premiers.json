@@ -1,0 +1,70 @@
+{
+  "title": "Décomposition en Facteurs Premiers",
+  "topic": "Basics",
+  "difficulty": "Medium",
+  "description": "### Décomposition d'un Nombre en Facteurs Premiers\n\nÉcrivez un algorithme qui décompose un entier `N` en facteurs premiers sous la forme `p1^e1 * p2^e2 * ...`.\n\n#### Format d'entrée\n- Un entier `N` (`N >= 2`).\n\n#### Format de sortie attendu\n- Une ligne contenant la décomposition avec le format exact `facteur^puissance` séparés par ` * `.\n\n#### Exemple concret\n**Entrée :**\n```\n60\n```\n**Sortie attendue :**\n```\n2^2 * 3^1 * 5^1\n```",
+  "template_code": "Algorithme Facteurs;\nVar\n    N : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Décomposer N en facteurs premiers et afficher le résultat (ex: 2^3*3^1)\n\n\n\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "60\n",
+      "expected_output": "2^2 * 3^1 * 5^1\n",
+      "is_public": true
+    },
+    {
+      "input": "13\n",
+      "expected_output": "13^1\n",
+      "is_public": true
+    },
+    {
+      "input": "18\n",
+      "expected_output": "2^1 * 3^2\n",
+      "is_public": false
+    },
+    {
+      "input": "100\n",
+      "expected_output": "2^2 * 5^2\n",
+      "is_public": false
+    },
+    {
+      "input": "84\n",
+      "expected_output": "2^2 * 3^1 * 7^1\n",
+      "is_public": false
+    },
+    {
+      "input": "32\n",
+      "expected_output": "2^5\n",
+      "is_public": false
+    },
+    {
+      "input": "49\n",
+      "expected_output": "7^2\n",
+      "is_public": false
+    },
+    {
+      "input": "210\n",
+      "expected_output": "2^1 * 3^1 * 5^1 * 7^1\n",
+      "is_public": false
+    },
+    {
+      "input": "128\n",
+      "expected_output": "2^7\n",
+      "is_public": false
+    },
+    {
+      "input": "315\n",
+      "expected_output": "3^2 * 5^1 * 7^1\n",
+      "is_public": false
+    },
+    {
+      "input": "97\n",
+      "expected_output": "97^1\n",
+      "is_public": false
+    },
+    {
+      "input": "720\n",
+      "expected_output": "2^4 * 3^2 * 5^1\n",
+      "is_public": false
+    }
+  ]
+}

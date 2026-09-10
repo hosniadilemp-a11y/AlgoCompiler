@@ -1,0 +1,70 @@
+{
+  "title": "Nombres Amicaux dans un Intervalle",
+  "topic": "Basics",
+  "difficulty": "Hard",
+  "description": "### Détection de Paires de Nombres Amicaux\n\nDeux nombres distincts `A` et `B` sont dits **amicaux** si la somme des diviseurs stricts de `A` est égale à `B`, et réciproquement.\nExemple : 220 et 284 sont amicaux.\n\n#### Objectif\nCompter le nombre total de paires amicales uniques `(A, B)` où `A < B <= Limite`.\n\n#### Format d'entrée\n- Un entier `Limite` (`Limite <= 10000`).\n\n#### Format de sortie attendu\n- Le nombre de paires amicales trouvées.\n\n#### Exemple concret\n**Entrée :**\n```\n300\n```\n**Sortie attendue :**\n```\n1\n```",
+  "template_code": "Algorithme NombresAmicaux;\nVar\n    N, Cnt : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Compter le nombre de paires de nombres amicaux dans [1, N]\n\n\n\n    Ecrire(Cnt);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "300\n",
+      "expected_output": "1\n",
+      "is_public": true
+    },
+    {
+      "input": "200\n",
+      "expected_output": "0\n",
+      "is_public": true
+    },
+    {
+      "input": "1200\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "1500\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "2000\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "3000\n",
+      "expected_output": "3\n",
+      "is_public": false
+    },
+    {
+      "input": "5000\n",
+      "expected_output": "3\n",
+      "is_public": false
+    },
+    {
+      "input": "6000\n",
+      "expected_output": "4\n",
+      "is_public": false
+    },
+    {
+      "input": "7000\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "10000\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "150\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "500\n",
+      "expected_output": "1\n",
+      "is_public": false
+    }
+  ]
+}

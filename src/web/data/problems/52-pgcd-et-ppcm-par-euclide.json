@@ -1,0 +1,70 @@
+{
+  "title": "PGCD et PPCM par Euclide",
+  "topic": "Basics",
+  "difficulty": "Medium",
+  "description": "### Calcul du PGCD et du PPCM\n\nÉcrivez un algorithme qui lit deux entiers strictement positifs `A` et `B`, calcule leur Plus Grand Commun Diviseur (PGCD) à l'aide de l'algorithme d'Euclide, puis leur Plus Petit Commun Multiple (PPCM).\n\n#### Formule\n$$\\text{PPCM}(A, B) = \\frac{A \\times B}{\\text{PGCD}(A, B)}$$\n\n#### Format d'entrée\n- Ligne 1 : L'entier `A`.\n- Ligne 2 : L'entier `B`.\n\n#### Format de sortie attendu\n- Deux entiers séparés par un espace : `PGCD PPCM`.\n\n#### Exemple concret\n**Entrée :**\n```\n48\n18\n```\n**Sortie attendue :**\n```\n6 144\n```",
+  "template_code": "Algorithme PgcdPpcm;\nVar\n    A, B, G, L : Entier;\nDebut\n    Lire(A);\n    Lire(B);\n\n    // TODO: Calculer le PGCD (G) et le PPCM (L) de A et B\n\n\n\n    Ecrire(G, L);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "48\n18\n",
+      "expected_output": "6 144\n",
+      "is_public": true
+    },
+    {
+      "input": "15\n25\n",
+      "expected_output": "5 75\n",
+      "is_public": true
+    },
+    {
+      "input": "7\n13\n",
+      "expected_output": "1 91\n",
+      "is_public": false
+    },
+    {
+      "input": "100\n10\n",
+      "expected_output": "10 100\n",
+      "is_public": false
+    },
+    {
+      "input": "12\n18\n",
+      "expected_output": "6 36\n",
+      "is_public": false
+    },
+    {
+      "input": "21\n14\n",
+      "expected_output": "7 42\n",
+      "is_public": false
+    },
+    {
+      "input": "35\n49\n",
+      "expected_output": "7 245\n",
+      "is_public": false
+    },
+    {
+      "input": "17\n19\n",
+      "expected_output": "1 323\n",
+      "is_public": false
+    },
+    {
+      "input": "54\n24\n",
+      "expected_output": "6 216\n",
+      "is_public": false
+    },
+    {
+      "input": "80\n60\n",
+      "expected_output": "20 240\n",
+      "is_public": false
+    },
+    {
+      "input": "9\n9\n",
+      "expected_output": "9 9\n",
+      "is_public": false
+    },
+    {
+      "input": "120\n45\n",
+      "expected_output": "15 360\n",
+      "is_public": false
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "title": "Triplets de Somme Nulle",
+  "topic": "Tableaux",
+  "difficulty": "Hard",
+  "description": "### Le Problème 3Sum (Triplets de Somme 0)\n\nÉtant donné un tableau d'entiers de taille `N`, déterminez le nombre total de triplets distincts `(A[i], A[j], A[k])` avec $i < j < k$ tels que :\n$$A[i] + A[j] + A[k] = 0$$\n\n#### Format d'entrée\n- Ligne 1 : `N`\n- Lignes 2 à N+1 : Les `N` entiers\n\n#### Format de sortie attendu\n- Le nombre de triplets uniques de somme nulle.\n\n#### Exemple concret\n**Entrée :**\n```\n6\n-1\n0\n1\n2\n-1\n-4\n```\n**Sortie attendue :**\n```\n2\n```",
+  "template_code": "Algorithme TripletsSommeNulle;\nVar\n    N, I, NbTriplets : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n\n    // TODO: Compter le nombre de triplets (i, j, k) avec T[i] + T[j] + T[k] = 0\n\n\n\n    Ecrire(NbTriplets);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "6\n-1\n0\n1\n2\n-1\n-4\n",
+      "expected_output": "2\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n0\n1\n1\n",
+      "expected_output": "0\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n0\n0\n0\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n-2\n0\n1\n1\n2\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n-3\n1\n2\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n-5\n2\n3\n-2\n0\n2\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n1\n2\n-2\n-1\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "15\n-4\n-2\n-2\n-2\n0\n1\n2\n2\n2\n3\n3\n4\n4\n6\n6\n",
+      "expected_output": "6\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n-1\n0\n1\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n3\n-3\n0\n2\n-2\n1\n-1\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n10\n-10\n5\n-5\n0\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n-6\n-4\n-2\n0\n2\n4\n6\n",
+      "expected_output": "5\n",
+      "is_public": false
+    }
+  ]
+}

@@ -9,26 +9,28 @@
 })(function (CodeMirror) {
     "use strict";
 
-    // Algo keywords and constructs
+    // Algo keywords and constructs (canonical and aliases)
     var algoKeywords = [
         "Algorithme", "Var", "Const", "Debut", "Fin",
         "Si", "Alors", "Sinon", "FinSi", "Fin Si",
         "Pour", "Faire", "FinPour", "Fin Pour",
         "TantQue", "Tant Que", "FinTantQue", "Fin Tant Que",
-        "Repeter", "Jusqua",
+        "Repeter", "Jusqua", "Jusqu'a",
         "Ecrire", "Lire",
         "Retourner", "Fonction", "Procedure",
-        "Tableau", "NIL",
-        "Type", "Enregistrement"  // Record support
+        "Tableau", "Matrice", "Pointeur", "NIL",
+        "Type", "Enregistrement"
     ];
 
     var algoTypes = [
-        "Entier", "Reel", "Chaine", "Booleen", "Caractere"
+        "Entier", "Reel", "Chaine", "Booleen", "Caractere",
+        "Tableau", "Matrice", "Pointeur"
     ];
 
     var algoBuiltins = [
-        "Longueur", "Concat",
-        "Allouer", "Liberer", "Taille"  // Dynamic allocation
+        "Longueur", "Concat", "SousChaine",
+        "Abs", "Sqrt", "Puissance", "Min", "Max",
+        "Allouer", "Liberer", "Taille"
     ];
 
     var algoAtoms = [
@@ -39,123 +41,123 @@
         "Mod", "Div", "Et", "Ou", "Non"
     ];
 
-    // Snippet templates with visual indicators
+    // Snippet templates with visual indicators (modern canonical Algo syntax)
     var snippets = {
         "algorithme": {
-            text: "Algorithme NomAlgorithme;\nVar\n    i, j : Entier;\nDebut\n    Ecrire(\"Debut de l'algorithme\");\n    \nFin.",
-            displayText: "Algorithme (full structure)",
+            text: "Algorithme NomAlgorithme;\nVar\n    x : Entier;\nDebut\n    \nFin.",
+            displayText: "Algorithme ... Fin. (structure complète)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "pour": {
-            text: "Pour i := 0 a 10 Faire\n    // Code ici\nFin Pour;",
-            displayText: "Pour ... Faire (loop)",
+            text: "Pour i <- 1 a N Faire\n    \nFinPour;",
+            displayText: "Pour ... a ... Faire ... FinPour;",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "pout": {
-            text: "Pour i := 0 a 10 Faire\n    // Code ici\nFin Pour;",
-            displayText: "Pout (alias for Pour)",
+            text: "Pour i <- 1 a N Faire\n    \nFinPour;",
+            displayText: "Pour ... a ... Faire (alias pour Pour)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "si_sinon": {
-            text: "Si condition Alors\n    // Code ici\nSinon\n    // Code ici\nFin Si;",
-            displayText: "Si ... Alors ... Sinon (if/else structure)",
+            text: "Si condition Alors\n    \nSinon\n    \nFinSi;",
+            displayText: "Si ... Alors ... Sinon ... FinSi;",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "si": {
-            text: "Si condition Alors\n    // Code ici\nFin Si;",
-            displayText: "Si ... Alors (if structure)",
+            text: "Si condition Alors\n    \nFinSi;",
+            displayText: "Si ... Alors ... FinSi;",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "tantque": {
-            text: "TantQue condition Faire\n    // Code ici\nFin TantQue;",
-            displayText: "TantQue ... Faire (while)",
+            text: "TantQue condition Faire\n    \nFinTantQue;",
+            displayText: "TantQue ... Faire ... FinTantQue;",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "tanque": {
-            text: "TantQue condition Faire\n    // Code ici\nFin TantQue;",
-            displayText: "Tanque (alias for TantQue)",
+            text: "TantQue condition Faire\n    \nFinTantQue;",
+            displayText: "TantQue ... Faire (alias pour TantQue)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "repeter": {
-            text: "Repeter\n    // Code ici\nJusqua condition;",
-            displayText: "Repeter ... Jusqua (loop)",
+            text: "Repeter\n    \nJusqua condition;",
+            displayText: "Repeter ... Jusqua (boucle)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "repre": {
-            text: "Repeter\n    // Code ici\nJusqua condition;",
-            displayText: "Repre (alias for Repeter)",
+            text: "Repeter\n    \nJusqua condition;",
+            displayText: "Repeter ... Jusqua (alias)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "ecrire": {
-            text: "Ecrire(\"\");",
-            displayText: "Ecrire(\"\") (print)",
+            text: "Ecrire();",
+            displayText: "Ecrire(...) (affichage console)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "lire": {
-            text: "Lire(\"\");",
-            displayText: "Lire(\"\") (read)",
+            text: "Lire();",
+            displayText: "Lire(...) (saisie clavier)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "type": {
-            text: "Type NomType = Enregistrement\nDebut\n    champ : Entier;\nFin;",
-            displayText: "Type ... = Enregistrement (record)",
+            text: "Type NomType = Enregistrement\n    champ : Entier;\nFin;",
+            displayText: "Type ... = Enregistrement (structure)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "enregistrement": {
-            text: "Enregistrement\nDebut\n    champ : Entier;\nFin;",
-            displayText: "Enregistrement (record body)",
+            text: "Type NomType = Enregistrement\n    champ : Entier;\nFin;",
+            displayText: "Enregistrement (structure de données)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "fonction": {
-            text: "Fonction NomFonction(param : Entier) : Entier\nVar\n    res : Entier;\nDebut\n    // Code ici\n    Retourner res;\nFin;",
-            displayText: "Fonction ... (function)",
+            text: "Fonction NomFonction(param : Entier) : Entier;\nVar\n    res : Entier;\nDebut\n    Retourner res;\nFin;",
+            displayText: "Fonction ... : Entier; (avec retour)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;
             }
         },
         "procedure": {
-            text: "Procedure NomProcedure(param : Entier)\nVar\n    \nDebut\n    // Code ici\nFin;",
-            displayText: "Procedure ... (procedure)",
+            text: "Procedure NomProcedure(VAR param : Entier);\nVar\n    \nDebut\n    \nFin;",
+            displayText: "Procedure ... (sans retour)",
             className: "hint-snippet",
             render: function (element, self, data) {
                 element.innerHTML = '<span class="hint-badge hint-badge-snippet">SNIP</span> ' + data.displayText;

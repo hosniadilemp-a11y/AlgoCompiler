@@ -1,0 +1,70 @@
+{
+  "title": "Recherche Séquentielle et Indice",
+  "topic": "Tableaux",
+  "difficulty": "Easy",
+  "description": "### Recherche Linéaire dans un Tableau 1D\n\nÉcrivez un algorithme qui recherche la première apparition d'une valeur `Cible` dans un tableau de taille `N`.\n\n#### Format d'entrée\n- Ligne 1 : `N` (taille du tableau)\n- Lignes 2 à N+1 : Les `N` entiers du tableau\n- Ligne N+2 : L'entier `Cible`\n\n#### Format de sortie attendu\n- L'indice (base 1) de la première occurrence, ou `-1` si la valeur n'est pas présente.\n\n#### Exemple concret\n**Entrée :**\n```\n5\n4\n8\n15\n16\n23\n15\n```\n**Sortie attendue :**\n```\n3\n```",
+  "template_code": "Algorithme RechercheSequentielle;\nVar\n    N, I, X, Pos : Entier;\n    T[1000] : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n    Lire(X);\n\n    // TODO: Trouver l'indice de la première occurrence de X dans T, ou -1\n\n\n\n    Ecrire(Pos);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "5\n4\n8\n15\n16\n23\n15\n",
+      "expected_output": "3\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n10\n20\n30\n99\n",
+      "expected_output": "-1\n",
+      "is_public": true
+    },
+    {
+      "input": "3\n5\n5\n5\n5\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n1\n3\n5\n7\n9\n1\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n1\n3\n5\n7\n9\n9\n",
+      "expected_output": "5\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n42\n42\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n42\n0\n",
+      "expected_output": "-1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n-5\n-2\n0\n4\n8\n0\n",
+      "expected_output": "3\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n-10\n-20\n-30\n-20\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n100\n200\n300\n400\n500\n350\n",
+      "expected_output": "-1\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n7\n14\n21\n28\n35\n28\n",
+      "expected_output": "4\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n2\n4\n6\n8\n10\n12\n2\n",
+      "expected_output": "1\n",
+      "is_public": false
+    }
+  ]
+}

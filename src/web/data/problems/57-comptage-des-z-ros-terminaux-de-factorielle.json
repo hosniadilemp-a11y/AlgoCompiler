@@ -1,0 +1,70 @@
+{
+  "title": "Comptage des Zéros Terminaux de Factorielle",
+  "topic": "Basics",
+  "difficulty": "Hard",
+  "description": "### Combien de Zéros terminent N! ?\n\nDéterminez par combien de zéros se termine l'écriture décimale de `N!` sans calculer explicitement la factorielle (formule de Legendre sur les facteurs 5).\n\n#### Formule de Legendre\n$$\\sum_{k=1}^{\\infty} \\lfloor \\frac{N}{5^k} \\rfloor$$\n\n#### Format d'entrée\n- Un entier `N` (`0 <= N <= 100000`).\n\n#### Format de sortie attendu\n- Un entier représentant le nombre de zéros terminaux.\n\n#### Exemple concret\n**Entrée :**\n```\n100\n```\n**Sortie attendue :**\n```\n24\n```",
+  "template_code": "Algorithme ZerosFactorielle;\nVar\n    N, Z : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Calculer le nombre de zéros terminaux de N! et stocker dans Z\n\n\n\n    Ecrire(Z);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "100\n",
+      "expected_output": "24\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n",
+      "expected_output": "1\n",
+      "is_public": true
+    },
+    {
+      "input": "10\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "25\n",
+      "expected_output": "6\n",
+      "is_public": false
+    },
+    {
+      "input": "50\n",
+      "expected_output": "12\n",
+      "is_public": false
+    },
+    {
+      "input": "125\n",
+      "expected_output": "31\n",
+      "is_public": false
+    },
+    {
+      "input": "200\n",
+      "expected_output": "49\n",
+      "is_public": false
+    },
+    {
+      "input": "500\n",
+      "expected_output": "124\n",
+      "is_public": false
+    },
+    {
+      "input": "1000\n",
+      "expected_output": "249\n",
+      "is_public": false
+    },
+    {
+      "input": "10000\n",
+      "expected_output": "2499\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "26\n",
+      "expected_output": "6\n",
+      "is_public": false
+    }
+  ]
+}

@@ -88,7 +88,7 @@ class CourseController {
     }
 
     clampCurrentChapterIndex() {
-        const totalChapters = Array.isArray(this.courseData?.chapters) ? this.courseData.chapters.length : 0;
+        const totalChapters = (this.courseData && Array.isArray(this.courseData.chapters)) ? this.courseData.chapters.length : 0;
         if (totalChapters === 0) {
             this.currentChapterIndex = 0;
             return;
@@ -102,7 +102,7 @@ class CourseController {
     async init() {
         try {
             this.courseData = await this.fetchJson(`/api/course?v=${this.contentVersion}`);
-            if (!Array.isArray(this.courseData?.chapters) || this.courseData.chapters.length === 0) {
+            if (!this.courseData || !Array.isArray(this.courseData.chapters) || this.courseData.chapters.length === 0) {
                 this.setOutlineStatus('Aucun chapitre publié pour le moment.');
                 this.setContentErrorState('Le cours n’est pas encore disponible.');
                 return;
@@ -114,7 +114,10 @@ class CourseController {
             this.bindEvents();
 
             this.fetchUserProgress()
-                .then(() => this.renderOutline())
+                .then(() => {
+                    this.renderOutline();
+                    this.updateChapterTopBar();
+                })
                 .catch((error) => {
                     console.error('Failed to refresh course progress:', error);
                 });
@@ -167,7 +170,7 @@ class CourseController {
 
     async renderOutline() {
         if (!this.sidebar) return;
-        if (!Array.isArray(this.courseData?.chapters) || this.courseData.chapters.length === 0) {
+        if (!this.courseData || !Array.isArray(this.courseData.chapters) || this.courseData.chapters.length === 0) {
             this.setOutlineStatus('Aucun chapitre disponible.');
             return;
         }
@@ -283,6 +286,7 @@ class CourseController {
 
         this.contentArea.innerHTML = `
             <h1 class="course-h1">${this.escapeHtml(chapter.title)}</h1>
+            ${this.createChapterTopQuizBar(chapterInfo)}
         `;
 
         if (chapter.sections) {
@@ -315,28 +319,6 @@ class CourseController {
             });
         }
 
-        // --- Add Quiz Button if applicable ---
-        if (this.quiz && chapterInfo.id && chapterInfo.id !== 'tutorial') {
-            const quizDiv = document.createElement('div');
-            quizDiv.className = 'course-section';
-            quizDiv.style.textAlign = 'center';
-            quizDiv.style.marginTop = '40px';
-            quizDiv.style.paddingTop = '20px';
-            quizDiv.style.borderTop = '1px solid var(--course-line)';
-
-            const safeTitle = chapterInfo.title.replace(/'/g, "\\'");
-            quizDiv.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <h3 style="font-size: 1.5rem; margin-bottom: 10px;">Avez-vous tout compris ?</h3>
-                    <p style="color: var(--course-muted);">Mettez vos connaissances à l'épreuve avec notre test interactif généré aléatoirement.</p>
-                </div>
-                <button class="course-quiz-btn" onclick="window.quizController.startQuiz('${chapterInfo.id}', '${safeTitle}')" style="font-size: 1.1rem; padding: 12px 30px;">
-                    <i class="fas fa-tasks"></i> Démarrer le Quiz
-                </button>
-            `;
-            this.contentArea.appendChild(quizDiv);
-        }
-
         this.bindSectionEvents();
         await this.validateRunnableSnippets();
         this.prefetchAdjacentChapters();
@@ -353,6 +335,118 @@ class CourseController {
         this.updateNavButtons();
     }
 
+    createChapterTopQuizBar(chapterInfo) {
+        if (!this.quiz || !chapterInfo.id || chapterInfo.id === 'tutorial') {
+            return '';
+        }
+
+        const safeTitle = (chapterInfo.title || '').replace(/'/g, "\\'");
+        const stats = (this.userProgress && this.userProgress[chapterInfo.id]) || null;
+        const taken = !!(stats && stats.taken);
+        const score = taken ? (stats.score || 0) : 0;
+        const total = taken ? (stats.total || 0) : 0;
+        const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+        const attempts = taken ? (stats.attempts_count || 1) : 0;
+        const avgScore = taken && stats.avg_score !== undefined ? stats.avg_score : pct;
+        const isPassed = !!(stats && stats.all_correct);
+
+        let statusBadgeHtml = '';
+        let scoreHtml = '';
+        let buttonHtml = '';
+
+        if (taken) {
+            if (isPassed) {
+                statusBadgeHtml = `
+                    <span class="chapter-quiz-status-tag passed">
+                        <i class="fas fa-check-circle"></i> Validé (${pct}%)
+                    </span>
+                `;
+            } else {
+                statusBadgeHtml = `
+                    <span class="chapter-quiz-status-tag in-progress">
+                        <i class="fas fa-exclamation-circle"></i> Non validé (${pct}%)
+                    </span>
+                `;
+            }
+
+            scoreHtml = `
+                <div class="chapter-quiz-metric">
+                    <span class="chapter-quiz-metric-label">Meilleur Score</span>
+                    <span class="chapter-quiz-metric-value" style="color: ${isPassed ? '#10b981' : '#f59e0b'};">
+                        <i class="fas fa-trophy"></i> ${score} / ${total}
+                    </span>
+                </div>
+                <div class="chapter-quiz-metric">
+                    <span class="chapter-quiz-metric-label">Moyenne & Tentatives</span>
+                    <span class="chapter-quiz-metric-value">
+                        <i class="fas fa-chart-line"></i> ${avgScore}% (${attempts} tent.)
+                    </span>
+                </div>
+            `;
+
+            buttonHtml = `
+                <button class="course-quiz-btn top" onclick="window.quizController.startQuiz('${chapterInfo.id}', '${safeTitle}')" title="Refaire le quiz pour améliorer votre score">
+                    <i class="fas fa-redo"></i> Refaire le Quiz
+                </button>
+            `;
+        } else {
+            statusBadgeHtml = `
+                <span class="chapter-quiz-status-tag not-attempted">
+                    <i class="fas fa-circle-notch"></i> Non évalué
+                </span>
+            `;
+
+            scoreHtml = `
+                <div class="chapter-quiz-metric">
+                    <span class="chapter-quiz-metric-label">Évaluation</span>
+                    <span class="chapter-quiz-metric-value" style="color: var(--course-muted);">
+                        -- / --
+                    </span>
+                </div>
+                <div class="chapter-quiz-metric">
+                    <span class="chapter-quiz-metric-label">Récompense</span>
+                    <span class="chapter-quiz-metric-value" style="color: #f59e0b;">
+                        <i class="fas fa-bolt"></i> +15 XP à la validation (≥80%)
+                    </span>
+                </div>
+            `;
+
+            buttonHtml = `
+                <button class="course-quiz-btn top" onclick="window.quizController.startQuiz('${chapterInfo.id}', '${safeTitle}')" title="Démarrer le quiz d'évaluation de ce chapitre">
+                    <i class="fas fa-play"></i> Passer le Quiz
+                </button>
+            `;
+        }
+
+        return `
+            <div class="chapter-quiz-top-bar" id="chapter-quiz-top-bar">
+                <div class="chapter-quiz-top-left">
+                    <div class="chapter-quiz-top-kicker">
+                        <i class="fas fa-tasks"></i> Évaluation de Chapitre
+                        ${statusBadgeHtml}
+                    </div>
+                    <div class="chapter-quiz-top-metrics">
+                        ${scoreHtml}
+                    </div>
+                </div>
+                <div class="chapter-quiz-top-action">
+                    ${buttonHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    updateChapterTopBar() {
+        const topBarContainer = document.getElementById('chapter-quiz-top-bar');
+        if (!topBarContainer || !this.courseData || !this.courseData.chapters) return;
+        const currentChapter = this.courseData.chapters[this.currentChapterIndex];
+        if (!currentChapter) return;
+        const newHtml = this.createChapterTopQuizBar(currentChapter);
+        if (newHtml) {
+            topBarContainer.outerHTML = newHtml;
+        }
+    }
+
     async loadChapter(chapterInfo) {
         const cacheKey = `${chapterInfo.id}:${this.contentVersion}`;
         if (this.chapterCache.has(cacheKey)) {
@@ -366,7 +460,7 @@ class CourseController {
     }
 
     prefetchAdjacentChapters() {
-        if (!Array.isArray(this.courseData?.chapters)) return;
+        if (!this.courseData || !Array.isArray(this.courseData.chapters)) return;
 
         const indexesToPrefetch = [
             this.currentChapterIndex - 1,
@@ -430,8 +524,10 @@ class CourseController {
         const checks = [];
 
         this.contentArea.querySelectorAll('.course-exec-btn').forEach((btn) => {
-            const codeBlock = btn.closest('.course-code-block')?.querySelector('.course-code-body');
-            const code = (codeBlock?.dataset?.rawCode || codeBlock?.innerText || '').trim();
+            const blockWrap = btn.closest('.course-code-block');
+            const codeBlock = blockWrap ? blockWrap.querySelector('.course-code-body') : null;
+            const rawCode = codeBlock && codeBlock.dataset ? codeBlock.dataset.rawCode : null;
+            const code = (rawCode || (codeBlock ? codeBlock.innerText : '') || '').trim();
 
             if (!this.isCompleteCourseCode(code)) {
                 btn.remove();

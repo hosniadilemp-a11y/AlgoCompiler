@@ -1,0 +1,70 @@
+{
+  "title": "Racine Carrée par la Méthode de Héron",
+  "topic": "Basics",
+  "difficulty": "Hard",
+  "description": "### Approximation Numérique de la Racine Carrée\n\nCalculez la racine carrée d'un nombre entier `N` par la méthode itérative de Héron d'Alexandrie :\n$$x_{k+1} = \\frac{1}{2} \\left( x_k + \\frac{N}{x_k} \\right)$$\n\n#### Format d'entrée\n- Un entier `N` (`N >= 1`).\n\n#### Format de sortie attendu\n- La valeur approchée arrondie à 4 chiffres après la virgule.\n\n#### Exemple concret\n**Entrée :**\n```\n2\n```\n**Sortie attendue :**\n```\n1.4142\n```",
+  "template_code": "Algorithme HeronSqrt;\nVar\n    N, S, X, K, IP, FP, R1, R2, R3, R4, Rem : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Calculer la racine carrée de N par la méthode de Héron (4 décimales)\n\n\n\n    Ecrire(Concat(IP, '.', R1, R2, R3, R4));\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "2\n",
+      "expected_output": "1.4142\n",
+      "is_public": true
+    },
+    {
+      "input": "9\n",
+      "expected_output": "3.0000\n",
+      "is_public": true
+    },
+    {
+      "input": "10\n",
+      "expected_output": "3.1623\n",
+      "is_public": false
+    },
+    {
+      "input": "16\n",
+      "expected_output": "4.0000\n",
+      "is_public": false
+    },
+    {
+      "input": "25\n",
+      "expected_output": "5.0000\n",
+      "is_public": false
+    },
+    {
+      "input": "50\n",
+      "expected_output": "7.0711\n",
+      "is_public": false
+    },
+    {
+      "input": "100\n",
+      "expected_output": "10.0000\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n",
+      "expected_output": "1.7321\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n",
+      "expected_output": "2.6458\n",
+      "is_public": false
+    },
+    {
+      "input": "81\n",
+      "expected_output": "9.0000\n",
+      "is_public": false
+    },
+    {
+      "input": "144\n",
+      "expected_output": "12.0000\n",
+      "is_public": false
+    },
+    {
+      "input": "200\n",
+      "expected_output": "14.1421\n",
+      "is_public": false
+    }
+  ]
+}

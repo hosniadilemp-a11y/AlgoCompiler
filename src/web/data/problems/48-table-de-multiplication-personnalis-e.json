@@ -1,0 +1,70 @@
+{
+  "title": "Table de Multiplication Personnalisée",
+  "topic": "Basics",
+  "difficulty": "Easy",
+  "description": "### Table de Multiplication de N jusqu'à K\n\nÉcrivez un algorithme qui lit deux entiers `N` et `K` et affiche les `K` premières lignes de la table de multiplication de `N`.\n\n#### Format d'entrée\n- Ligne 1 : L'entier `N`.\n- Ligne 2 : Le nombre de lignes `K` (`K >= 1`).\n\n#### Format de sortie attendu\n- `K` lignes au format exact `N x i = Resultat`.\n\n#### Exemple concret\n**Entrée :**\n```\n7\n3\n```\n**Sortie attendue :**\n```\n7 x 1 = 7\n7 x 2 = 14\n7 x 3 = 21\n```",
+  "template_code": "Algorithme TableMultiplication;\nVar\n    N, K, I : Entier;\nDebut\n    Lire(N);\n    Lire(K);\n\n    // TODO: Afficher la table de multiplication de N de 1 à K (format: N x I = P)\n\n\n\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "7\n3\n",
+      "expected_output": "7 x 1 = 7\n7 x 2 = 14\n7 x 3 = 21\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n1\n",
+      "expected_output": "5 x 1 = 5\n",
+      "is_public": true
+    },
+    {
+      "input": "12\n4\n",
+      "expected_output": "12 x 1 = 12\n12 x 2 = 24\n12 x 3 = 36\n12 x 4 = 48\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n5\n",
+      "expected_output": "1 x 1 = 1\n1 x 2 = 2\n1 x 3 = 3\n1 x 4 = 4\n1 x 5 = 5\n",
+      "is_public": false
+    },
+    {
+      "input": "9\n2\n",
+      "expected_output": "9 x 1 = 9\n9 x 2 = 18\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n6\n",
+      "expected_output": "6 x 1 = 6\n6 x 2 = 12\n6 x 3 = 18\n6 x 4 = 24\n6 x 5 = 30\n6 x 6 = 36\n",
+      "is_public": false
+    },
+    {
+      "input": "8\n5\n",
+      "expected_output": "8 x 1 = 8\n8 x 2 = 16\n8 x 3 = 24\n8 x 4 = 32\n8 x 5 = 40\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n3\n",
+      "expected_output": "10 x 1 = 10\n10 x 2 = 20\n10 x 3 = 30\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n4\n",
+      "expected_output": "3 x 1 = 3\n3 x 2 = 6\n3 x 3 = 9\n3 x 4 = 12\n",
+      "is_public": false
+    },
+    {
+      "input": "11\n3\n",
+      "expected_output": "11 x 1 = 11\n11 x 2 = 22\n11 x 3 = 33\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n7\n",
+      "expected_output": "4 x 1 = 4\n4 x 2 = 8\n4 x 3 = 12\n4 x 4 = 16\n4 x 5 = 20\n4 x 6 = 24\n4 x 7 = 28\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n8\n",
+      "expected_output": "2 x 1 = 2\n2 x 2 = 4\n2 x 3 = 6\n2 x 4 = 8\n2 x 5 = 10\n2 x 6 = 12\n2 x 7 = 14\n2 x 8 = 16\n",
+      "is_public": false
+    }
+  ]
+}

@@ -20,13 +20,18 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/scroll/simplescrollbars.min.css">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=4">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/challenge.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/challenge.css') }}?v={{ ASSET_VERSION }}">
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- SweetAlert2 for notifications -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- KaTeX for LaTeX Math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 
     <!-- CodeMirror Core JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
@@ -118,6 +123,12 @@
                     <div class="toolbar-separator"></div>
                     <button id="format-btn" class="toolbar-btn" title="Formater le code"><i
                             class="fas fa-align-left"></i></button>
+                    <button id="reset-template-btn" class="toolbar-btn" title="Réinitialiser au modèle initial"><i
+                            class="fas fa-undo-alt"></i></button>
+                    <div class="toolbar-separator"></div>
+                    <span class="template-lock-indicator" title="Les entrées et sorties du modèle sont protégées. Écrivez votre code dans la zone centrale.">
+                        <i class="fas fa-lock"></i> Modèle protégé
+                    </span>
 
                     <!-- Timer inserted on the right side -->
                     <div id="challenge-timer"
@@ -365,7 +376,7 @@
     <script src="{{ url_for('static', filename='algo-mode.js') }}"></script>
     <script src="{{ url_for('static', filename='algo-hints.js') }}"></script>
     <script src="{{ url_for('static', filename='algo-fold.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/challenge.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/challenge.js') }}?v={{ ASSET_VERSION }}"></script>
     <script>
         window.CURRENT_PROBLEM_ID = parseInt("{{ problem_id }}");
     </script>

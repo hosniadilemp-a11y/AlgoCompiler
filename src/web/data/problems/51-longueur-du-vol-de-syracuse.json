@@ -1,0 +1,70 @@
+{
+  "title": "Longueur du Vol de Syracuse",
+  "topic": "Basics",
+  "difficulty": "Medium",
+  "description": "### Suite de Collatz (Problème de Syracuse)\n\nSoit la suite définie pour un entier $N > 0$ par :\n- Si $N$ est pair : $N \\leftarrow N / 2$\n- Si $N$ est impair : $N \\leftarrow 3N + 1$\nLa conjecture de Collatz affirme que toute valeur finit par atteindre 1.\n\n#### Objectif\nCalculer le nombre total d'étapes pour atteindre 1, ainsi que la valeur maximale atteinte au cours du vol.\n\n#### Format d'entrée\n- Un entier $N \\ge 1$.\n\n#### Format de sortie attendu\n- Deux entiers séparés par un espace : `Etapes Max`.\n\n#### Exemple concret\n**Entrée :**\n```\n6\n```\n**Sortie attendue :**\n```\n8 16\n```",
+  "template_code": "Algorithme Syracuse;\nVar\n    N, Steps, MaxVal : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Calculer le nombre d'étapes (Steps) et la valeur maximale atteinte (MaxVal)\n\n\n\n    Ecrire(Steps, MaxVal);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "6\n",
+      "expected_output": "8 16\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n",
+      "expected_output": "0 1\n",
+      "is_public": true
+    },
+    {
+      "input": "2\n",
+      "expected_output": "1 2\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n",
+      "expected_output": "7 16\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n",
+      "expected_output": "5 16\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n",
+      "expected_output": "16 52\n",
+      "is_public": false
+    },
+    {
+      "input": "11\n",
+      "expected_output": "14 52\n",
+      "is_public": false
+    },
+    {
+      "input": "15\n",
+      "expected_output": "17 160\n",
+      "is_public": false
+    },
+    {
+      "input": "27\n",
+      "expected_output": "111 9232\n",
+      "is_public": false
+    },
+    {
+      "input": "12\n",
+      "expected_output": "9 16\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n",
+      "expected_output": "6 16\n",
+      "is_public": false
+    },
+    {
+      "input": "20\n",
+      "expected_output": "7 20\n",
+      "is_public": false
+    }
+  ]
+}

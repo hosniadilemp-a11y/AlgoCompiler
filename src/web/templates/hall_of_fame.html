@@ -727,14 +727,32 @@
                 return;
             }
 
-            container.innerHTML = entries.map((entry) => `
-                <article class="podium-card rank-${Number(entry.rank || 0)}">
+            container.innerHTML = entries.map((entry) => {
+                const prestigeHtml = entry.prestige_badge
+                    ? `<span class="prestige-badge ${entry.prestige_badge.class || ''}" title="${entry.prestige_badge.label || ''}"><i class="${entry.prestige_badge.icon || 'fas fa-award'}"></i><span>${entry.prestige_badge.short_label || entry.prestige_badge.label || ''}</span></span>`
+                    : '';
+                let titleClean = entry.equipped_title;
+                if (titleClean && typeof titleClean === 'string' && titleClean.trim().startsWith('[')) {
+                    try {
+                        const parsed = JSON.parse(titleClean);
+                        titleClean = Array.isArray(parsed) && parsed.length ? parsed[0] : '';
+                    } catch(e) {}
+                }
+                const titleHtml = titleClean
+                    ? `<div style="font-size:0.75rem; color:#f6c453; font-weight:700; margin-top:2px;">« ${escapeHtml(titleClean)} »</div>`
+                    : '';
+                return `
+                <article class="podium-card rank-${Number(entry.rank || 0)} user-card-trigger" data-user-id="${entry.user_id}" title="Cliquer pour voir la carte joueur" style="cursor:pointer;">
                     <div class="podium-rank">
                         <span>${escapeHtml(entry.rank_badge || '')}</span>
                         <span>Top ${Number(entry.rank || 0)}</span>
                     </div>
-                    <div class="podium-name">${escapeHtml(entry.name || `Utilisateur #${entry.user_id}`)}</div>
-                    <div>${escapeHtml((entry.level || {}).name || 'Debutant')}</div>
+                    <div class="podium-name" style="display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap;">
+                        <span>${escapeHtml(entry.name || `Utilisateur #${entry.user_id}`)}</span>
+                        ${prestigeHtml}
+                    </div>
+                    ${titleHtml}
+                    <div style="font-size:0.85rem; opacity:0.85;">${escapeHtml((entry.level || {}).name || 'Debutant')}</div>
                     <div class="podium-score">${Number(entry.score || 0).toLocaleString('fr-FR')} pts</div>
                     <div class="contributor-meta">
                         <span class="mini-pill">Top 1 ${Number(entry.top1 || 0).toLocaleString('fr-FR')}</span>
@@ -742,7 +760,8 @@
                         <span class="mini-pill">Badges ${Number(entry.badges || 0).toLocaleString('fr-FR')}</span>
                     </div>
                 </article>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function renderContributors(entries) {
@@ -752,14 +771,32 @@
                 return;
             }
 
-            container.innerHTML = entries.map((entry) => `
-                <article class="contributor-card">
+            container.innerHTML = entries.map((entry) => {
+                const prestigeHtml = entry.prestige_badge
+                    ? `<span class="prestige-badge ${entry.prestige_badge.class || ''}" title="${entry.prestige_badge.label || ''}"><i class="${entry.prestige_badge.icon || 'fas fa-award'}"></i><span>${entry.prestige_badge.short_label || entry.prestige_badge.label || ''}</span></span>`
+                    : '';
+                let contribTitleClean = entry.equipped_title;
+                if (contribTitleClean && typeof contribTitleClean === 'string' && contribTitleClean.trim().startsWith('[')) {
+                    try {
+                        const parsed = JSON.parse(contribTitleClean);
+                        contribTitleClean = Array.isArray(parsed) && parsed.length ? parsed[0] : '';
+                    } catch(e) {}
+                }
+                const titleHtml = contribTitleClean
+                    ? `<div style="font-size:0.75rem; color:#f6c453; font-weight:700; margin-top:2px;">« ${escapeHtml(contribTitleClean)} »</div>`
+                    : '';
+                return `
+                <article class="contributor-card user-card-trigger" data-user-id="${entry.user_id}" title="Cliquer pour voir la carte joueur" style="cursor:pointer;">
                     <div class="card-header">
                         <div class="user-avatar">${escapeHtml((entry.name || '?').trim().charAt(0).toUpperCase())}</div>
                         <div class="rank-badge">${escapeHtml(entry.rank_badge || `#${entry.rank || '--'}`)}</div>
                     </div>
                     <div class="card-body">
-                        <h3 class="contributor-name">${escapeHtml(entry.name || `Utilisateur #${entry.user_id}`)}</h3>
+                        <h3 class="contributor-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span>${escapeHtml(entry.name || `Utilisateur #${entry.user_id}`)}</span>
+                            ${prestigeHtml}
+                        </h3>
+                        ${titleHtml}
                         ${entry.security_badge ? `<span class="sec-badge"><i class="${escapeHtml(entry.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(entry.security_badge.short_label || 'Securite')}</span>` : ''}
                         <div class="score-display">
                             <span class="score-value">${Number(entry.score || 0).toLocaleString('fr-FR')}</span>

@@ -1,0 +1,70 @@
+{
+  "title": "Conversion Binaire en Décimal",
+  "topic": "Basics",
+  "difficulty": "Medium",
+  "description": "### Conversion de Binaire vers Décimal\n\nÉcrivez un algorithme qui lit un nombre binaire (représenté comme un entier composé uniquement de 0 et 1) et calcule sa valeur équivalente en base 10.\n\n#### Principe\nEn décomposant par modulo 10, chaque chiffre binaire extrait à la position $i$ contribue pour $bit \\times 2^i$ au total décimal.\n\n#### Format d'entrée\n- Un entier composé uniquement des chiffres 0 et 1 (ex: `1101`).\n\n#### Format de sortie attendu\n- Un seul entier représentant la valeur décimale.\n\n#### Exemple concret\n**Entrée :**\n```\n1101\n```\n**Sortie attendue :**\n```\n13\n```",
+  "template_code": "Algorithme BinaireDecimal;\nVar\n    B, D : Entier;\nDebut\n    Lire(B);\n\n    // TODO: Convertir le nombre binaire B en son équivalent décimal D\n\n\n\n    Ecrire(D);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "1101\n",
+      "expected_output": "13\n",
+      "is_public": true
+    },
+    {
+      "input": "10\n",
+      "expected_output": "2\n",
+      "is_public": true
+    },
+    {
+      "input": "0\n",
+      "expected_output": "0\n",
+      "is_public": false
+    },
+    {
+      "input": "1\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "111\n",
+      "expected_output": "7\n",
+      "is_public": false
+    },
+    {
+      "input": "1000\n",
+      "expected_output": "8\n",
+      "is_public": false
+    },
+    {
+      "input": "1010\n",
+      "expected_output": "10\n",
+      "is_public": false
+    },
+    {
+      "input": "1111\n",
+      "expected_output": "15\n",
+      "is_public": false
+    },
+    {
+      "input": "10000\n",
+      "expected_output": "16\n",
+      "is_public": false
+    },
+    {
+      "input": "10101\n",
+      "expected_output": "21\n",
+      "is_public": false
+    },
+    {
+      "input": "111111\n",
+      "expected_output": "63\n",
+      "is_public": false
+    },
+    {
+      "input": "1001001\n",
+      "expected_output": "73\n",
+      "is_public": false
+    }
+  ]
+}

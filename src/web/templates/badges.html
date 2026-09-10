@@ -140,6 +140,22 @@
             border-radius: 20px;
         }
 
+        .badge-xp-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(246, 196, 83, 0.16);
+            color: #f6c453;
+            border: 1px solid rgba(246, 196, 83, 0.35);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         .label-earned {
             background: rgba(110, 214, 138, 0.2);
             color: #6ed68a;
@@ -233,11 +249,13 @@
                     container.innerHTML = '';
 
                     const categories = {
-                        'streak': { title: 'Assiduité', icon: 'fa-fire' },
+                        'progression': { title: 'Progression & Niveaux', icon: 'fa-layer-group' },
+                        'competition': { title: 'Compétition & Podiums', icon: 'fa-trophy' },
+                        'streak': { title: 'Assiduité & Séries', icon: 'fa-fire' },
+                        'maitre': { title: 'Spécialités Algorithmiques', icon: 'fa-brain' },
                         'course': { title: 'Côté Cours', icon: 'fa-book' },
                         'challenges': { title: 'Défis Algorithmiques', icon: 'fa-keyboard' },
-                        'mastery': { title: 'Hacker Maîtrise', icon: 'fa-user-ninja' },
-                        'maitre': { title: 'Maitre des Sujets', icon: 'fa-crown' }
+                        'mastery': { title: 'Hacker Maîtrise', icon: 'fa-user-ninja' }
                     };
 
                     // Group badges
@@ -263,6 +281,7 @@
                             const progress = calculateBadgeProgress(b.id, progressObj);
                             return `
                     <div class="badge-card ${b.earned ? 'badge-earned' : 'badge-locked'}">
+                        <span class="badge-xp-label"><i class="fas fa-bolt"></i> +${b.xp || 10} XP</span>
                         <span class="badge-status-label ${b.earned ? 'label-earned' : 'label-locked'}">
                             ${b.earned ? '<i class="fas fa-check"></i> Obtenu' : '<i class="fas fa-lock"></i> Verrouillé'}
                         </span>
@@ -292,6 +311,22 @@
 
                     function calculateBadgeProgress(badgeId, stats) {
                         const targets = {
+                            // Progression & XP
+                            "title_novice": { key: 'level.num', target: 1, label: 'Niveau 1' },
+                            "title_explorateur": { key: 'xp_total', target: 200, label: 'XP' },
+                            "title_khabeche": { key: 'xp_total', target: 500, label: 'XP' },
+                            "title_virtuose": { key: 'xp_total', target: 1000, label: 'XP' },
+                            "title_m3alem": { key: 'xp_total', target: 2000, label: 'XP' },
+                            "title_oustoura": { key: 'xp_total', target: 4000, label: 'XP' },
+                            // Compétition & Podiums (Dynamiques)
+                            "title_vainqueur": { key: 'top1_finishes', target: 1, label: 'Top 1' },
+                            "title_roi_podium": { key: 'top1_finishes', target: 3, label: 'Top 1' },
+                            "title_legende": { key: 'top1_finishes', target: 10, label: 'Top 1' },
+                            "title_tireur_elite": { key: 'top1_finishes', target: 1, label: 'Record CPU Med/Hard' },
+                            // Spécialités
+                            "title_dompteur_tableaux": { key: 'topic_counts.Arrays', target: 5, label: 'défis Tableaux' },
+                            "title_tisserand_chaines": { key: 'topic_counts.Strings', target: 5, label: 'défis Chaînes' },
+                            "title_grand_maitre_quiz": { key: 'quizzes_high_score', target: 10, label: 'quiz ≥ 80%' },
                             // Streak
                             "streak_3": { key: 'active_days', target: 3, label: 'jours' },
                             "streak_7": { key: 'active_days', target: 7, label: 'jours' },

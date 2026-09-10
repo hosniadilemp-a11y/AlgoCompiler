@@ -505,6 +505,9 @@ class QuizController {
             if (this.course && isUserAuthenticated) {
                 await this.course.fetchUserProgress();
                 this.course.renderOutline();
+                if (typeof this.course.updateChapterTopBar === 'function') {
+                    this.course.updateChapterTopBar();
+                }
             }
 
             if (isUserAuthenticated) {

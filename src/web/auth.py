@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
 from web.models import db, User
 from sqlalchemy import func
@@ -208,19 +207,40 @@ def login():
         
     return render_template('auth/login.html')
 
+# Expanded list of Computer Science pioneers and algorithmic concepts
+CS_PIONEER_NAMES = [
+    # Computer Science Pioneers & Theorists
+    "Turing", "Lovelace", "AlKhwarizmi", "Dijkstra", "Knuth", "Shannon", "Boole",
+    "VonNeumann", "Hopper", "Ritchie", "Torvalds", "Lamport", "Wirth", "Hamilton",
+    "McCarthy", "Chomsky", "Karp", "Tarjan", "Babbage", "Pascal", "Fermat", "Euler",
+    "Fourier", "Floyd", "Warshall", "Kruskal", "Prim", "Bellman", "Ford", "Huffman",
+    "Rivest", "Shamir", "Adleman", "Diffie", "Hellman", "Backus", "Naur", "Stroustrup",
+    "Gosling", "BernersLee", "Cerf", "Kahn", "LeCun", "Hinton", "Bengio", "Russell",
+    "Norvig", "Kay", "Thompson", "Kernighan", "Codd", "Milner", "Pnueli",
+    # Core Computing & Algorithm Concepts
+    "QuickSort", "MergeSort", "BinaryTree", "RedBlack", "AVL", "Trie", "Recursion",
+    "Stack", "Queue", "Heap", "Graph", "Matrix", "HashByte", "Pointer", "Bitwise",
+    "Lexer", "Parser", "Compiler", "Lambda", "Token", "Syntax", "Kernel", "Daemon"
+]
+
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def signup():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
         
+    from web.models import get_current_academic_year
+    current_acad_year = get_current_academic_year()
+    academic_year_display = f"{current_acad_year - 1}–{current_acad_year}"
+
     if request.method == 'POST':
         email = request.form.get('email')
-        name = request.form.get('name')
+        digit_code = (request.form.get('digit_code') or '').strip()
+        cs_pioneer = (request.form.get('cs_pioneer') or '').strip()
+        submitted_name = (request.form.get('name') or '').strip()
         security_question = request.form.get('security_question')
         security_answer = request.form.get('security_answer')
         date_of_birth_str = request.form.get('date_of_birth')
-        study_year = request.form.get('study_year')
         password = request.form.get('password')
         captcha_input = request.form.get('captcha')
         
@@ -238,19 +258,43 @@ def signup():
         # Check existing email (case-insensitive)
         user_by_email = User.query.filter(func.lower(User.email) == email.lower()).first()
         if user_by_email:
-            # If user exists but is locked out or has too many resend attempts, check lockout time
             if user_by_email.lockout_until and user_by_email.lockout_until > datetime.now(timezone.utc):
                 flash('Ce compte est temporairement bloqué. Réessayez plus tard.', 'danger')
                 return redirect(url_for('auth.signup'))
             flash('Un compte avec cet e-mail existe déjà.', 'danger')
             return redirect(url_for('auth.signup'))
             
-        # Check existing name (case-insensitive) - NEW SECURITY CHECK
-        if name:
-            user_by_name = User.query.filter(func.lower(User.name) == name.strip().lower()).first()
-            if user_by_name:
-                flash('Ce pseudo est déjà utilisé. Veuillez en choisir un autre.', 'danger')
+        # Format Pseudo according to Option C: <Name>#<4-digits>
+        if digit_code and cs_pioneer:
+            if not re.match(r'^\d{4}$', digit_code):
+                flash('Le code à 4 chiffres doit comporter exactement 4 chiffres numériques (ex: 4821).', 'danger')
                 return redirect(url_for('auth.signup'))
+            name = f"{cs_pioneer}#{digit_code}"
+        elif submitted_name and '#' in submitted_name:
+            parts = submitted_name.split('#', 1)
+            pioneer_part = parts[0].strip()
+            digit_part = parts[1].strip()
+            if len(digit_part) == 4 and digit_part.isdigit():
+                name = f"{pioneer_part}#{digit_part}"
+            else:
+                flash('Le format du pseudo doit être Nom#4Chiffres (ex: Turing#4821).', 'danger')
+                return redirect(url_for('auth.signup'))
+        elif digit_code:
+            if not re.match(r'^\d{4}$', digit_code):
+                flash('Le code à 4 chiffres doit comporter exactement 4 chiffres numériques (ex: 4821).', 'danger')
+                return redirect(url_for('auth.signup'))
+            name = f"{random.choice(CS_PIONEER_NAMES)}#{digit_code}"
+        elif submitted_name:
+            name = submitted_name
+        else:
+            flash('Veuillez renseigner votre code à 4 chiffres pour générer votre pseudo.', 'danger')
+            return redirect(url_for('auth.signup'))
+            
+        # Check existing name (case-insensitive)
+        user_by_name = User.query.filter(func.lower(User.name) == name.strip().lower()).first()
+        if user_by_name:
+            flash(f'Le pseudo "{name}" est déjà attribué. Veuillez choisir un autre code à 4 chiffres ou un autre pionnier.', 'danger')
+            return redirect(url_for('auth.signup'))
             
         # Parse date
         date_of_birth = None
@@ -260,10 +304,8 @@ def signup():
             except ValueError:
                 pass
                 
-        # Determine default study_year if not specified
-        from web.models import get_current_academic_year
-        if not study_year or not str(study_year).strip():
-            study_year = str(get_current_academic_year())
+        # Academic study year determined automatically by calendar rule
+        study_year = str(current_acad_year)
 
         # Create user
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
@@ -288,7 +330,15 @@ def signup():
         return redirect(url_for('auth.login'))
     
     captcha_text = generate_math_captcha()
-    return render_template('auth/signup.html', captcha_text=captcha_text)
+    initial_cs_name = random.choice(CS_PIONEER_NAMES)
+    return render_template(
+        'auth/signup.html', 
+        captcha_text=captcha_text,
+        cs_names=CS_PIONEER_NAMES,
+        initial_cs_name=initial_cs_name,
+        academic_year=str(current_acad_year),
+        academic_year_display=academic_year_display
+    )
 
 @auth_bp.route('/verify', methods=['GET', 'POST'])
 def verify():
@@ -424,7 +474,6 @@ def oauth_auth(provider):
              
              if user_info:
                  email = user_info['email']
-                 name = user_info.get('name', '')
                  oauth_id = str(user_info['sub'])
              else:
                  flash("Erreur lors de la récupération des informations Google.", "danger")
@@ -446,7 +495,6 @@ def oauth_auth(provider):
                          email = e['email']
                          break
              
-             name = user_info.get('name') or user_info.get('login', '')
              oauth_id = str(user_info['id'])
              
         else:
@@ -471,25 +519,31 @@ def oauth_auth(provider):
                  user.email_verified = True
                  db.session.commit()
         else:
-             # Create new user
-             # Ensure unique name for OAuth registration
-             base_name = name or email.split('@')[0]
-             unique_name = base_name
+             # Create new user with Option C format: <Pioneer>#<4-digits>
+             pioneer = random.choice(CS_PIONEER_NAMES)
+             digits = f"{random.randint(1000, 9999)}"
+             unique_name = f"{pioneer}#{digits}"
              counter = 0
              
              while User.query.filter(func.lower(User.name) == unique_name.lower()).first():
                  counter += 1
-                 if counter == 1:
-                     unique_name = f"{base_name}{random.randint(100, 999)}"
-                 else:
-                     unique_name = f"{base_name}{random.randint(1000, 9999)}"
-                 
-                 # Safety break to avoid infinite loop
-                 if counter > 10:
-                     unique_name = f"{base_name}_{random.getrandbits(32)}"
+                 pioneer = random.choice(CS_PIONEER_NAMES)
+                 digits = f"{random.randint(1000, 9999)}"
+                 unique_name = f"{pioneer}#{digits}"
+                 if counter > 50:
+                     unique_name = f"{pioneer}#{random.randint(10000, 99999)}"
                      break
                      
-             user = User(email=email, name=unique_name, oauth_provider=provider, oauth_id=oauth_id, email_verified=True)
+             from web.models import get_current_academic_year
+             study_year = str(get_current_academic_year())
+             user = User(
+                 email=email, 
+                 name=unique_name, 
+                 study_year=study_year,
+                 oauth_provider=provider, 
+                 oauth_id=oauth_id, 
+                 email_verified=True
+             )
              db.session.add(user)
              db.session.commit()
                  

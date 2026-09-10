@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Mon Profil - AlgoCompiler</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='course-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user_card_modal.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -323,6 +325,416 @@
             }
         }
 
+        /* ============================================
+           PROPOSITION 1: COCKPIT ACADÉMIQUE & PODIUM UNIFIÉ
+        ============================================ */
+        .cockpit-container {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            margin-bottom: 28px;
+        }
+
+        .cockpit-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 26px 28px;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cockpit-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), transparent 50%);
+            pointer-events: none;
+        }
+
+        /* XP Hero Banner */
+        .cockpit-xp-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 22px;
+        }
+
+        .cockpit-xp-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .cockpit-xp-kicker {
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #f59e0b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cockpit-xp-main {
+            display: flex;
+            align-items: baseline;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .cockpit-xp-val {
+            font-size: 2.3rem;
+            font-weight: 900;
+            color: #f59e0b;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            text-shadow: 0 0 24px rgba(245, 158, 11, 0.4);
+        }
+
+        .cockpit-level-tag {
+            font-size: 0.88rem;
+            font-weight: 800;
+            padding: 5px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cockpit-xp-track-box {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .cockpit-xp-track {
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cockpit-xp-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+            border-radius: 999px;
+            transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 16px rgba(139, 92, 246, 0.6);
+        }
+
+        .cockpit-xp-subrow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .cockpit-xp-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-primary, #ffffff);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .cockpit-xp-btn:hover {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #f59e0b;
+            transform: translateY(-2px);
+        }
+
+        /* 3 Piliers */
+        .cockpit-pillars {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 960px) {
+            .cockpit-pillars {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pillar-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.25s ease, border-color 0.25s ease;
+        }
+
+        .pillar-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .pillar-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .pillar-label {
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pillar-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .pillar-val-row {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .pillar-big-val {
+            font-size: 2.2rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+
+        .pillar-sub-val {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        .pillar-meter {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 10px 0 8px;
+        }
+
+        .pillar-meter-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 999px;
+            transition: width 1s ease;
+        }
+
+        .pillar-caption {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .diff-chips-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .diff-chip {
+            font-size: 0.73rem;
+            padding: 2px 7px;
+            border-radius: 5px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .diff-chip.easy { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .diff-chip.medium { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .diff-chip.hard { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        /* Podium Unifié */
+        .podium-hero-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 26px 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+            position: relative;
+        }
+
+        .podium-head-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .podium-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+
+        .podium-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .podium-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+        }
+
+        @media (max-width: 860px) {
+            .podium-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .podium-box {
+            border-radius: 16px;
+            padding: 22px 18px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.28s ease, box-shadow 0.28s ease;
+        }
+
+        .podium-box:hover {
+            transform: translateY(-5px);
+        }
+
+        .podium-box.gold {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.02));
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            box-shadow: 0 12px 28px rgba(245, 158, 11, 0.08);
+        }
+
+        .podium-box.silver {
+            background: linear-gradient(180deg, rgba(148, 163, 184, 0.14), rgba(148, 163, 184, 0.02));
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 12px 28px rgba(148, 163, 184, 0.08);
+        }
+
+        .podium-box.bronze {
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.12), rgba(56, 189, 248, 0.02));
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            box-shadow: 0 12px 28px rgba(56, 189, 248, 0.08);
+        }
+
+        .podium-icon-ring {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 12px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.45rem;
+        }
+        .podium-box.gold .podium-icon-ring { background: rgba(245, 158, 11, 0.2); color: #f59e0b; box-shadow: 0 0 18px rgba(245, 158, 11, 0.4); }
+        .podium-box.silver .podium-icon-ring { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; box-shadow: 0 0 18px rgba(148, 163, 184, 0.4); }
+        .podium-box.bronze .podium-icon-ring { background: rgba(56, 189, 248, 0.2); color: #38bdf8; box-shadow: 0 0 18px rgba(56, 189, 248, 0.4); }
+
+        .podium-val {
+            font-size: 2.7rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 4px;
+            letter-spacing: -0.04em;
+        }
+        .podium-box.gold .podium-val { color: #f59e0b; }
+        .podium-box.silver .podium-val { color: #cbd5e1; }
+        .podium-box.bronze .podium-val { color: #38bdf8; }
+
+        .podium-label {
+            font-size: 0.88rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .podium-badge-pct {
+            display: inline-block;
+            font-size: 0.76rem;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 999px;
+            margin-bottom: 6px;
+        }
+        .podium-box.gold .podium-badge-pct { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+        .podium-box.silver .podium-badge-pct { background: rgba(148, 163, 184, 0.2); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.35); }
+        .podium-box.bronze .podium-badge-pct { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35); }
+
+        .podium-desc {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .view-all-badges-link {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #38bdf8;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .view-all-badges-link:hover {
+            background: rgba(56, 189, 248, 0.2);
+            color: #7dd3fc;
+            transform: translateX(3px);
+        }
+
         .progress-section {
             background: var(--panel-bg);
             padding: 25px;
@@ -384,6 +796,94 @@
         .status-none {
             background: rgba(108, 117, 125, 0.1);
             color: #6c757d;
+        }
+
+        /* Analytics & Charts Cards (Dark & Light Mode Aware) */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .analytics-card {
+            padding: 22px;
+            border-radius: 18px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        body:not(.light-theme) .analytics-card {
+            background: linear-gradient(145deg, rgba(22, 27, 34, 0.85) 0%, rgba(13, 17, 23, 0.95) 100%);
+            border-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        body.light-theme .analytics-card {
+            background: #ffffff;
+            border-color: #e2e8f0;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+        }
+
+        .analytics-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .analytics-card-title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .analytics-chart-box {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .analytics-chart-box.tall {
+            height: 280px;
+        }
+
+        .analytics-select {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+            background: var(--panel-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .analytics-select {
+            background: #f8fafc;
+            color: #1e293b;
+            border-color: #cbd5e1;
+        }
+
+        body:not(.light-theme) .analytics-select {
+            background: #1e293b;
+            color: #ffffff;
+            border-color: #475569;
         }
 
         /* MODAL CSS */
@@ -460,6 +960,7 @@
         }
 
         .badge-card {
+            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -472,6 +973,23 @@
             cursor: default;
             border: 1px solid var(--border-color);
             background: rgba(0, 0, 0, 0.08);
+        }
+
+        .badge-xp-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(246, 196, 83, 0.18);
+            color: #f6c453;
+            border: 1px solid rgba(246, 196, 83, 0.35);
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            z-index: 2;
         }
 
         .badge-card:hover {
@@ -716,6 +1234,18 @@
             margin-top: 6px;
             border: 1.5px solid currentColor;
             animation: level-glow 2.5s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+            user-select: none;
+        }
+
+        .level-badge:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 16px var(--level-glow, rgba(124, 58, 237, 0.5)) !important;
+        }
+
+        .level-badge:active {
+            transform: translateY(0) scale(0.98);
         }
 
         .percentile-badge {
@@ -747,8 +1277,33 @@
             }
         }
 
+        .xp-progress-clickable {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+            cursor: pointer;
+            padding: 4px 8px 4px 4px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .xp-progress-clickable:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .xp-progress-clickable:hover #xp-bar-label {
+            opacity: 1;
+            color: var(--accent, #4a6ee0);
+        }
+
         .xp-bar-wrap {
-            margin-top: 8px;
             background: var(--border-color, rgba(128, 128, 128, 0.3));
             border-radius: 8px;
             height: 8px;
@@ -803,21 +1358,43 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 9px 12px;
-            border-radius: 8px;
-            margin-bottom: 6px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 8px;
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border-color);
             font-size: 0.88rem;
+            color: var(--text-color);
+            gap: 12px;
+        }
+
+        body.light-theme .xp-row {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .xp-row .xp-label-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
         }
 
         .xp-row .xp-pill {
-            background: rgba(74, 110, 224, 0.2);
-            color: #7c8ef0;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-weight: 700;
+            background: rgba(74, 110, 224, 0.18);
+            color: #4a6ee0;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-weight: 800;
             font-size: 0.82rem;
+            white-space: nowrap;
+            border: 1px solid rgba(74, 110, 224, 0.3);
+        }
+
+        body:not(.light-theme) .xp-row .xp-pill {
+            background: rgba(74, 110, 224, 0.25);
+            color: #93c5fd;
+            border-color: rgba(96, 165, 250, 0.35);
         }
 
         .level-ladder {
@@ -856,25 +1433,18 @@
     <div style="flex: 1; overflow-y: auto; padding-bottom: 40px;">
         <div class="progress-container">
             <div class="profile-header">
-                <div class="avatar">{{ current_user.name[0]|upper }}</div>
+                <div class="avatar avatar-tier-ring tier-ring-debutant user-card-trigger" id="profile-avatar" data-user-id="{{ current_user.id }}" title="Cliquer pour voir votre carte joueur">{{ current_user.name[0]|upper }}</div>
                 <div class="profile-info">
-                    <h1><span id="display-name">{{ current_user.name }}</span></h1>
-                    <p class="email">{{ current_user.email }}</p>
-                    <div id="level-badge-wrap" style="margin: 4px 0;">
-                        <div class="level-badge-row">
-                            <span id="level-badge" class="level-badge"
-                                style="color:#6c757d; --level-glow: rgba(108,117,125,0.4);">🌟 Débutant</span>
-                            <span id="leaderboard-percentile-badge" class="percentile-badge" style="display:none;"></span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;">
-                            <div class="xp-bar-wrap">
-                                <div id="xp-bar-fill" class="xp-bar-fill" style="width:0%; background:#6c757d;"></div>
-                            </div>
-                            <span id="xp-bar-label"
-                                style="font-size:0.78rem; color:var(--text-color); opacity:0.75; font-weight:600; white-space:nowrap;">0
-                                XP</span>
-                        </div>
+                    <h1 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span id="display-name">{{ current_user.name }}</span>
+                        <span id="profile-prestige-badge" style="display:none;"></span>
+                    </h1>
+                    <div id="profile-title-row" style="margin: 3px 0 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span id="profile-equipped-title" class="player-card-equipped-title user-card-trigger" data-user-id="{{ current_user.id }}" style="cursor:pointer;" title="Cliquer pour changer votre titre équipé">« Novice »</span>
+                        <span id="profile-streak-pill" class="player-card-streak-pill" style="display:none;"></span>
+                        <span id="leaderboard-percentile-badge" class="percentile-badge" style="display:none;"></span>
                     </div>
+                    <p class="email" style="margin-bottom: 8px;">{{ current_user.email }}</p>
                     <div class="profile-meta">
                         <div class="meta-item">
                             <i class="fas fa-graduation-cap"></i> Inscription: <span id="display-study">{{
@@ -892,98 +1462,209 @@
                 </button>
             </div>
 
-            <div class="stats-grid">
-                <div class="stat-card" id="card-quizzes">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-book-open"></i> Quiz</div>
-                            <div class="stat-value" id="stat-quizzes">0</div>
-                            <div class="stat-label">Quiz passés</div>
+            <!-- COCKPIT ACADÉMIQUE (PROPOSITION 1) -->
+            <div class="cockpit-card">
+                <!-- XP & Niveau Banner -->
+                <div class="cockpit-xp-banner">
+                    <div class="cockpit-xp-left">
+                        <div class="cockpit-xp-kicker"><i class="fas fa-bolt"></i> Expérience & Maîtrise</div>
+                        <div class="cockpit-xp-main">
+                            <div class="cockpit-xp-val" id="cockpit-xp-val">0 XP</div>
+                            <span class="cockpit-level-tag" id="cockpit-xp-level-badge">🧭 Niveau 1 : Débutant</span>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-book-open"></i></div>
                     </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-quizzes-scale">Couleur: 0 -> 10</span><strong id="stat-quizzes-state">Départ</strong></div>
+                    <button class="cockpit-xp-btn" title="Voir l'historique complet des gains d'XP"
+                        onclick="document.getElementById('xp-modal-overlay').classList.add('active')">
+                        <i class="fas fa-list-ol"></i> Détail des points
+                    </button>
+                    <div class="cockpit-xp-track-box">
+                        <div class="cockpit-xp-track">
+                            <div class="cockpit-xp-fill" id="cockpit-xp-fill" style="width: 0%;"></div>
+                        </div>
+                        <div class="cockpit-xp-subrow">
+                            <span id="cockpit-xp-subtext">Progression vers le prochain palier</span>
+                            <strong id="cockpit-xp-track-label" style="color: var(--text-color);">0 / 200 XP</strong>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card" id="card-challenges">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-code"></i> Défis</div>
-                            <div class="stat-value" id="stat-challenges">0</div>
-                            <div class="stat-label">Défis tentés</div>
+
+                <!-- 3 Piliers de Maîtrise -->
+                <div class="cockpit-pillars">
+                    <!-- Pilier 1 : Quiz -->
+                    <div class="pillar-card">
+                        <div>
+                            <div class="pillar-head">
+                                <div class="pillar-label"><i class="fas fa-book-open" style="color: #38bdf8;"></i> Quiz de Cours</div>
+                                <div class="pillar-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                                    <i class="fas fa-graduation-cap"></i>
+                                </div>
+                            </div>
+                            <div class="pillar-val-row">
+                                <span class="pillar-big-val" id="cockpit-quizzes-val" style="color: #38bdf8;">0</span>
+                                <span class="pillar-sub-val">/ <span id="cockpit-quizzes-total">15</span></span>
+                            </div>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary);">Chapitres validés (≥ 80%)</div>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-code"></i></div>
-                    </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-challenges-scale">Couleur: 0 -> 100</span><strong id="stat-challenges-state">Départ</strong></div>
-                </div>
-                <div class="stat-card" id="card-score">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-chart-line"></i> Moyenne</div>
-                            <div class="stat-value" id="stat-score">0 / 20</div>
-                            <div class="stat-label">Score Moyen aux Quiz</div>
+                        <div>
+                            <div class="pillar-meter">
+                                <div class="pillar-meter-fill" id="cockpit-quizzes-fill" style="background: #38bdf8;"></div>
+                            </div>
+                            <div class="pillar-caption">
+                                <span>+15 XP par chapitre</span>
+                                <strong id="cockpit-quizzes-pct-label" style="color: #38bdf8;">0%</strong>
+                            </div>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
                     </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-score-scale">Couleur: 0 -> 20</span><strong id="stat-score-state">Départ</strong></div>
-                </div>
-                <div class="stat-card xp-card" id="xp-stat-card" title="Cliquer pour voir le détail des points"
-                    onclick="document.getElementById('xp-modal-overlay').classList.add('active')">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-bolt"></i> XP</div>
-                            <div class="stat-value" id="stat-xp">0 XP</div>
-                            <div class="stat-label">⚡ Total XP <i class="fas fa-info-circle"
-                                    style="font-size:0.75rem; opacity:0.6;"></i></div>
+
+                    <!-- Pilier 2 : Défis Algorithmiques -->
+                    <div class="pillar-card">
+                        <div>
+                            <div class="pillar-head">
+                                <div class="pillar-label"><i class="fas fa-code" style="color: #10b981;"></i> Défis Algorithmiques</div>
+                                <div class="pillar-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                    <i class="fas fa-laptop-code"></i>
+                                </div>
+                            </div>
+                            <div class="pillar-val-row">
+                                <span class="pillar-big-val" id="cockpit-challenges-val" style="color: #10b981;">0</span>
+                                <span class="pillar-sub-val">/ <span id="cockpit-challenges-total">70</span></span>
+                            </div>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary);">Problèmes résolus</div>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-bolt"></i></div>
-                    </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-xp-scale">Couleur: 0 -> 10 XP+</span><strong id="stat-xp-state">Départ</strong></div>
-                </div>
-                <div class="stat-card" id="card-top1">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-crown"></i> Elite</div>
-                            <div class="stat-value" id="stat-top1">0%</div>
-                            <div class="stat-label">Top 1 Problèmes</div>
+                        <div>
+                            <div class="diff-chips-row">
+                                <span class="diff-chip easy" title="Défis Faciles résolus (+15 XP)"><i class="fas fa-seedling"></i> Easy: <strong id="cockpit-easy-val">0</strong></span>
+                                <span class="diff-chip medium" title="Défis Moyens résolus (+30 XP)"><i class="fas fa-bolt"></i> Med: <strong id="cockpit-medium-val">0</strong></span>
+                                <span class="diff-chip hard" title="Défis Difficiles résolus (+60 XP)"><i class="fas fa-fire"></i> Hard: <strong id="cockpit-hard-val">0</strong></span>
+                            </div>
+                            <div class="pillar-meter">
+                                <div class="pillar-meter-fill" id="cockpit-challenges-fill" style="background: #10b981;"></div>
+                            </div>
+                            <div class="pillar-caption">
+                                <span>Taux de complétion</span>
+                                <strong id="cockpit-challenges-pct-label" style="color: #10b981;">0%</strong>
+                            </div>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-crown"></i></div>
                     </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-top1-scale">0 / 0 problèmes</span><strong id="stat-top1-state">Départ</strong></div>
-                </div>
-                <div class="stat-card" id="card-top3">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-trophy"></i> Podium</div>
-                            <div class="stat-value" id="stat-top3">0%</div>
-                            <div class="stat-label">Top 3 Problèmes</div>
+
+                    <!-- Pilier 3 : Moyenne Générale -->
+                    <div class="pillar-card">
+                        <div>
+                            <div class="pillar-head">
+                                <div class="pillar-label"><i class="fas fa-chart-line" style="color: #a855f7;"></i> Note Moyenne</div>
+                                <div class="pillar-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">
+                                    <i class="fas fa-award"></i>
+                                </div>
+                            </div>
+                            <div class="pillar-val-row">
+                                <span class="pillar-big-val" id="cockpit-score-val" style="color: #a855f7;">0</span>
+                                <span class="pillar-sub-val">/ 20</span>
+                            </div>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary);">Score moyen aux quiz</div>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-trophy"></i></div>
-                    </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-top3-scale">0 / 0 problèmes</span><strong id="stat-top3-state">Départ</strong></div>
-                </div>
-                <div class="stat-card" id="card-top10">
-                    <div class="stat-card-head">
-                        <div class="stat-card-copy">
-                            <div class="stat-kicker"><i class="fas fa-award"></i> Classement</div>
-                            <div class="stat-value" id="stat-top10">0%</div>
-                            <div class="stat-label">Top 10 Problèmes</div>
+                        <div>
+                            <div class="pillar-meter">
+                                <div class="pillar-meter-fill" id="cockpit-score-fill" style="background: #a855f7;"></div>
+                            </div>
+                            <div class="pillar-caption">
+                                <span>Évaluation globale</span>
+                                <strong id="cockpit-score-mention" style="color: #a855f7;">Départ</strong>
+                            </div>
                         </div>
-                        <div class="stat-icon"><i class="fas fa-award"></i></div>
                     </div>
-                    <div class="stat-meter"><div class="stat-meter-fill"></div></div>
-                    <div class="stat-caption"><span id="stat-top10-scale">0 / 0 problèmes</span><strong id="stat-top10-state">Départ</strong></div>
                 </div>
             </div>
 
-            <!-- Activity Heatmap (Phase 7) -->
+            <!-- PALMARÈS COMPÉTITIF (STYLE ÉPURÉ COCKPIT) -->
+            <div class="cockpit-card" style="margin-bottom: 28px;">
+                <div class="cockpit-xp-banner" style="margin-bottom: 22px; padding-bottom: 16px;">
+                    <div class="cockpit-xp-left">
+                        <div class="cockpit-xp-kicker" style="color: #f59e0b;">
+                            <i class="fas fa-trophy"></i> Palmarès Compétitif & Podiums
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 2px;">
+                            Vos performances en temps réel face à l'ensemble de la promotion
+                        </div>
+                    </div>
+                    <a href="/leaderboard" class="cockpit-xp-btn" style="text-decoration: none;" title="Voir le classement général des étudiants">
+                        <i class="fas fa-ranking-star"></i> Classement Général
+                    </a>
+                </div>
+
+                <div class="cockpit-pillars">
+                    <!-- Top 1 (Or) -->
+                    <div class="pillar-card">
+                        <div>
+                            <div class="pillar-head">
+                                <div class="pillar-label"><i class="fas fa-crown" style="color: #f59e0b;"></i> Top 1 Absolu</div>
+                                <div class="pillar-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                                    <i class="fas fa-crown"></i>
+                                </div>
+                            </div>
+                            <div class="pillar-val-row">
+                                <span class="pillar-big-val" id="podium-top1-count" style="color: #f59e0b;">0</span>
+                                <span class="pillar-sub-val" id="podium-top1-pct">0% des défis</span>
+                            </div>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary);">1ère place ou meilleur temps CPU</div>
+                        </div>
+                    </div>
+
+                    <!-- Top 3 (Argent) -->
+                    <div class="pillar-card">
+                        <div>
+                            <div class="pillar-head">
+                                <div class="pillar-label"><i class="fas fa-medal" style="color: #94a3b8;"></i> Top 3 Podium</div>
+                                <div class="pillar-icon" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8;">
+                                    <i class="fas fa-medal"></i>
+                                </div>
+                            </div>
+                            <div class="pillar-val-row">
+                                <span class="pillar-big-val" id="podium-top3-count" style="color: #94a3b8;">0</span>
+                                <span class="pillar-sub-val" id="podium-top3-pct">0% des défis</span>
+                            </div>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary);">Sur les 3 marches du podium</div>
+                        </div>
+                    </div>
+
+                    <!-- Top 10 (Saphir/Cyan) -->
+                    <div class="pillar-card">
+                        <div>
+                            <div class="pillar-head">
+                                <div class="pillar-label"><i class="fas fa-award" style="color: #38bdf8;"></i> Top 10 Promo</div>
+                                <div class="pillar-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                                    <i class="fas fa-award"></i>
+                                </div>
+                            </div>
+                            <div class="pillar-val-row">
+                                <span class="pillar-big-val" id="podium-top10-count" style="color: #38bdf8;">0</span>
+                                <span class="pillar-sub-val" id="podium-top10-pct">0% des défis</span>
+                            </div>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary);">Classé parmi les 10 premiers</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MES BADGES & TROPHÉES (AFFICHÉ AVANT L'ACTIVITÉ) -->
+            <div class="progress-section" style="padding: 28px; border-radius: 18px; margin-bottom: 28px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 15px;">
+                    <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-medal" style="color: #f59e0b;"></i> Mes Badges & Trophées
+                    </h2>
+                    <a href="/badges" class="view-all-badges-link">
+                        <i class="fas fa-layer-group"></i> Consulter l'Armurerie complète
+                    </a>
+                </div>
+                <div class="badges-grid" id="badges-container">
+                    <div style="text-align: center; grid-column: 1 / -1; color: var(--text-secondary); padding: 30px;">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Génération des badges...
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTIVITÉ SUR L'ANNÉE (HEATMAP) -->
             <div class="progress-section"
-                style="padding: 30px; border-radius: 12px; background: var(--panel-bg); border: 1px solid var(--border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                style="padding: 30px; border-radius: 18px; background: var(--panel-bg); border: 1px solid var(--border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.2); margin-bottom: 28px;">
                 <h2 style="display: flex; align-items: center; gap: 10px;"><i class="fas fa-calendar-alt"
                         style="color: var(--accent);"></i> Activité sur l'année</h2>
                 <div id="heatmap-chart"
@@ -999,51 +1680,60 @@
                 </p>
             </div>
 
-            <div class="progress-section">
-                <h2><i class="fas fa-medal"></i> Mes Badges (Succès)</h2>
-                <div class="badges-grid" id="badges-container">
-                    <div style="text-align: center; grid-column: 1 / -1; color: var(--text-secondary);">
-                        <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Génération des badges...
-                    </div>
-                </div>
-            </div>
-
             <!-- Advanced Statistics Section (Phase 6) -->
             <div class="progress-section">
-                <h2><i class="fas fa-chart-pie"></i> Statistiques des Défis</h2>
-                <div style="display: flex; gap: 20px; justify-content: space-around; flex-wrap: wrap;">
-                    <div
-                        style="flex: 1; min-width: 300px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border-color);">
-                        <h3 style="text-align: center; margin-top: 0; font-size: 1rem;">Distribution par Thème</h3>
-                        <canvas id="topicChart" style="max-height: 250px;"></canvas>
+                <h2><i class="fas fa-chart-pie" style="color:#38bdf8;"></i> Statistiques des Défis</h2>
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <h3 class="analytics-card-title">
+                                <i class="fas fa-layer-group" style="color: #38bdf8;"></i> Distribution par Thème
+                            </h3>
+                            <span id="topic-total-pill" style="font-size: 0.75rem; font-weight: 800; color: #38bdf8; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.25); padding: 3px 10px; border-radius: 999px;">Total Défis</span>
+                        </div>
+                        <div class="analytics-chart-box">
+                            <canvas id="topicChart"></canvas>
+                        </div>
                     </div>
-                    <div
-                        style="flex: 1; min-width: 300px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border-color);">
-                        <h3 style="text-align: center; margin-top: 0; font-size: 1rem;">Niveau de Difficulté</h3>
-                        <canvas id="difficultyChart" style="max-height: 250px;"></canvas>
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <h3 class="analytics-card-title">
+                                <i class="fas fa-signal" style="color: #10b981;"></i> Niveau de Difficulté
+                            </h3>
+                            <span style="font-size: 0.75rem; font-weight: 800; color: #10b981; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); padding: 3px 10px; border-radius: 999px;">Répartition</span>
+                        </div>
+                        <div class="analytics-chart-box">
+                            <canvas id="difficultyChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="progress-section">
-                <h2><i class="fas fa-chart-line"></i> Évolution des Scores (Quiz)</h2>
-                <div
-                    style="margin-bottom: 25px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border-color);">
-                    <h3 style="text-align: center; margin-top: 0; font-size: 1rem;">Progression Journalière (Moyenne)
-                    </h3>
-                    <canvas id="dailyScoreChart" style="max-height: 300px;"></canvas>
+                <h2><i class="fas fa-chart-line" style="color:#a855f7;"></i> Évolution des Scores (Quiz)</h2>
+                <div class="analytics-card" style="margin-bottom: 22px;">
+                    <div class="analytics-card-header">
+                        <h3 class="analytics-card-title">
+                            <i class="fas fa-calendar-check" style="color: #a855f7;"></i> Progression Journalière (Moyenne)
+                        </h3>
+                        <span style="font-size: 0.75rem; font-weight: 800; color: #a855f7; background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.25); padding: 3px 10px; border-radius: 999px;">Objectif : ≥ 16/20</span>
+                    </div>
+                    <div class="analytics-chart-box tall">
+                        <canvas id="dailyScoreChart"></canvas>
+                    </div>
                 </div>
-                <div
-                    style="padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border-color);">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0; font-size: 1rem;">Évolution par Chapitre</h3>
-                        <select id="chapterSelect"
-                            style="padding: 5px 10px; border-radius: 4px; background: var(--panel-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                <div class="analytics-card">
+                    <div class="analytics-card-header">
+                        <h3 class="analytics-card-title">
+                            <i class="fas fa-code-branch" style="color: #38bdf8;"></i> Évolution par Chapitre
+                        </h3>
+                        <select id="chapterSelect" class="analytics-select">
                             <option value="all">Tous les chapitres</option>
                         </select>
                     </div>
-                    <canvas id="chapterEvolutionChart" style="max-height: 300px;"></canvas>
+                    <div class="analytics-chart-box tall">
+                        <canvas id="chapterEvolutionChart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -1073,16 +1763,12 @@
                 style="margin:0 0 10px; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">
                 Niveaux</h4>
             <div class="level-ladder" id="xp-level-ladder">
-                <div class="level-ladder-item"><span>🌟</span><span>Débutant (Mubtadi)</span><span class="lvl-xp">0 XP</span></div>
-                <div class="level-ladder-item"><span>⚡</span><span>Amateur (Hawi)</span><span class="lvl-xp">50 XP</span></div>
-                <div class="level-ladder-item"><span>🔥</span><span>Bosseur (Khabeche)</span><span class="lvl-xp">200 XP</span>
-                </div>
-                <div class="level-ladder-item"><span>⚙️</span><span>Expert (Mtemekken)</span><span class="lvl-xp">500 XP</span>
-                </div>
-                <div class="level-ladder-item"><span>🏆</span><span>Master (M3alem)</span><span class="lvl-xp">1 200 XP</span>
-                </div>
-                <div class="level-ladder-item"><span>👑</span><span>Légende (Oustoura)</span><span class="lvl-xp">3 000 XP +
-                        score moy ≥ 95% + 50 défis</span></div>
+                <div class="level-ladder-item"><span>🌱</span><span>Débutant (Mubtadi)</span><span class="lvl-xp">0 XP</span></div>
+                <div class="level-ladder-item"><span>⚡</span><span>Explorateur / Amateur</span><span class="lvl-xp">200 XP</span></div>
+                <div class="level-ladder-item"><span>🔥</span><span>Khabeche / Bosseur</span><span class="lvl-xp">500 XP</span></div>
+                <div class="level-ladder-item"><span>⚙️</span><span>Virtuose / Expert</span><span class="lvl-xp">1 000 XP</span></div>
+                <div class="level-ladder-item"><span>🏆</span><span>Grand M3alem / Master</span><span class="lvl-xp">2 000 XP</span></div>
+                <div class="level-ladder-item"><span>👑</span><span>L'Oustoura / Légende</span><span class="lvl-xp">4 000 XP + score moy ≥ 95% + 50 défis</span></div>
             </div>
             <!-- Comment les points sont comptés -->
             <h4
@@ -1090,9 +1776,9 @@
                 Comment sont comptés vos points ?</h4>
             <div
                 style="margin-bottom:16px; font-size:0.84rem; color:var(--text-secondary); background:rgba(0,0,0,0.1); padding:12px; border-radius:8px; border:1px solid var(--border-color); line-height:1.8;">
-                📚 <strong>+10 XP</strong> par chapitre de quiz réussi (score ≥ 80%)<br>
-                ⚔️ <strong>Défis de code :</strong> 🌱 Facile: +10 | ⚡ Moyen: +20 | 🔥 Difficile: +50 XP<br>
-                🏅 <strong>+50 XP</strong> par badge obtenu
+                📚 <strong>+15 XP</strong> par chapitre de quiz réussi (score ≥ 80%)<br>
+                ⚔️ <strong>Défis de code :</strong> 🌱 Facile: +15 | ⚡ Moyen: +30 | 🔥 Difficile: +60 XP<br>
+                🏅 <strong>Badges & Titres :</strong> +10 à +30 XP selon le prestige
             </div>
             <!-- Contribution List -->
             <h4
@@ -1115,9 +1801,44 @@
         <div class="modal-content">
             <h3>Modifier mes informations</h3>
             <form id="edit-profile-form">
-                <div class="form-group">
-                    <label>Pseudo</label>
-                    <input type="text" id="edit-name" value="{{ current_user.name }}" required>
+                {% set user_parts = current_user.name.split('#') if '#' in current_user.name else [current_user.name, '0000'] %}
+                {% set cur_pioneer = user_parts[0]|trim %}
+                {% set cur_digits = user_parts[1]|trim if user_parts|length > 1 else '0000' %}
+                <div class="form-group" style="background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 16px;">
+                    <label class="form-label" style="display: flex; align-items: center; justify-content: space-between; font-weight: 700; margin-bottom: 8px;">
+                        <span><i class="fas fa-user-astronaut" style="color: #38bdf8; margin-right: 6px;"></i> Pseudo Officiel (Pionnier # 4 Chiffres)</span>
+                        <small style="color: #888; font-weight: normal;">Format imposé : Nom#4Chiffres</small>
+                    </label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                        <div style="flex: 1.2;">
+                            <label style="font-size: 0.75rem; color: #888; margin-bottom: 4px; display: block;">1. Choisir un Pionnier / Concept</label>
+                            <div style="display: flex; gap: 6px;">
+                                <select id="edit-cs-pioneer" class="form-control" style="cursor: pointer; font-weight: 600; padding: 8px;">
+                                    {% for cname in cs_names or [] %}
+                                    <option value="{{ cname }}" {% if cname == cur_pioneer %}selected{% endif %}>{{ cname }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" id="shuffle-edit-pioneer-btn" class="course-theme-btn" title="Pionnier aléatoire" style="padding: 8px 12px; white-space: nowrap; border-radius: 6px; cursor: pointer;">
+                                    🎲
+                                </button>
+                            </div>
+                        </div>
+                        <div style="flex: 0.8;">
+                            <label style="font-size: 0.75rem; color: #888; margin-bottom: 4px; display: block;">2. Code (4 chiffres)</label>
+                            <div style="display: flex; gap: 6px;">
+                                <input type="text" id="edit-digit-code" class="form-control" required maxlength="4" minlength="4" pattern="[0-9]{4}" value="{{ cur_digits }}" placeholder="Ex: 4821" style="text-align: center; font-weight: bold; letter-spacing: 2px; font-size: 1.05rem; padding: 8px;">
+                                <button type="button" id="shuffle-edit-digits-btn" class="course-theme-btn" title="Code aléatoire" style="padding: 8px 12px; white-space: nowrap; border-radius: 6px; cursor: pointer;">
+                                    🎲
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Pseudo Preview -->
+                    <div id="edit-pseudo-preview-box" style="padding: 8px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px dashed rgba(56, 189, 248, 0.4); display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.82rem; color: var(--text-secondary);"><i class="fas fa-fingerprint"></i> Nouveau pseudo :</span>
+                        <span id="edit-pseudo-preview-text" style="font-weight: 800; font-size: 1.05rem; color: #38bdf8; font-family: monospace; letter-spacing: 1px;">{{ current_user.name }}</span>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Date de Naissance</label>
@@ -1311,82 +2032,186 @@
                     ? stats.total_quizzes_passed 
                     : (stats.passed_quizzes !== undefined ? stats.passed_quizzes : (stats.total_quizzes_taken || 0));
 
-                applyStatCard({
-                    cardId: 'card-quizzes',
-                    valueId: 'stat-quizzes',
-                    value: passedQuizzes,
-                    max: 10,
-                    scaleText: 'Couleur: 0 -> 10'
+                // ============================================
+                // UPDATE COCKPIT ACADÉMIQUE (PROPOSITION 1)
+                // ============================================
+                // 1. XP Hero & Bar
+                const currentMinXp = level.min_xp || 0;
+                const nextLevelXp = level.next_xp || 200;
+                const xpInCurrentLevel = Math.max(0, xpTotal - currentMinXp);
+                const spanInLevel = Math.max(1, nextLevelXp - currentMinXp);
+                const xpPercent = level.num >= 6 ? 100 : Math.min(100, Math.round((xpInCurrentLevel / spanInLevel) * 100));
+
+                const cockpitXpValEl = document.getElementById('cockpit-xp-val');
+                if (cockpitXpValEl) {
+                    animateStatValue(cockpitXpValEl, xpTotal, { suffix: ' XP', duration: 1200 });
+                }
+
+                const cockpitXpFill = document.getElementById('cockpit-xp-fill');
+                if (cockpitXpFill) {
+                    cockpitXpFill.style.width = `${xpPercent}%`;
+                }
+
+                const cockpitLevelBadge = document.getElementById('cockpit-xp-level-badge');
+                if (cockpitLevelBadge) {
+                    cockpitLevelBadge.innerHTML = `${level.icon} Niveau ${level.num} : ${level.name}`;
+                    cockpitLevelBadge.style.color = level.color;
+                    cockpitLevelBadge.style.borderColor = level.color;
+                }
+
+                const cockpitXpSubtext = document.getElementById('cockpit-xp-subtext');
+                const cockpitXpTrackLabel = document.getElementById('cockpit-xp-track-label');
+                if (cockpitXpSubtext && cockpitXpTrackLabel) {
+                    if (level.num >= 6) {
+                        cockpitXpSubtext.textContent = 'Palier Ultime atteint ! Félicitations Maître.';
+                        cockpitXpTrackLabel.textContent = `${xpTotal} XP (Niveau Max 👑)`;
+                    } else {
+                        const remainingXp = Math.max(0, nextLevelXp - xpTotal);
+                        cockpitXpSubtext.textContent = `${remainingXp} XP restants pour le Niveau ${level.num + 1} (${level.next_level_name || ''})`;
+                        cockpitXpTrackLabel.textContent = `${xpTotal} / ${nextLevelXp} XP (${xpPercent}%)`;
+                    }
+                }
+
+                // 2. Pilier 1 : Quiz
+                const cockpitQuizVal = document.getElementById('cockpit-quizzes-val');
+                const cockpitQuizTotal = document.getElementById('cockpit-quizzes-total');
+                const cockpitQuizFill = document.getElementById('cockpit-quizzes-fill');
+                const cockpitQuizPct = document.getElementById('cockpit-quizzes-pct-label');
+                const totalQuizChapters = Object.keys(chapters).length || 15;
+
+                if (cockpitQuizVal) animateStatValue(cockpitQuizVal, passedQuizzes, { duration: 1000 });
+                if (cockpitQuizTotal) cockpitQuizTotal.textContent = totalQuizChapters;
+                const quizRatioPct = Math.min(100, Math.round((passedQuizzes / (totalQuizChapters || 1)) * 100));
+                if (cockpitQuizFill) cockpitQuizFill.style.width = `${quizRatioPct}%`;
+                if (cockpitQuizPct) cockpitQuizPct.textContent = `${quizRatioPct}% validé`;
+
+                // 3. Pilier 2 : Défis
+                const cockpitChallVal = document.getElementById('cockpit-challenges-val');
+                const cockpitChallTotal = document.getElementById('cockpit-challenges-total');
+                const cockpitChallFill = document.getElementById('cockpit-challenges-fill');
+                const cockpitChallPct = document.getElementById('cockpit-challenges-pct-label');
+                const completedChallenges = stats.challenges_completed !== undefined 
+                    ? stats.challenges_completed 
+                    : (stats.total_challenges_attempted || 0);
+
+                if (cockpitChallVal) animateStatValue(cockpitChallVal, completedChallenges, { duration: 1000 });
+                if (cockpitChallTotal) cockpitChallTotal.textContent = totalChallenges;
+                const challRatioPct = Math.min(100, Math.round((completedChallenges / (totalChallenges || 1)) * 100));
+                if (cockpitChallFill) cockpitChallFill.style.width = `${challRatioPct}%`;
+                if (cockpitChallPct) cockpitChallPct.textContent = `${challRatioPct}% résolu`;
+
+                // Count breakdown
+                let easyCount = 0, medCount = 0, hardCount = 0;
+                (stats.xp_breakdown || []).forEach(item => {
+                    const lbl = (item.label || '');
+                    if (lbl.includes('(Easy)')) easyCount++;
+                    else if (lbl.includes('(Medium)')) medCount++;
+                    else if (lbl.includes('(Hard)')) hardCount++;
                 });
-                applyStatCard({
-                    cardId: 'card-challenges',
-                    valueId: 'stat-challenges',
-                    value: stats.total_challenges_attempted,
-                    max: totalChallenges || 1,
-                    scaleText: `${stats.total_challenges_attempted || 0} / ${totalChallenges} défis`
-                });
-                applyStatCard({
-                    cardId: 'card-score',
-                    valueId: 'stat-score',
-                    value: avg20,
-                    max: 20,
-                    suffix: ' / 20',
-                    decimals: Number.isInteger(avg20) ? 0 : 1,
-                    scaleText: 'Couleur: 0 -> 20'
-                });
-                applyStatCard({
-                    cardId: 'xp-stat-card',
-                    valueId: 'stat-xp',
-                    value: xpTotal,
-                    max: 3000,
-                    suffix: ' XP',
-                    scaleText: 'Échelle: 0 -> 3000 XP',
-                    duration: 1350
-                });
-                applyStatCard({
-                    cardId: 'card-top1',
-                    valueId: 'stat-top1',
-                    value: stats.top1_percentage || 0,
-                    max: 100,
-                    suffix: '%',
-                    decimals: 1,
-                    scaleText: `${stats.top1_finishes || 0} / ${totalChallenges} problèmes`
-                });
-                applyStatCard({
-                    cardId: 'card-top3',
-                    valueId: 'stat-top3',
-                    value: stats.top3_percentage || 0,
-                    max: 100,
-                    suffix: '%',
-                    decimals: 1,
-                    scaleText: `${stats.top3_finishes || 0} / ${totalChallenges} problèmes`
-                });
-                applyStatCard({
-                    cardId: 'card-top10',
-                    valueId: 'stat-top10',
-                    value: stats.top10_percentage || 0,
-                    max: 100,
-                    suffix: '%',
-                    decimals: 1,
-                    scaleText: `${stats.top10_finishes || 0} / ${totalChallenges} problèmes`
-                });
+                const easyEl = document.getElementById('cockpit-easy-val');
+                const medEl = document.getElementById('cockpit-medium-val');
+                const hardEl = document.getElementById('cockpit-hard-val');
+                if (easyEl) animateStatValue(easyEl, easyCount, { duration: 800 });
+                if (medEl) animateStatValue(medEl, medCount, { duration: 800 });
+                if (hardEl) animateStatValue(hardEl, hardCount, { duration: 800 });
+
+                // 4. Pilier 3 : Moyenne
+                const cockpitScoreVal = document.getElementById('cockpit-score-val');
+                const cockpitScoreFill = document.getElementById('cockpit-score-fill');
+                const cockpitScoreMention = document.getElementById('cockpit-score-mention');
+                if (cockpitScoreVal) animateStatValue(cockpitScoreVal, avg20, { decimals: 1, duration: 1000 });
+                const scoreRatioPct = Math.min(100, Math.round((avg20 / 20) * 100));
+                if (cockpitScoreFill) cockpitScoreFill.style.width = `${scoreRatioPct}%`;
+
+                if (cockpitScoreMention) {
+                    let mentionText = "Départ";
+                    let mentionColor = "#94a3b8";
+                    if (avg20 >= 16) { mentionText = "Très Bien 🌟"; mentionColor = "#10b981"; }
+                    else if (avg20 >= 14) { mentionText = "Bien ⚡"; mentionColor = "#38bdf8"; }
+                    else if (avg20 >= 12) { mentionText = "Assez Bien 👍"; mentionColor = "#fbbf24"; }
+                    else if (avg20 >= 10) { mentionText = "Passable 🎯"; mentionColor = "#f97316"; }
+                    else if (avg20 > 0) { mentionText = "En progression 🚀"; mentionColor = "#e11d48"; }
+                    cockpitScoreMention.textContent = mentionText;
+                    cockpitScoreMention.style.color = mentionColor;
+                }
+
+                // ============================================
+                // UPDATE PALMARÈS COMPÉTISITIF (PODIUM UNIFIÉ)
+                // ============================================
+                const top1El = document.getElementById('podium-top1-count');
+                const top1PctEl = document.getElementById('podium-top1-pct');
+                if (top1El) animateStatValue(top1El, stats.top1_finishes || 0, { duration: 1000 });
+                if (top1PctEl) top1PctEl.textContent = `${stats.top1_percentage || 0}% des défis`;
+
+                const top3El = document.getElementById('podium-top3-count');
+                const top3PctEl = document.getElementById('podium-top3-pct');
+                if (top3El) animateStatValue(top3El, stats.top3_finishes || 0, { duration: 1000 });
+                if (top3PctEl) top3PctEl.textContent = `${stats.top3_percentage || 0}% des défis`;
+
+                const top10El = document.getElementById('podium-top10-count');
+                const top10PctEl = document.getElementById('podium-top10-pct');
+                if (top10El) animateStatValue(top10El, stats.top10_finishes || 0, { duration: 1000 });
+                if (top10PctEl) top10PctEl.textContent = `${stats.top10_percentage || 0}% des défis`;
 
                 const badgeEl = document.getElementById('level-badge');
-                badgeEl.textContent = `${level.icon} ${level.name}`;
-                badgeEl.style.color = level.color;
-                badgeEl.style.setProperty('--level-glow', level.glow);
+                if (badgeEl) {
+                    badgeEl.textContent = `${level.icon} ${level.name}`;
+                    badgeEl.style.color = level.color;
+                    badgeEl.style.setProperty('--level-glow', level.glow);
+                }
                 applyPercentileBadge(stats.leaderboard_bucket);
+
+                // Update Avatar Tier Ring
+                const avatarEl = document.getElementById('profile-avatar');
+                if (avatarEl) {
+                    const tierClasses = ['tier-ring-debutant', 'tier-ring-amateur', 'tier-ring-bosseur', 'tier-ring-expert', 'tier-ring-master', 'tier-ring-legende'];
+                    tierClasses.forEach(c => avatarEl.classList.remove(c));
+                    const ringClass = (level.num >= 1 && level.num <= 6) ? tierClasses[level.num - 1] : 'tier-ring-debutant';
+                    avatarEl.classList.add(ringClass);
+                }
+
+                // Update Prestige Badge
+                const prestigeEl = document.getElementById('profile-prestige-badge');
+                if (prestigeEl) {
+                    if (stats.prestige_badge) {
+                        prestigeEl.innerHTML = `<span class="prestige-badge ${stats.prestige_badge.class || ''}" title="${stats.prestige_badge.label || ''}"><i class="${stats.prestige_badge.icon || 'fas fa-award'}"></i><span>${stats.prestige_badge.short_label || stats.prestige_badge.label || ''}</span></span>`;
+                        prestigeEl.style.display = 'inline-flex';
+                    } else {
+                        prestigeEl.style.display = 'none';
+                    }
+                }
+
+                // Update Equipped Title
+                const titleEl = document.getElementById('profile-equipped-title');
+                if (titleEl && stats.titles) {
+                    titleEl.textContent = `« ${stats.titles.equipped || 'Novice'} »`;
+                }
+
+                // Update Streak Pill
+                const streakPill = document.getElementById('profile-streak-pill');
+                if (streakPill && stats.streak) {
+                    const streakDays = Number(stats.streak.current_streak || 0);
+                    if (streakDays > 0) {
+                        streakPill.innerHTML = `<i class="fas fa-fire"></i> ${streakDays} ${streakDays > 1 ? 'Jours' : 'Jour'}`;
+                        streakPill.style.display = 'inline-flex';
+                        streakPill.title = `Série en cours : ${streakDays} jours consécutifs (Record : ${stats.streak.best_streak || streakDays} jours)`;
+                    } else {
+                        streakPill.style.display = 'none';
+                    }
+                }
 
                 const fillEl = document.getElementById('xp-bar-fill');
                 const barLabel = document.getElementById('xp-bar-label');
-                fillEl.style.background = level.color;
-                if (level.next_xp) {
-                    const pct = Math.min(100, Math.round(((xpTotal - level.min_xp) / (level.next_xp - level.min_xp)) * 100));
-                    fillEl.style.width = pct + '%';
-                    barLabel.textContent = `${xpTotal} / ${level.next_xp} XP → ${level.next_level_name}`;
-                } else {
-                    fillEl.style.width = '100%';
-                    barLabel.textContent = `${xpTotal} XP — Niveau Max 👑`;
+                if (fillEl) {
+                    fillEl.style.background = level.color;
+                    if (level.next_xp) {
+                        const pct = Math.min(100, Math.round(((xpTotal - level.min_xp) / (level.next_xp - level.min_xp)) * 100));
+                        fillEl.style.width = pct + '%';
+                        if (barLabel) barLabel.textContent = `${xpTotal} / ${level.next_xp} XP → ${level.next_level_name}`;
+                    } else {
+                        fillEl.style.width = '100%';
+                        if (barLabel) barLabel.textContent = `${xpTotal} XP — Niveau Max 👑`;
+                    }
                 }
 
                 document.getElementById('xp-modal-total').textContent = xpTotal + ' XP';
@@ -1408,7 +2233,7 @@
                     breakdownList.innerHTML = `<div style="text-align:center; color:var(--text-secondary); padding:20px;">Aucune contribution pour l'instant. Complétez des quiz et des défis !</div>`;
                 } else {
                     breakdownList.innerHTML = breakdown.map(item =>
-                        `<div class="xp-row"><span>${item.icon} ${item.label}</span><span class="xp-pill">+${item.xp} XP</span></div>`
+                        `<div class="xp-row"><span class="xp-label-wrap"><span>${item.icon}</span><span>${item.label}</span></span><span class="xp-pill">+${item.xp} XP</span></div>`
                     ).join('');
                 }
 
@@ -1460,12 +2285,20 @@
                 }
             }
 
+            let topicChartInstance = null;
+            let diffChartInstance = null;
+            let dailyChartInstance = null;
+            let chapterChartInstance = null;
+            let lastAdvData = null;
+            let lastProgressData = null;
+
             function renderProgressAdvanced(progress) {
                 if (typeof Chart === 'undefined' || typeof frappe === 'undefined') {
                     console.warn("Chart.js ou frappe-charts n'est pas disponible, les graphiques ne seront pas affichés.");
                     return;
                 }
 
+                lastProgressData = progress;
                 const adv = progress.advanced_stats || {
                     challenge_topic_dist: {},
                     challenge_diff_dist: { Easy: 0, Medium: 0, Hard: 0 },
@@ -1473,102 +2306,199 @@
                     quiz_evolution_per_chapter: {}
                 };
 
-                Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#888';
+                lastAdvData = adv;
+
+                function getChartTokens() {
+                    const isLight = document.body.classList.contains('light-theme');
+                    return {
+                        isLight,
+                        text: isLight ? '#1f2937' : '#e2e8f0',
+                        textMuted: isLight ? '#4b5563' : '#94a3b8',
+                        grid: isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+                        doughnutBorder: isLight ? '#ffffff' : '#161b22',
+                        tooltipBg: isLight ? 'rgba(17, 24, 39, 0.95)' : 'rgba(22, 27, 34, 0.95)',
+                        tooltipText: '#ffffff'
+                    };
+                }
+
+                const tokens = getChartTokens();
                 Chart.defaults.font.family = "'Segoe UI', 'Inter', sans-serif";
-                Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(22,27,34,0.95)';
+                Chart.defaults.color = tokens.textMuted;
+                Chart.defaults.plugins.tooltip.backgroundColor = tokens.tooltipBg;
+                Chart.defaults.plugins.tooltip.titleColor = tokens.tooltipText;
+                Chart.defaults.plugins.tooltip.bodyColor = tokens.tooltipText;
                 Chart.defaults.plugins.tooltip.cornerRadius = 8;
                 Chart.defaults.plugins.tooltip.padding = 10;
 
                 const topicLabels = Object.keys(adv.challenge_topic_dist || {});
                 const topicValues = Object.values(adv.challenge_topic_dist || {});
-                const topicColors = ['#4a6ee0', '#2ecc71', '#f39c12', '#e74c3c', '#1abc9c', '#9b59b6', '#3498db', '#e67e22'];
-                new Chart(document.getElementById('topicChart'), {
+                const totalSolvedTopics = topicValues.reduce((a, b) => a + Number(b), 0);
+                const topicPill = document.getElementById('topic-total-pill');
+                if (topicPill) topicPill.textContent = totalSolvedTopics > 0 ? `${totalSolvedTopics} Défis Résolus` : '0 Défi';
+
+                const topicColors = ['#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
+                if (topicChartInstance) topicChartInstance.destroy();
+                topicChartInstance = new Chart(document.getElementById('topicChart'), {
                     type: 'doughnut',
                     data: {
-                        labels: topicLabels.length > 0 ? topicLabels : ['Aucun'],
+                        labels: topicLabels.length > 0 ? topicLabels : ['Aucun défi'],
                         datasets: [{
                             data: topicValues.length > 0 ? topicValues : [1],
-                            backgroundColor: topicColors,
+                            backgroundColor: topicValues.length > 0 ? topicColors.slice(0, topicLabels.length) : (tokens.isLight ? ['rgba(0,0,0,0.08)'] : ['rgba(255,255,255,0.1)']),
                             borderWidth: 2,
-                            borderColor: 'transparent',
-                            hoverOffset: 8
+                            borderColor: tokens.doughnutBorder,
+                            hoverOffset: 12
                         }]
                     },
                     options: {
                         responsive: true,
-                        cutout: '65%',
+                        maintainAspectRatio: false,
+                        cutout: '70%',
                         plugins: {
-                            legend: { position: 'right', labels: { padding: 15, usePointStyle: true, pointStyle: 'circle' } },
-                            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} résolu(s)` } }
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    color: tokens.text,
+                                    padding: 12,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    font: { size: 12, weight: '700' }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => ` ${ctx.label}: ${ctx.parsed} défi(s) (${totalSolvedTopics > 0 ? Math.round((ctx.parsed / totalSolvedTopics)*100) : 0}%)`
+                                }
+                            }
                         }
                     }
                 });
 
-                const diffValues = [adv.challenge_diff_dist.Easy, adv.challenge_diff_dist.Medium, adv.challenge_diff_dist.Hard];
-                const diffColors = ['rgba(46,204,113,0.85)', 'rgba(241,196,15,0.85)', 'rgba(231,76,60,0.85)'];
-                const diffBorders = ['#2ecc71', '#f1c40f', '#e74c3c'];
-                new Chart(document.getElementById('difficultyChart'), {
+                const diffValues = [adv.challenge_diff_dist.Easy || 0, adv.challenge_diff_dist.Medium || 0, adv.challenge_diff_dist.Hard || 0];
+                const easyEl = document.getElementById('cockpit-easy-val');
+                const medEl = document.getElementById('cockpit-medium-val');
+                const hardEl = document.getElementById('cockpit-hard-val');
+                if (easyEl && adv.challenge_diff_dist) easyEl.textContent = adv.challenge_diff_dist.Easy || 0;
+                if (medEl && adv.challenge_diff_dist) medEl.textContent = adv.challenge_diff_dist.Medium || 0;
+                if (hardEl && adv.challenge_diff_dist) hardEl.textContent = adv.challenge_diff_dist.Hard || 0;
+                const diffCtx = document.getElementById('difficultyChart').getContext('2d');
+                const gradEasy = diffCtx.createLinearGradient(0, 0, 0, 200);
+                gradEasy.addColorStop(0, '#34d399');
+                gradEasy.addColorStop(1, '#059669');
+                const gradMedium = diffCtx.createLinearGradient(0, 0, 0, 200);
+                gradMedium.addColorStop(0, '#fbbf24');
+                gradMedium.addColorStop(1, '#d97706');
+                const gradHard = diffCtx.createLinearGradient(0, 0, 0, 200);
+                gradHard.addColorStop(0, '#fb7185');
+                gradHard.addColorStop(1, '#e11d48');
+
+                if (diffChartInstance) diffChartInstance.destroy();
+                diffChartInstance = new Chart(diffCtx, {
                     type: 'bar',
                     data: {
                         labels: ['Facile', 'Moyen', 'Difficile'],
                         datasets: [{
                             label: 'Défis Réussis',
                             data: diffValues,
-                            backgroundColor: diffColors,
-                            borderColor: diffBorders,
+                            backgroundColor: [gradEasy, gradMedium, gradHard],
+                            borderColor: ['#10b981', '#f59e0b', '#f43f5e'],
                             borderWidth: 2,
-                            borderRadius: 8,
+                            borderRadius: 12,
                             borderSkipped: false
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         scales: {
-                            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                            x: { grid: { display: false } }
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1, color: tokens.textMuted, font: { weight: '600' } },
+                                grid: { color: tokens.grid }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: tokens.text, font: { weight: '700', size: 12 } }
+                            }
                         },
-                        plugins: { legend: { display: false } }
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} résolu(s)`
+                                }
+                            }
+                        }
                     }
                 });
 
                 const dailyLabels = adv.daily_avg_quiz_score.map(d => d.day);
                 const dailyValues = adv.daily_avg_quiz_score.map(d => Number(d.avg) > 20 ? Math.round(d.avg * 0.2 * 10) / 10 : d.avg);
                 const dailyCtx = document.getElementById('dailyScoreChart').getContext('2d');
-                const dailyGrad = dailyCtx.createLinearGradient(0, 0, 0, 300);
-                dailyGrad.addColorStop(0, 'rgba(74, 110, 224, 0.35)');
-                dailyGrad.addColorStop(1, 'rgba(74, 110, 224, 0.0)');
-                new Chart(dailyCtx, {
+                const dailyGrad = dailyCtx.createLinearGradient(0, 0, 0, 260);
+                if (tokens.isLight) {
+                    dailyGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+                    dailyGrad.addColorStop(0.7, 'rgba(129, 140, 248, 0.1)');
+                    dailyGrad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+                } else {
+                    dailyGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+                    dailyGrad.addColorStop(0.6, 'rgba(129, 140, 248, 0.15)');
+                    dailyGrad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+                }
+
+                if (dailyChartInstance) dailyChartInstance.destroy();
+                dailyChartInstance = new Chart(dailyCtx, {
                     type: 'line',
                     data: {
-                        labels: dailyLabels,
+                        labels: dailyLabels.length ? dailyLabels : ['Aujourd\'hui'],
                         datasets: [{
-                            label: 'Moyenne Journalière (/20)',
-                            data: dailyValues,
-                            borderColor: '#4a6ee0',
+                            label: 'Moyenne (/20)',
+                            data: dailyValues.length ? dailyValues : [0],
+                            borderColor: '#38bdf8',
+                            borderWidth: 3,
                             backgroundColor: dailyGrad,
                             fill: true,
-                            tension: 0.4,
-                            pointRadius: 5,
-                            pointBackgroundColor: '#4a6ee0',
-                            pointBorderColor: '#fff',
+                            tension: 0.45,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#38bdf8',
+                            pointBorderColor: tokens.isLight ? '#ffffff' : '#0f172a',
                             pointBorderWidth: 2,
-                            pointHoverRadius: 8
+                            pointHoverRadius: 8,
+                            pointHoverBackgroundColor: '#60a5fa',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         scales: {
-                            y: { beginAtZero: true, max: 20, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Moyenne (/20)' } },
-                            x: { grid: { display: false } }
+                            y: {
+                                beginAtZero: true,
+                                max: 20,
+                                grid: { color: tokens.grid },
+                                ticks: { stepSize: 4, color: tokens.textMuted, font: { weight: '600' } },
+                                title: { display: true, text: 'Note Moyenne (/20)', color: tokens.textMuted, font: { weight: '700' } }
+                            },
+                            x: {
+                                grid: { color: tokens.grid },
+                                ticks: { color: tokens.textMuted, font: { weight: '600' } }
+                            }
                         },
-                        plugins: { legend: { display: false } }
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => ` Note moyenne: ${ctx.parsed.y} / 20`
+                                }
+                            }
+                        }
                     }
                 });
 
                 const chapterEvolutionCtx = document.getElementById('chapterEvolutionChart').getContext('2d');
-                let evolutionChart;
                 const chapterSelect = document.getElementById('chapterSelect');
-                chapterSelect.innerHTML = '<option value="all">TOUS</option>';
+                chapterSelect.innerHTML = '<option value="all">Tous les chapitres</option>';
 
                 Object.keys(adv.quiz_evolution_per_chapter).forEach(chap => {
                     const opt = document.createElement('option');
@@ -1586,7 +2516,7 @@
                 };
 
                 const renderEvolution = (filter) => {
-                    if (evolutionChart) evolutionChart.destroy();
+                    if (chapterChartInstance) chapterChartInstance.destroy();
 
                     const datasets = [];
                     const allDatesSet = new Set();
@@ -1630,14 +2560,23 @@
                         });
                     });
 
-                    evolutionChart = new Chart(chapterEvolutionCtx, {
+                    chapterChartInstance = new Chart(chapterEvolutionCtx, {
                         type: 'line',
                         data: { labels, datasets },
                         options: {
                             responsive: true,
+                            maintainAspectRatio: false,
                             scales: {
-                                x: { grid: { color: 'rgba(255,255,255,0.05)' } },
-                                y: { beginAtZero: true, max: 20, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Score (/20)' } }
+                                x: { grid: { color: tokens.grid }, ticks: { color: tokens.textMuted, font: { weight: '600' } } },
+                                y: { beginAtZero: true, max: 20, grid: { color: tokens.grid }, ticks: { stepSize: 4, color: tokens.textMuted, font: { weight: '600' } }, title: { display: true, text: 'Score (/20)', color: tokens.textMuted, font: { weight: '700' } } }
+                            },
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: tokens.text,
+                                        font: { weight: '700' }
+                                    }
+                                }
                             }
                         }
                     });
@@ -1645,6 +2584,15 @@
 
                 chapterSelect.onchange = (event) => renderEvolution(event.target.value);
                 renderEvolution('all');
+
+                if (!window.__progressThemeListenerAttached) {
+                    window.__progressThemeListenerAttached = true;
+                    window.addEventListener('themechange', () => {
+                        if (lastProgressData) {
+                            renderProgressAdvanced(lastProgressData);
+                        }
+                    });
+                }
 
                 const points = progress.activity_map || {};
                 const heatmapContainer = document.getElementById('heatmap-chart');
@@ -1687,7 +2635,21 @@
                     'quiz_10': 'circle',
                     'streak_3': 'ribbon',
                     'streak_7': 'ribbon',
-                    'streak_30': 'ribbon'
+                    'streak_14': 'ribbon',
+                    'streak_30': 'ribbon',
+                    'title_novice': 'circle',
+                    'title_explorateur': 'hex',
+                    'title_khabeche': 'shield',
+                    'title_virtuose': 'star',
+                    'title_m3alem': 'diamond',
+                    'title_oustoura': 'star',
+                    'title_vainqueur': 'star',
+                    'title_roi_podium': 'star',
+                    'title_legende': 'diamond',
+                    'title_tireur_elite': 'hex',
+                    'title_dompteur_tableaux': 'hex',
+                    'title_tisserand_chaines': 'hex',
+                    'title_grand_maitre_quiz': 'circle'
                 };
                 const defaultShape = 'hex';
 
@@ -1704,6 +2666,7 @@
                         const shape = shapeMap[badge.identifier] || defaultShape;
                         badgesContainer.innerHTML += `
                             <div class="badge-card earned" title="${badge.description}" data-shape="${shape}">
+                                <span class="badge-xp-badge"><i class="fas fa-bolt"></i> +${badge.xp || 10} XP</span>
                                 <div class="badge-shape ${shape}">
                                     <i class="${badge.icon}"></i>
                                 </div>
@@ -1743,13 +2706,13 @@
                     fetchProgressSection('/api/user/progress/badges')
                 ]);
 
-                if (advancedResult.status === 'fulfilled' && advancedResult.value?.success) {
+                if (advancedResult.status === 'fulfilled' && advancedResult.value && advancedResult.value.success) {
                     renderProgressAdvanced(advancedResult.value.progress);
                 } else if (advancedResult.status === 'rejected') {
                     console.error('Failed to load advanced progress stats', advancedResult.reason);
                 }
 
-                if (badgesResult.status === 'fulfilled' && badgesResult.value?.success) {
+                if (badgesResult.status === 'fulfilled' && badgesResult.value && badgesResult.value.success) {
                     renderProgressBadges(badgesResult.value.progress);
 
                     if (badgesResult.value.progress.summary_refresh_required) {
@@ -1852,63 +2815,165 @@
         const modal = document.getElementById('edit-modal');
         const closeBtn = document.getElementById('close-modal-btn');
         const form = document.getElementById('edit-profile-form');
+        const pioneerSelect = document.getElementById('edit-cs-pioneer');
+        const digitsInput = document.getElementById('edit-digit-code');
+        const previewText = document.getElementById('edit-pseudo-preview-text');
+        const shufflePioneerBtn = document.getElementById('shuffle-edit-pioneer-btn');
+        const shuffleDigitsBtn = document.getElementById('shuffle-edit-digits-btn');
 
-        editBtn.addEventListener('click', () => {
-            modal.classList.add('active');
-        });
+        function updatePseudoPreview() {
+            const p = pioneerSelect ? pioneerSelect.value : '';
+            const d = digitsInput ? digitsInput.value.trim() : '';
+            if (previewText) previewText.textContent = `${p}#${d || '----'}`;
+        }
 
-        closeBtn.addEventListener('click', () => {
-            modal.classList.remove('active');
-        });
+        if (pioneerSelect) pioneerSelect.addEventListener('change', updatePseudoPreview);
+        if (digitsInput) digitsInput.addEventListener('input', updatePseudoPreview);
 
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.remove('active');
-        });
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('save-profile-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
-            btn.disabled = true;
-
-            const name = document.getElementById('edit-name').value;
-            const dob = document.getElementById('edit-dob').value;
-            const study = document.getElementById('edit-study').value;
-
-            try {
-                const res = await fetch('/update_profile', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: name,
-                        date_of_birth: dob,
-                        study_year: study
-                    })
-                });
-
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('display-name').textContent = name;
-                    document.getElementById('display-dob').textContent = dob || 'Non spécifiée';
-                    document.getElementById('display-study').textContent = study || 'Non spécifiée';
-                    modal.classList.remove('active');
-                } else {
-                    alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+        if (shufflePioneerBtn && pioneerSelect) {
+            shufflePioneerBtn.addEventListener('click', () => {
+                const opts = pioneerSelect.options;
+                if (opts && opts.length) {
+                    const randIdx = Math.floor(Math.random() * opts.length);
+                    pioneerSelect.selectedIndex = randIdx;
+                    updatePseudoPreview();
                 }
-            } catch (err) {
-                alert('Erreur réseau');
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        });
+            });
+        }
+
+        if (shuffleDigitsBtn && digitsInput) {
+            shuffleDigitsBtn.addEventListener('click', () => {
+                const randCode = Math.floor(1000 + Math.random() * 9000);
+                digitsInput.value = randCode;
+                updatePseudoPreview();
+            });
+        }
+
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                modal.classList.add('active');
+                updatePseudoPreview();
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+        }
+
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.remove('active');
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('save-profile-btn');
+                const originalText = btn.innerHTML;
+
+                const p = pioneerSelect ? pioneerSelect.value : '';
+                const d = digitsInput ? digitsInput.value.trim() : '';
+
+                if (!/^\d{4}$/.test(d)) {
+                    alert('Le code doit comporter exactement 4 chiffres numériques (ex: 4821).');
+                    return;
+                }
+
+                const finalName = `${p}#${d}`;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
+                btn.disabled = true;
+
+                const dob = document.getElementById('edit-dob').value;
+                const study = document.getElementById('edit-study').value;
+
+                const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+                const csrf = window.APP_CSRF_TOKEN || (metaCsrf ? metaCsrf.getAttribute('content') : '') || '';
+
+                try {
+                    const res = await fetch('/update_profile', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrf,
+                            'X-CSRF-Token': csrf
+                        },
+                        body: JSON.stringify({
+                            csrf_token: csrf,
+                            name: finalName,
+                            date_of_birth: dob,
+                            study_year: study
+                        })
+                    });
+
+                    let data = {};
+                    try {
+                        data = await res.json();
+                    } catch (jsonErr) {
+                        data = { success: false, error: 'Réponse serveur inattendue (' + res.status + ')' };
+                    }
+
+                    if (data.success) {
+                        const updatedName = data.name || finalName;
+                        const displayNameEl = document.getElementById('display-name');
+                        if (displayNameEl) displayNameEl.textContent = updatedName;
+                        
+                        const profileAvatar = document.getElementById('profile-avatar');
+                        if (profileAvatar) profileAvatar.textContent = updatedName.trim().charAt(0).toUpperCase();
+
+                        const displayDobEl = document.getElementById('display-dob');
+                        if (displayDobEl) displayDobEl.textContent = dob || 'Non spécifiée';
+                        
+                        const displayStudyEl = document.getElementById('display-study');
+                        if (displayStudyEl) displayStudyEl.textContent = study || 'Non spécifiée';
+                        
+                        modal.classList.remove('active');
+
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Profil mis à jour !',
+                                text: 'Votre pseudo est désormais ' + updatedName,
+                                timer: 2500,
+                                showConfirmButton: false
+                            });
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Mise à jour impossible',
+                                text: data.error || 'Erreur inconnue lors de la mise à jour.'
+                            });
+                        } else {
+                            alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+                        }
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erreur réseau',
+                            text: 'Impossible de joindre le serveur. Vérifiez votre connexion.'
+                        });
+                    } else {
+                        alert('Erreur réseau');
+                    }
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            });
+        }
     </script>
     <canvas id="confetti-canvas"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.2.4/dist/frappe-charts.min.iife.js"></script>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/user_card_modal.js') }}"></script>
 </body>
 
 </html>

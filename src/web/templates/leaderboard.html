@@ -7,6 +7,7 @@
     <title>Classement - AlgoCompiler</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='course-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user_card_modal.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -39,16 +40,16 @@
         }
 
         .leaderboard-hero {
-            display: grid;
-            grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-            gap: 26px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
             margin-bottom: 24px;
-            padding: 34px;
+            padding: 30px;
             border-radius: 28px;
             border: 1px solid color-mix(in srgb, var(--border-color) 58%, rgba(255, 255, 255, 0.12) 42%);
             background:
-                radial-gradient(circle at top right, rgba(246, 196, 83, 0.18), transparent 30%),
-                radial-gradient(circle at bottom left, rgba(74, 110, 224, 0.22), transparent 42%),
+                radial-gradient(circle at top right, rgba(246, 196, 83, 0.15), transparent 35%),
+                radial-gradient(circle at bottom left, rgba(74, 110, 224, 0.18), transparent 42%),
                 linear-gradient(135deg, color-mix(in srgb, var(--panel-bg) 92%, #0b1221 8%), color-mix(in srgb, var(--panel-bg) 85%, #101b34 15%));
             box-shadow: 0 26px 70px rgba(0, 0, 0, 0.22);
             overflow: hidden;
@@ -63,144 +64,243 @@
             pointer-events: none;
         }
 
-        .hero-copy,
-        .hero-aside {
+        .fused-hero-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            flex-wrap: wrap;
             position: relative;
             z-index: 1;
+        }
+
+        .hero-copy {
+            flex: 1;
+            min-width: 290px;
         }
 
         .hero-kicker {
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 14px;
+            padding: 7px 14px;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.12);
             color: var(--text-secondary);
-            font-size: 0.8rem;
+            font-size: 0.78rem;
+            font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
 
         .hero-copy h1 {
-            margin: 18px 0 14px;
-            font-size: clamp(2.4rem, 4vw, 3.9rem);
-            line-height: 0.98;
-            letter-spacing: -0.04em;
+            margin: 14px 0 10px;
+            font-size: clamp(2rem, 3.5vw, 3.2rem);
+            line-height: 1.05;
+            letter-spacing: -0.03em;
             color: var(--text-color);
         }
 
         .hero-copy p {
-            max-width: 720px;
+            max-width: 680px;
             color: var(--text-secondary);
-            font-size: 1rem;
-            line-height: 1.7;
+            font-size: 0.96rem;
+            line-height: 1.6;
             margin: 0;
         }
 
-        .hero-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 14px;
-            margin-top: 26px;
-        }
-
-        .hall-of-fame-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 16px;
-            min-width: 260px;
-            padding: 16px 22px;
-            border-radius: 20px;
-            text-decoration: none;
-            color: #1d1200;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ffe08b 0%, #f6c453 47%, #ff9f54 100%);
-            box-shadow: 0 18px 36px rgba(246, 196, 83, 0.28);
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-
-        .hall-of-fame-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 24px 42px rgba(246, 196, 83, 0.34);
-        }
-
-        .hall-of-fame-btn i {
-            font-size: 1.25rem;
-        }
-
-        .hall-of-fame-btn span {
+        .fused-hero-controls {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            align-items: flex-end;
+            gap: 12px;
+            position: relative;
+            z-index: 1;
         }
 
-        .hall-of-fame-btn small {
-            font-size: 0.78rem;
+        .year-control-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            padding: 8px 16px;
+            border-radius: 14px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(8px);
+        }
+
+        .year-control-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
             font-weight: 700;
-            color: rgba(29, 18, 0, 0.72);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .year-select-input {
+            background: #1e293b;
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-weight: 700;
+            font-size: 0.92rem;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .year-select-input:focus {
+            border-color: #38bdf8;
+        }
+
+        .year-select-input option {
+            background-color: #0f172a;
+            color: #ffffff;
+        }
+
+        .fused-stats-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .fused-stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+        }
+
+        .fused-stat-label {
+            color: var(--text-secondary);
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .fused-stat-value {
+            color: var(--text-color);
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        /* Centerpiece Podium Section within Fused Hero */
+        .fused-podium-section {
+            position: relative;
+            z-index: 1;
+            padding: 20px 20px 6px;
+            border-radius: 22px;
+            background: rgba(8, 15, 28, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 14px 32px rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(10px);
+        }
+
+        .fused-podium-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .podium-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .podium-main-title {
+            margin: 0;
+            font-size: 1.22rem;
+            font-weight: 800;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .podium-badge-tag {
+            font-size: 0.76rem;
+            font-weight: 800;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3px 10px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .podium-fallback-alert {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #fde047;
+            background: rgba(234, 179, 8, 0.12);
+            border: 1px solid rgba(234, 179, 8, 0.35);
+            padding: 6px 14px;
+            border-radius: 999px;
+            box-shadow: 0 0 14px rgba(234, 179, 8, 0.1);
+        }
+
+        .podium-fallback-alert i {
+            color: #f59e0b;
+        }
+
+        /* Hero Footer Bar */
+        .hero-footer-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
         }
 
         .hero-note {
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            margin-top: 18px;
-            padding: 10px 14px;
-            border-radius: 16px;
-            background: rgba(74, 110, 224, 0.12);
-            border: 1px solid rgba(74, 110, 224, 0.24);
+            padding: 8px 14px;
+            border-radius: 12px;
+            background: rgba(74, 110, 224, 0.1);
+            border: 1px solid rgba(74, 110, 224, 0.2);
             color: var(--text-secondary);
-            font-size: 0.92rem;
-        }
-
-        .hero-aside {
-            display: grid;
-            gap: 16px;
-            align-content: start;
-        }
-
-        .hero-stat-card {
-            padding: 20px;
-            border-radius: 22px;
-            background: rgba(8, 15, 28, 0.34);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-        }
-
-        .hero-stat-card strong {
-            display: block;
-            font-size: 2rem;
-            color: var(--text-color);
-            margin-top: 4px;
-        }
-
-        .hero-stat-card span {
-            color: var(--text-secondary);
-            font-size: 0.88rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            font-size: 0.86rem;
         }
 
         .hero-podium-legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 12px;
+            gap: 8px;
         }
 
         .legend-pill {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
+            gap: 6px;
+            padding: 6px 12px;
             border-radius: 999px;
-            font-size: 0.84rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: var(--text-color);
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
@@ -454,8 +554,21 @@
 
         @media (max-width: 980px) {
             .leaderboard-hero {
-                grid-template-columns: 1fr;
-                padding: 26px;
+                padding: 22px;
+            }
+
+            .fused-hero-top {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .fused-hero-controls {
+                align-items: flex-start;
+            }
+
+            .hero-footer-bar {
+                flex-direction: column;
+                align-items: flex-start;
             }
         }
 
@@ -463,14 +576,6 @@
             .leaderboard-shell {
                 margin: 24px auto;
                 padding: 14px;
-            }
-
-            .hero-actions {
-                flex-direction: column;
-            }
-
-            .hall-of-fame-btn {
-                min-width: 100%;
             }
 
             .pagination-bar {
@@ -487,61 +592,74 @@
     <div style="flex: 1; overflow-y: auto; padding-bottom: 40px;">
         <div class="leaderboard-shell">
             <section class="leaderboard-hero">
-                <div class="hero-copy">
-                    <div class="hero-kicker">
-                        <i class="fas fa-ranking-star"></i>
-                        Classement Global
+                <div class="fused-hero-top">
+                    <div class="hero-copy">
+                        <div class="hero-kicker">
+                            <i class="fas fa-ranking-star"></i>
+                            Classement Officiel
+                        </div>
+                        <h1>Panthéon des Algorithmes</h1>
+                        <p>Repérez les meilleurs contributeurs, suivez les performances de la communauté et célébrez les champions d'AlgoCompiler.</p>
                     </div>
-                    <h1>Panthéon des Algorithmes</h1>
-                    <p>Repérez les meilleurs contributeurs, suivez les performances de la communauté et mettez en lumière les membres qui font progresser AlgoCompiler.</p>
 
-                    <div class="hero-actions">
-                        <a href="/hall-of-fame" class="hall-of-fame-btn">
-                            <i class="fas fa-landmark"></i>
-                            <span>
-                                Hall of Fame
-                                <small>Voir le podium et la mention d'honneur</small>
+                    <div class="fused-hero-controls">
+                        <div class="year-control-group">
+                            <span class="year-control-label">
+                                <i class="fas fa-calendar-alt"></i>
+                                Année :
                             </span>
-                        </a>
-                    </div>
+                            <select id="year-select" class="year-select-input">
+                                <option value="2027" {% if current_user.is_authenticated and current_user.study_year == '2027' %}selected{% endif %}>2027</option>
+                                <option value="2026" {% if not current_user.is_authenticated or current_user.study_year == '2026' or not current_user.study_year %}selected{% endif %}>2026</option>
+                                <option value="2025" {% if current_user.is_authenticated and current_user.study_year == '2025' %}selected{% endif %}>2025</option>
+                                <option value="2024" {% if current_user.is_authenticated and current_user.study_year == '2024' %}selected{% endif %}>2024</option>
+                                <option value="overall">Toutes</option>
+                            </select>
+                        </div>
 
-                    <div class="hero-note">
-                        <i class="fas fa-circle-info"></i>
-                        Les utilisateurs sans score restent visibles mais ne reçoivent aucun rang et apparaissent avec <strong>--</strong>.
+                        <div class="fused-stats-group">
+                            <div class="fused-stat-pill" title="Nombre d'étudiants ayant validé au moins un score">
+                                <span class="fused-stat-label">Classés</span>
+                                <strong id="ranked-count" class="fused-stat-value">0</strong>
+                            </div>
+                            <div class="fused-stat-pill" title="Nombre d'étudiants sans score">
+                                <span class="fused-stat-label">Sans rang</span>
+                                <strong id="unranked-count" class="fused-stat-value">0</strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <aside class="hero-aside">
-                    <div class="hero-stat-card">
-                        <span>Membres classes</span>
-                        <strong id="ranked-count">0</strong>
-                    </div>
-                    <div class="hero-stat-card">
-                        <span>Membres sans rang</span>
-                        <strong id="unranked-count">0</strong>
-                    </div>
-                    <div class="hero-stat-card">
-                        <span>Podium visuel</span>
-                        <div class="hero-podium-legend">
-                            <span class="legend-pill">🥇 Or</span>
-                            <span class="legend-pill">🥈 Argent</span>
-                            <span class="legend-pill">🥉 Bronze</span>
+                <!-- Integrated Centerpiece: 3D Podium d'Honneur -->
+                <div id="leaderboard-podium-wrap" class="fused-podium-section" style="display: none;">
+                    <div class="fused-podium-header">
+                        <div class="podium-title-group">
+                            <h2 class="podium-main-title"><i class="fas fa-crown" style="color: #ffd700;"></i> <span id="podium-title-text">Podium d'Honneur</span></h2>
+                            <span id="podium-subtitle" class="podium-badge-tag">Top 3 des Prodiges</span>
+                        </div>
+                        <div id="podium-fallback-alert" class="podium-fallback-alert" style="display: none;">
+                            <i class="fas fa-history"></i>
+                            <span id="podium-fallback-text"></span>
                         </div>
                     </div>
-                </aside>
+                    <div class="podium-grid" id="leaderboard-podium-grid">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- Footer Note & Visual Legend -->
+                <div class="hero-footer-bar">
+                    <div class="hero-note">
+                        <i class="fas fa-circle-info"></i>
+                        <span>Les utilisateurs sans score restent visibles dans le classement complet mais apparaissent avec <strong>--</strong>.</span>
+                    </div>
+                    <div class="hero-podium-legend">
+                        <span class="legend-pill">🥇 Or</span>
+                        <span class="legend-pill">🥈 Argent</span>
+                        <span class="legend-pill">🥉 Bronze</span>
+                    </div>
+                </div>
             </section>
-
-            <div id="leaderboard-status-note" class="status-note"></div>
-
-            <div class="year-filter-bar" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                <select id="year-select" style="width: auto; padding: 8px 16px; border-radius: 8px; background-color: #1e293b; color: #ffffff; border: 1px solid #475569; font-weight: 600; font-size: 14px; cursor: pointer; outline: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                    <option value="2027" style="background-color: #1e293b; color: #ffffff;" {% if current_user.is_authenticated and current_user.study_year == '2027' %}selected{% endif %}>2027</option>
-                    <option value="2026" style="background-color: #1e293b; color: #ffffff;" {% if not current_user.is_authenticated or current_user.study_year == '2026' or not current_user.study_year %}selected{% endif %}>2026</option>
-                    <option value="2025" style="background-color: #1e293b; color: #ffffff;" {% if current_user.is_authenticated and current_user.study_year == '2025' %}selected{% endif %}>2025</option>
-                    <option value="2024" style="background-color: #1e293b; color: #ffffff;" {% if current_user.is_authenticated and current_user.study_year == '2024' %}selected{% endif %}>2024</option>
-                    <option value="overall" style="background-color: #1e293b; color: #ffffff;">Tous</option>
-                </select>
-            </div>
 
             <div class="leaderboard-table-wrap">
                 <div class="leaderboard-table-container">
@@ -586,7 +704,8 @@
     <script>
         let fullLeaderboard = [];
         let currentPage = 1;
-        let selectedYear = 'current';
+        const initialYearSelect = document.getElementById('year-select');
+        let selectedYear = initialYearSelect ? initialYearSelect.value : '2026';
         const pageSize = 10;
         const LEADERBOARD_TIMEOUT_MS = 12000;
 
@@ -635,7 +754,7 @@
             document.getElementById('unranked-count').textContent = Number(payload.unranked_user_count || 0).toLocaleString('fr-FR');
         }
 
-        async function fetchLeaderboardPayload(year = 'current') {
+        async function fetchLeaderboardPayload(year = selectedYear) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), LEADERBOARD_TIMEOUT_MS);
             try {
@@ -649,15 +768,21 @@
             }
         }
 
-        async function loadLeaderboard(body, attempt = 0, year = 'current') {
-            const data = await fetchLeaderboardPayload(year);
+        async function loadLeaderboard(body, attempt = 0, year = null) {
+            const targetYear = year !== null ? year : selectedYear;
+            const data = await fetchLeaderboardPayload(targetYear);
             updateHeroStats(data);
+
+            if (data.active_year && initialYearSelect && String(data.active_year) !== initialYearSelect.value && targetYear === 'current') {
+                initialYearSelect.value = String(data.active_year);
+                selectedYear = String(data.active_year);
+            }
 
             if (data.loading) {
                 setLeaderboardStatusNote('Le classement complet est en preparation. Nouvel essai automatique...', 'info');
                 body.innerHTML = '<tr><td colspan="9" class="empty-state">Le classement est en cours de preparation. Nouvel essai...</td></tr>';
                 if (attempt < 3) {
-                    setTimeout(() => loadLeaderboard(body, attempt + 1), 2500);
+                    setTimeout(() => loadLeaderboard(body, attempt + 1, targetYear), 2500);
                 }
                 return;
             }
@@ -676,6 +801,7 @@
             }
 
             updatePaginationUI();
+            renderPodium(data);
             renderLeaderboard();
         }
 
@@ -690,6 +816,102 @@
             nextBtn.disabled = currentPage === totalPages;
             pageInfo.textContent = `Page ${currentPage} sur ${totalPages}`;
             pagination.style.display = fullLeaderboard.length <= pageSize ? 'none' : 'flex';
+        }
+
+        function renderPodium(payload) {
+            const wrap = document.getElementById('leaderboard-podium-wrap');
+            const grid = document.getElementById('leaderboard-podium-grid');
+            if (!wrap || !grid) return;
+
+            let podiumEntries = [];
+            let isFallback = false;
+            let podiumYear = '';
+            let activeYear = selectedYear;
+
+            if (Array.isArray(payload)) {
+                podiumEntries = payload.filter(e => e.is_ranked && e.rank && e.rank <= 3);
+            } else if (payload && typeof payload === 'object') {
+                podiumEntries = (payload.podium && payload.podium.length > 0)
+                    ? payload.podium
+                    : (payload.leaderboard || []).filter(e => e.is_ranked && e.rank && e.rank <= 3);
+                isFallback = Boolean(payload.podium_is_fallback);
+                podiumYear = payload.podium_year || '';
+                activeYear = payload.active_year || payload.selected_year || selectedYear;
+            }
+
+            if (!podiumEntries || podiumEntries.length === 0) {
+                wrap.style.display = 'none';
+                return;
+            }
+
+            wrap.style.display = 'block';
+
+            const titleText = document.getElementById('podium-title-text');
+            const subTitle = document.getElementById('podium-subtitle');
+            const fallbackAlert = document.getElementById('podium-fallback-alert');
+            const fallbackText = document.getElementById('podium-fallback-text');
+
+            if (isFallback && fallbackAlert && fallbackText) {
+                fallbackAlert.style.display = 'inline-flex';
+                fallbackText.innerHTML = `<strong>${escapeHtml(activeYear)}</strong> en attente de 3 champions — Podium en titre : <strong>${escapeHtml(podiumYear)}</strong>`;
+                if (titleText) titleText.textContent = `Podium d'Honneur (${podiumYear})`;
+                if (subTitle) subTitle.textContent = "Détenteurs du titre";
+            } else {
+                if (fallbackAlert) fallbackAlert.style.display = 'none';
+                if (titleText) {
+                    if (activeYear === 'overall') {
+                        titleText.textContent = "Podium d'Honneur · Global";
+                    } else {
+                        titleText.textContent = `Podium d'Honneur · ${activeYear}`;
+                    }
+                }
+                if (subTitle) {
+                    subTitle.textContent = activeYear === 'overall' ? "Top 3 Absolu" : "Top 3 des Prodiges";
+                }
+            }
+
+            const user1 = podiumEntries.find(e => Number(e.rank) === 1) || podiumEntries[0];
+            const user2 = podiumEntries.find(e => Number(e.rank) === 2) || podiumEntries[1];
+            const user3 = podiumEntries.find(e => Number(e.rank) === 3) || podiumEntries[2];
+
+            const buildStep = (user, rankNum, labelText, pillarClass) => {
+                if (!user) return `<div class="podium-step rank-${rankNum}"></div>`;
+                const safeName = escapeHtml(user.name || `Joueur #${user.user_id}`);
+                const initial = escapeHtml((user.name || '?').trim().charAt(0).toUpperCase() || '?');
+                const level = user.level || { num: 1, name: 'Débutant', icon: '🧭', color: '#94a3b8' };
+                const ringClass = level.num >= 6 ? 'tier-ring-legende' : (level.num >= 5 ? 'tier-ring-master' : (level.num >= 4 ? 'tier-ring-expert' : (level.num >= 3 ? 'tier-ring-bosseur' : (level.num >= 2 ? 'tier-ring-amateur' : 'tier-ring-debutant'))));
+                const crown = rankNum === 1 ? `<div class="podium-crown">👑</div>` : '';
+                const prestigeHtml = user.prestige_badge
+                    ? `<span class="prestige-badge ${escapeHtml(user.prestige_badge.class || '')}" title="${escapeHtml(user.prestige_badge.label || '')}"><i class="${escapeHtml(user.prestige_badge.icon || 'fas fa-award')}"></i><span>${escapeHtml(user.prestige_badge.short_label || user.prestige_badge.label || '')}</span></span>`
+                    : '';
+
+                return `
+                    <div class="podium-step rank-${rankNum} user-card-trigger" data-user-id="${user.user_id}" title="Cliquer pour voir la carte joueur de ${safeName}">
+                        <div class="podium-user-card">
+                            <div class="podium-avatar-wrap">
+                                ${crown}
+                                <div class="podium-avatar avatar-tier-ring ${ringClass}" style="background:${getStableColor(user.name || safeName)};">
+                                    ${initial}
+                                </div>
+                            </div>
+                            <div class="podium-name" title="${safeName}">${safeName}</div>
+                            <div style="margin: 2px 0 4px;">${prestigeHtml}</div>
+                            <div class="podium-score-tag">⚡ ${Number(user.score || 0).toLocaleString('fr-FR')} pts</div>
+                        </div>
+                        <div class="podium-pillar">
+                            <div class="podium-rank-num">#${rankNum}</div>
+                            <div class="podium-step-label">${labelText}</div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            // Olympic arrangement: Left = Rank 2, Center = Rank 1, Right = Rank 3
+            grid.innerHTML = `
+                ${buildStep(user2, 2, '2ème Place', 'rank-2')}
+                ${buildStep(user1, 1, 'Champion', 'rank-1')}
+                ${buildStep(user3, 3, '3ème Place', 'rank-3')}
+            `;
         }
 
         function renderRankChip(entry) {
@@ -724,16 +946,20 @@
                 const securityBadge = entry.security_badge
                     ? `<span class="user-role-badge" title="${escapeHtml(entry.security_badge.description || '')}"><i class="${escapeHtml(entry.security_badge.icon || 'fas fa-user-shield')}"></i>${escapeHtml(entry.security_badge.short_label || entry.security_badge.label || 'Securite')}</span>`
                     : '';
+                const prestigeBadge = entry.prestige_badge
+                    ? `<span class="prestige-badge ${escapeHtml(entry.prestige_badge.class || '')}" title="${escapeHtml(entry.prestige_badge.label || '')}"><i class="${escapeHtml(entry.prestige_badge.icon || 'fas fa-award')}"></i><span>${escapeHtml(entry.prestige_badge.short_label || entry.prestige_badge.label || '')}</span></span>`
+                    : '';
 
                 return `
                     <tr class="leaderboard-row ${rowClass}">
                         <td class="rank-cell">${renderRankChip(entry)}</td>
                         <td>
-                            <div class="user-cell">
+                            <div class="user-cell user-card-trigger" data-user-id="${entry.user_id}" title="Cliquer pour voir la carte de profil de ${safeName}">
                                 <div class="user-avatar" style="background:${getStableColor(entry.name || safeName)}">${avatarText}</div>
                                 <div class="user-meta">
-                                    <div class="user-name-line">
-                                        <span class="user-name">${safeName}</span>
+                                    <div class="user-name-line" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                        <span class="user-name" style="font-weight:700;">${safeName}</span>
+                                        ${prestigeBadge}
                                         ${securityBadge}
                                     </div>
                                 </div>
@@ -774,9 +1000,13 @@
             const body = document.getElementById('leaderboard-body');
             const prevBtn = document.getElementById('prev-btn');
             const nextBtn = document.getElementById('next-btn');
+            const yearSelect = document.getElementById('year-select');
+            if (yearSelect && yearSelect.value) {
+                selectedYear = yearSelect.value;
+            }
 
             try {
-                await loadLeaderboard(body);
+                await loadLeaderboard(body, 0, selectedYear);
             } catch (err) {
                 setLeaderboardStatusNote("Le classement n'a pas pu etre charge completement.", 'warn');
                 const message = err.name === 'AbortError'
@@ -802,7 +1032,6 @@
                 }
             });
 
-            const yearSelect = document.getElementById('year-select');
             if (yearSelect) {
                 yearSelect.addEventListener('change', async (e) => {
                     selectedYear = e.target.value;

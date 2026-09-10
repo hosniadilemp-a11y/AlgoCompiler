@@ -1,0 +1,70 @@
+{
+  "title": "Factorielle d'un Entier",
+  "topic": "Basics",
+  "difficulty": "Easy",
+  "description": "### Calcul de la Factorielle d'un Entier\n\nÉcrivez un algorithme qui lit un entier positif ou nul `N` et calcule sa factorielle `N!`.\n\n#### Contexte & Objectif\nLa factorielle d'un entier naturel `N` est le produit des nombres entiers strictement positifs inférieurs ou égaux à `N`. Par convention, `0! = 1`.\n\n#### Format d'entrée\n- Une seule ligne contenant l'entier `N` (avec `0 <= N <= 12`).\n\n#### Format de sortie attendu\n- Un seul entier représentant la valeur de `N!`.\n\n#### Exemple concret\n**Entrée :**\n```\n5\n```\n**Sortie attendue :**\n```\n120\n```",
+  "template_code": "Algorithme Factorielle;\nVar\n    N, F : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Calculer la factorielle de N et stocker le résultat dans F\n\n\n\n    Ecrire(F);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "5\n",
+      "expected_output": "120\n",
+      "is_public": true
+    },
+    {
+      "input": "0\n",
+      "expected_output": "1\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n",
+      "expected_output": "1\n",
+      "is_public": false
+    },
+    {
+      "input": "2\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n",
+      "expected_output": "6\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n",
+      "expected_output": "24\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n",
+      "expected_output": "720\n",
+      "is_public": false
+    },
+    {
+      "input": "7\n",
+      "expected_output": "5040\n",
+      "is_public": false
+    },
+    {
+      "input": "8\n",
+      "expected_output": "40320\n",
+      "is_public": false
+    },
+    {
+      "input": "9\n",
+      "expected_output": "362880\n",
+      "is_public": false
+    },
+    {
+      "input": "10\n",
+      "expected_output": "3628800\n",
+      "is_public": false
+    },
+    {
+      "input": "12\n",
+      "expected_output": "479001600\n",
+      "is_public": false
+    }
+  ]
+}

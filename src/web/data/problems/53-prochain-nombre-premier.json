@@ -1,0 +1,70 @@
+{
+  "title": "Prochain Nombre Premier",
+  "topic": "Basics",
+  "difficulty": "Medium",
+  "description": "### Trouver le Plus Petit Premier Strictement Supérieur à N\n\nÉcrivez un algorithme qui lit un entier `N` et trouve le premier nombre premier strictement supérieur à `N`.\n\n#### Format d'entrée\n- Un entier positif `N` (`1 <= N <= 2000`).\n\n#### Format de sortie attendu\n- Un seul entier : le prochain nombre premier.\n\n#### Exemple concret\n**Entrée :**\n```\n14\n```\n**Sortie attendue :**\n```\n17\n```",
+  "template_code": "Algorithme ProchainPremier;\nVar\n    N, P : Entier;\nDebut\n    Lire(N);\n\n    // TODO: Trouver le plus petit nombre premier P strictement supérieur à N\n\n\n\n    Ecrire(P);\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "14\n",
+      "expected_output": "17\n",
+      "is_public": true
+    },
+    {
+      "input": "2\n",
+      "expected_output": "3\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n",
+      "expected_output": "2\n",
+      "is_public": false
+    },
+    {
+      "input": "19\n",
+      "expected_output": "23\n",
+      "is_public": false
+    },
+    {
+      "input": "20\n",
+      "expected_output": "23\n",
+      "is_public": false
+    },
+    {
+      "input": "31\n",
+      "expected_output": "37\n",
+      "is_public": false
+    },
+    {
+      "input": "50\n",
+      "expected_output": "53\n",
+      "is_public": false
+    },
+    {
+      "input": "97\n",
+      "expected_output": "101\n",
+      "is_public": false
+    },
+    {
+      "input": "113\n",
+      "expected_output": "127\n",
+      "is_public": false
+    },
+    {
+      "input": "199\n",
+      "expected_output": "211\n",
+      "is_public": false
+    },
+    {
+      "input": "250\n",
+      "expected_output": "251\n",
+      "is_public": false
+    },
+    {
+      "input": "500\n",
+      "expected_output": "503\n",
+      "is_public": false
+    }
+  ]
+}

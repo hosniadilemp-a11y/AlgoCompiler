@@ -527,3 +527,39 @@ body.light-theme #problem-description.markdown-body pre {
     background: #f8fbff !important;
     border: 1px solid #dbe5f2;
 }
+
+/* Protected Template Lines */
+.cm-protected-line {
+    opacity: 0.78;
+    user-select: none;
+}
+
+.cm-protected-line-bg {
+    background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+body.light-theme .cm-protected-line-bg {
+    background-color: rgba(37, 99, 235, 0.04) !important;
+}
+
+
+.template-lock-indicator {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: 0.2px;
+}
+
+body.light-theme .template-lock-indicator {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.2);
+}
+

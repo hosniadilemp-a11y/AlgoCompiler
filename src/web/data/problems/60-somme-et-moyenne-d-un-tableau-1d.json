@@ -1,0 +1,70 @@
+{
+  "title": "Somme et Moyenne d'un Tableau 1D",
+  "topic": "Tableaux",
+  "difficulty": "Easy",
+  "description": "### Calcul de la Somme et de la Moyenne d'un Tableau\n\nÉcrivez un algorithme qui lit la taille `N` d'un tableau d'entiers, puis les `N` éléments, et calcule la somme arithmétique ainsi que la moyenne des éléments.\n\n#### Format d'entrée\n- Ligne 1 : Entier `N` (`N >= 1`).\n- Les `N` lignes suivantes : Les entiers du tableau.\n\n#### Format de sortie attendu\n- Deux valeurs : `Somme Moyenne` (avec la moyenne arrondie à 2 décimales).\n\n#### Exemple concret\n**Entrée :**\n```\n4\n10\n20\n30\n40\n```\n**Sortie attendue :**\n```\n100 25.00\n```",
+  "template_code": "Algorithme SommeMoyenneTableau;\nVar\n    T[1000] : Entier;\n    N, I, S : Entier;\nDebut\n    Lire(N);\n    Pour I <- 0 a N - 1 Faire\n        Lire(T[I]);\n    FinPour;\n\n    // TODO: Calculer la somme et la moyenne du tableau (format: Somme Moyenne)\n\n\n\nFin.",
+  "is_published": true,
+  "test_cases": [
+    {
+      "input": "4\n10\n20\n30\n40\n",
+      "expected_output": "100 25.00\n",
+      "is_public": true
+    },
+    {
+      "input": "1\n5\n",
+      "expected_output": "5 5.00\n",
+      "is_public": true
+    },
+    {
+      "input": "5\n1\n2\n3\n4\n5\n",
+      "expected_output": "15 3.00\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n0\n0\n0\n0\n",
+      "expected_output": "0 0.00\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n-10\n10\n-5\n5\n",
+      "expected_output": "0 0.00\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n100\n200\n300\n",
+      "expected_output": "600 200.00\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n7\n14\n21\n28\n35\n42\n",
+      "expected_output": "147 24.50\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n12\n18\n24\n30\n",
+      "expected_output": "84 21.00\n",
+      "is_public": false
+    },
+    {
+      "input": "4\n-1\n-2\n-3\n-4\n",
+      "expected_output": "-10 -2.50\n",
+      "is_public": false
+    },
+    {
+      "input": "5\n15\n25\n35\n45\n55\n",
+      "expected_output": "175 35.00\n",
+      "is_public": false
+    },
+    {
+      "input": "6\n2\n4\n8\n16\n32\n64\n",
+      "expected_output": "126 21.00\n",
+      "is_public": false
+    },
+    {
+      "input": "3\n9\n18\n27\n",
+      "expected_output": "54 18.00\n",
+      "is_public": false
+    }
+  ]
+}

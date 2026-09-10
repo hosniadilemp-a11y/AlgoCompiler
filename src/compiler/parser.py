@@ -28,6 +28,7 @@ scope_stack = ['global']
 function_return_types = {}
 subprogram_var_param_indices = {}
 globals_modified_in_subprogram = {}
+current_subprogram_var_params = set()
 
 def push_scope(name):
     scope_stack.append(name)
@@ -381,7 +382,11 @@ def p_program(p):
     code += "_b_type = type\n"
     code += "_b_input = input\n"
     code += "_b_print = print\n"
-    code += "_b_enumerate = enumerate\n\n"
+    code += "_b_enumerate = enumerate\n"
+    code += "_b_abs = abs\n"
+    code += "_b_min = min\n"
+    code += "_b_max = max\n"
+    code += "_b_pow = pow\n\n"
 
     # 1. _algo_read - no deps
     code += "_algo_input_buffer = []\n"
@@ -451,6 +456,8 @@ def p_program(p):
     code += "            s_val = _algo_to_string(source_val._get_string() if hasattr(source_val, '_get_string') else source_val._get())\n"
     code += "    else:\n"
     code += "        s_val = _algo_to_string(source_val)\n"
+    code += "    if '#0' in s_val:\n"
+    code += "        s_val = s_val.split('#0')[0]\n"
     code += "    if limit > 0:\n"
     code += "        s_val = s_val[:limit-1]\n"
     code += "        for i in _b_range(_b_len(s_val)):\n"
@@ -462,7 +469,10 @@ def p_program(p):
 
     # 4. _algo_longueur - depends on _algo_to_string
     code += "def _algo_longueur(val):\n"
-    code += "    return _b_len(_algo_to_string(val))\n\n"
+    code += "    if val is None: return 0\n"
+    code += "    s = _algo_to_string(val)\n"
+    code += "    s = s.split('#0')[0] if '#0' in s else s\n"
+    code += "    return _b_len(s)\n\n"
 
     # 4b. _algo_set_char - set a character at 0-based index in a fixed string
     code += "def _algo_set_char(target_list, index, char_val):\n"
@@ -491,13 +501,49 @@ def p_program(p):
     code += "    return s[idx] if 0 <= idx < _b_len(s) else ''\n\n"
 
     # 5. _algo_concat - depends on _algo_to_string; stops at #0
-    code += "def _algo_concat(val1, val2):\n"
-    code += "    s1 = _algo_to_string(val1)\n"
-    code += "    s2 = _algo_to_string(val2)\n"
-    code += "    # Stop at #0 null terminator in plain strings\n"
-    code += "    s1 = s1.split('#0')[0] if '#0' in s1 else s1\n"
-    code += "    s2 = s2.split('#0')[0] if '#0' in s2 else s2\n"
-    code += "    return s1 + s2\n\n"
+    code += "def _algo_concat(*args):\n"
+    code += "    res = ''\n"
+    code += "    for a in args:\n"
+    code += "        s = _algo_to_string(a)\n"
+    code += "        s = s.split('#0')[0] if '#0' in s else s\n"
+    code += "        res += s\n"
+    code += "    return res\n\n"
+
+    # 5c. Standard math & string builtins (Abs, Sqrt, Puissance, Min, Max, SousChaine)
+    code += "def _algo_abs(x):\n"
+    code += "    return _b_abs(x)\n\n"
+    code += "def _algo_sqrt(x):\n"
+    code += "    import math\n"
+    code += "    res = math.sqrt(x)\n"
+    code += "    return _b_int(res) if hasattr(res, 'is_integer') and res.is_integer() else res\n\n"
+    code += "def _algo_puissance(base, exp):\n"
+    code += "    return _b_pow(base, exp)\n\n"
+    code += "def _algo_min(*args):\n"
+    code += "    if _b_len(args) == 1 and _b_isinstance(args[0], (_b_list, tuple)):\n"
+    code += "        return _b_min(args[0])\n"
+    code += "    return _b_min(*args)\n\n"
+    code += "def _algo_max(*args):\n"
+    code += "    if _b_len(args) == 1 and _b_isinstance(args[0], (_b_list, tuple)):\n"
+    code += "        return _b_max(args[0])\n"
+    code += "    return _b_max(*args)\n\n"
+    code += "def _algo_sous_chaine(s, pos, count=None):\n"
+    code += "    val = _algo_to_string(s)\n"
+    code += "    val = val.split('#0')[0] if '#0' in val else val\n"
+    code += "    start = _b_int(pos) - 1\n"
+    code += "    if start < 0: start = 0\n"
+    code += "    if count is None:\n"
+    code += "        return val[start:]\n"
+    code += "    c = _b_int(count)\n"
+    code += "    if c < 0: return ''\n"
+    code += "    return val[start : start + c]\n\n"
+    code += "Abs = abs = _algo_abs\n"
+    code += "Sqrt = sqrt = _algo_sqrt\n"
+    code += "Puissance = puissance = _algo_puissance\n"
+    code += "Min = min = _algo_min\n"
+    code += "Max = max = _algo_max\n"
+    code += "SousChaine = souschaine = _algo_sous_chaine\n"
+    code += "Longueur = longueur = _algo_longueur\n"
+    code += "Concat = concat = _algo_concat\n\n"
 
     # 5b. _algo_make_string - create a fresh char-list from a string (for ^^Caractere slot)
     code += "def _algo_make_string(s, max_size=256):\n"
@@ -976,6 +1022,21 @@ def p_var_list_record_array(p):
 def p_const_list(p):
     '''const_list : ID EQUALS value'''
     p[0] = f"{p[1]} = {p[3]}"
+    '''const_list : ID EQUALS value
+                  | ID EQUALS value COMMA const_list'''
+    var_name = p[1]
+    val_tuple = p[3]
+    val_code = val_tuple[0] if isinstance(val_tuple, tuple) else str(val_tuple)
+    val_type = val_tuple[1] if isinstance(val_tuple, tuple) else 'UNKNOWN'
+
+    add_variable(var_name, val_type)
+    alloc_name = f"{scope_stack[-1]}.{var_name}" if is_local_scope() else var_name
+    mem_alloc.allocate(alloc_name, val_type)
+
+    if len(p) == 4:
+        p[0] = f"{get_indent()}{var_name} = {val_code}"
+    else:
+        p[0] = f"{get_indent()}{var_name} = {val_code}\n{p[5]}"
 
 def p_sub_program(p):
     '''sub_program : function_definition
@@ -1194,7 +1255,23 @@ def p_expression_call(p):
             transformed_args.append(arg_code)
             
     call_code = f"{name}({', '.join(transformed_args)})"
-    ret_type = function_return_types.get(name, 'UNKNOWN')
+    lower_name = name.lower()
+    if lower_name == 'abs':
+        ret_type = args_types[0] if args_types else 'ENTIER'
+    elif lower_name == 'sqrt':
+        ret_type = 'REEL'
+    elif lower_name == 'puissance':
+        ret_type = 'ENTIER' if (args_types and args_types[0] == 'ENTIER' and len(args_types) > 1 and args_types[1] == 'ENTIER') else 'REEL'
+    elif lower_name in ('min', 'max'):
+        ret_type = args_types[0] if args_types else 'ENTIER'
+    elif lower_name == 'souschaine':
+        ret_type = 'CHAINE'
+    elif lower_name == 'longueur':
+        ret_type = 'ENTIER'
+    elif lower_name == 'concat':
+        ret_type = 'CHAINE'
+    else:
+        ret_type = function_return_types.get(name, 'UNKNOWN')
     
     if pre_exprs:
         full_tuple = f"({', '.join(pre_exprs)}, {call_code}, {', '.join(post_exprs)})[{len(pre_exprs)}]"
@@ -1736,6 +1813,17 @@ def p_expression_binop(p):
     if op_lower == 'div': op = '//'
     if op_lower == '/' and res_type == 'ENTIER': op = '//'
     
+    if op == '+' and ('CHAINE' in str(type1).upper() or 'CHAINE' in str(type2).upper() or 'CARACTERE' in str(type1).upper() or 'CARACTERE' in str(type2).upper()):
+        p[0] = (f"_algo_concat({code1}, {code2})", 'CHAINE')
+        return
+
+    if op in ['==', '!=', '<', '<=', '>', '>='] and (
+        'CHAINE' in str(type1).upper() or 'CHAINE' in str(type2).upper() or
+        'CARACTERE' in str(type1).upper() or 'CARACTERE' in str(type2).upper()
+    ):
+        p[0] = (f"(_algo_to_string({code1}) {op} _algo_to_string({code2}))", 'BOOLEEN')
+        return
+
     p[0] = (f"{code1} {op} {code2}", res_type)
 
 def p_expression_unary(p):
@@ -1860,8 +1948,8 @@ def p_expression_taille(p):
     p[0] = (f"_algo_taille('{p[3]}')", 'ENTIER')
 
 def p_expression_concat(p):
-    '''expression : CONCAT LPAREN expression COMMA expression RPAREN'''
-    p[0] = (f"_algo_concat({p[3][0]}, {p[5][0]})", 'CHAINE')
+    '''expression : CONCAT LPAREN expression_list RPAREN'''
+    p[0] = (f"_algo_concat({p[3]})", 'CHAINE')
 
 def p_expression_list(p):
     '''expression_list : expression
@@ -1873,15 +1961,38 @@ def p_expression_list(p):
 
 def p_value(p):
     '''value : NUMBER
+             | MINUS NUMBER
+             | PLUS NUMBER
              | STRING_LITERAL
+             | CHAR_LITERAL
              | VRAI
              | FAUX'''
     if p[1].lower() == 'vrai':
         p[0] = 'True'
     elif p[1].lower() == 'faux':
         p[0] = 'False'
+    if len(p) == 3:
+        sign = p[1]
+        val = p[2]
+        num_str = f"{sign}{val}"
+        num_type = 'REEL' if isinstance(val, float) else 'ENTIER'
+        p[0] = (num_str, num_type)
     else:
         p[0] = str(p[1])
+        val = p[1]
+        token_type = p.slice[1].type
+        if token_type == 'NUMBER':
+            p[0] = (str(val), 'REEL' if isinstance(val, float) else 'ENTIER')
+        elif token_type == 'CHAR_LITERAL':
+            p[0] = (repr(val), 'CARACTERE_TYPE')
+        elif token_type == 'STRING_LITERAL':
+            p[0] = (repr(val), 'CHAINE')
+        elif token_type == 'VRAI' or (isinstance(val, str) and val.lower() == 'vrai'):
+            p[0] = ('True', 'BOOLEEN')
+        elif token_type == 'FAUX' or (isinstance(val, str) and val.lower() == 'faux'):
+            p[0] = ('False', 'BOOLEEN')
+        else:
+            p[0] = (str(val), 'UNKNOWN')
 
 def p_expression_array_access(p):
     '''expression : expression LBRACKET expression RBRACKET'''
@@ -2057,13 +2168,14 @@ def p_statement_error(p):
 parser = yacc.yacc(debug=False, write_tables=False)
 
 def compile_algo(code):
-    global indent_level, symbol_table, scope_stack, parser_errors, current_subprogram_type, function_return_types, subprogram_var_param_indices
+    global indent_level, symbol_table, scope_stack, parser_errors, current_subprogram_type, function_return_types, subprogram_var_param_indices, current_subprogram_var_params
     indent_level = 0
     symbol_table = {'global': {}}
     scope_stack = ['global']
     function_return_types = {}
     subprogram_var_param_indices = {}
     current_subprogram_type = None
+    current_subprogram_var_params = set()
     parser_errors = []
     record_types.clear()   # Reset record type registry for each new compilation
     
